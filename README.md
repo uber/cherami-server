@@ -10,7 +10,7 @@ Getting started
 To get cherami-server:
 
 ```
-git clone git@github.com:uber/cherami-server.git $GOPATH/src/github.com/uber/cherami-client-go
+git clone git@github.com:uber/cherami-server.git $GOPATH/src/github.com/uber/cherami-server
 ```
 
 Build

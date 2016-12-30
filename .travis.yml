@@ -13,7 +13,10 @@ before_install:
   - sudo apt-get remove gcc g++ libc6-dev -y
   - sudo apt-get install gcc-4.9 g++-4.9 libsnappy-dev zlib1g-dev libbz2-dev -qq
   - wget http://launchpadlibrarian.net/198723917/libc6_2.19-0ubuntu6.6_amd64.deb
-  - sudo dpkg -i libc6_2.19-0ubuntu6.6_amd64.deb
+  - wget http://launchpadlibrarian.net/239099282/libc6-dev_2.19-0ubuntu6.7_amd64.deb
+  - wget http://launchpadlibrarian.net/261740892/libc-dev-bin_2.19-0ubuntu6.9_amd64.deb
+  - wget http://launchpadlibrarian.net/296841256/linux-libc-dev_3.13.0-106.153_amd64.deb
+  - sudo dpkg -i libc6_2.19-0ubuntu6.6_amd64.deb libc6-dev_2.19-0ubuntu6.7_amd64.deb libc-dev-bin_2.19-0ubuntu6.9_amd64.deb linux-libc-dev_3.13.0-106.153_amd64.deb
   - export CXX="g++-4.9" CC="gcc-4.9"
   - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags2_2.0-1.1ubuntu1_amd64.deb
   - sudo dpkg -i libgflags2_2.0-1.1ubuntu1_amd64.deb

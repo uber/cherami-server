@@ -48,7 +48,7 @@ server_dep:
 	glide install
 
 bins: server_dep
-	go build -i $(EMBED) -x -o cherami-server cmd/standalone/main.go
+	go build -i $(EMBED) -o cherami-server cmd/standalone/main.go
 	go build -i $(EMBED) -o chreami-replicator-server cmd/replicator/main.go
 	go build -i -o cherami-cli cmd/tools/cli/main.go
 	go build -i -o cherami-admin cmd/tools/admin/main.go

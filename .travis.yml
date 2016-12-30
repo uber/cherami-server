@@ -10,7 +10,6 @@ addons:
 before_install:
   - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
   - sudo apt-get update -qq
-  - sudo apt-get remove gcc g++ libc6-dev -y
   - sudo apt-get install gcc-4.9 g++-4.9 libsnappy-dev zlib1g-dev libbz2-dev -qq
   - wget http://launchpadlibrarian.net/198723917/libc6_2.19-0ubuntu6.6_amd64.deb
   - wget http://launchpadlibrarian.net/198723918/libc6-dev_2.19-0ubuntu6.6_amd64.deb
@@ -19,9 +18,8 @@ before_install:
   - sudo dpkg -i libc6_2.19-0ubuntu6.6_amd64.deb libc6-dev_2.19-0ubuntu6.6_amd64.deb libc-dev-bin_2.19-0ubuntu6.6_amd64.deb linux-libc-dev_3.13.0-106.153_amd64.deb
   - export CXX="g++-4.9" CC="gcc-4.9"
   - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags2_2.0-1.1ubuntu1_amd64.deb
-  - sudo dpkg -i libgflags2_2.0-1.1ubuntu1_amd64.deb
   - wget https://launchpad.net/ubuntu/+archive/primary/+files/libgflags-dev_2.0-1.1ubuntu1_amd64.deb
-  - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb
+  - sudo dpkg -i libgflags-dev_2.0-1.1ubuntu1_amd64.deb libgflags2_2.0-1.1ubuntu1_amd64.deb
 
 install:
   - go get -u github.com/Masterminds/glide

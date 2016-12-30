@@ -40,6 +40,10 @@ One can use the CLI to verify if Cherami is running properly:
 ./cherami-cli --hostport=<localIP>:4922 create destination /test/cherami
 ```
 
+Deploy Cherami as a cluster
+---------------------------
+Documentation coming soon....
+
 Contributing
 ------------
 

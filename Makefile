@@ -14,6 +14,11 @@ export PATH := $(GOPATH)/bin:$(PATH)
 export CHERAMI_STORE=$(shell dirname `mktemp -u store.test.XXX`)/cherami_store
 export CHERAMI_CONFIG_DIR=$(CURDIR)/config
 
+# determine whether to use embedded rocksdb
+ifneq ($(EMBEDROCKSDB), 0)
+    EMBED = -tags=embed
+endif
+
 # Automatically gather all srcs
 ALL_SRC := $(shell find . -name "*.go" | grep -v -e Godeps -e vendor \
 	-e ".*/\..*" \
@@ -25,12 +30,12 @@ TEST_DIRS := $(sort $(dir $(filter %_test.go,$(ALL_SRC))))
 
 test: bins
 	@for dir in $(TEST_DIRS); do \
-		go test -tags=embed "$$dir" $(TEST_NO_RACE_ARG) $(shell glide nv); \
+		go test $(EMBED) "$$dir" $(TEST_NO_RACE_ARG) $(shell glide nv); \
 	done;
 
 test-race:
 	@for dir in $(TEST_DIRS); do \
-		go test -tags=embed "$$dir" $(TEST_ARG) | tee -a "$$dir"_test.log; \
+		go test $(EMBED) "$$dir" $(TEST_ARG) | tee -a "$$dir"_test.log; \
 	done;	       
 
 checkcassandra:
@@ -43,8 +48,8 @@ server_dep:
 	glide install
 
 bins: server_dep
-	go build -i -tags=embed -o cherami-server cmd/standalone/main.go
-	go build -i -tags=embed -o chreami-replicator-server cmd/replicator/main.go
+	go build -i $(EMBED) -o cherami-server cmd/standalone/main.go
+	go build -i $(EMBED) -o chreami-replicator-server cmd/replicator/main.go
 	go build -i -o cherami-cli cmd/tools/cli/main.go
 	go build -i -o cherami-admin cmd/tools/admin/main.go
 	go build -i -o cherami-replicator-tool cmd/tools/replicator/main.go
@@ -54,7 +59,7 @@ cover_profile: clean bins
 	@echo Testing packages:
 	@for dir in $(TEST_DIRS); do \
 		mkdir -p $(BUILD)/"$$dir"; \
-		go test -tags=embed "$$dir" $(TEST_ARG) -coverprofile=$(BUILD)/"$$dir"/coverage.out || exit 1; \
+		go test $(EMBED) "$$dir" $(TEST_ARG) -coverprofile=$(BUILD)/"$$dir"/coverage.out || exit 1; \
 	done
 
 cover: cover_profile

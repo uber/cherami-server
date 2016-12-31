@@ -31,7 +31,7 @@ install:
   - pip install --user cqlsh==5.0.3
   - ccm create test -v 2.2.8 -n 1 -s
   - sudo ln -sf /home/travis/.local/bin/cqlsh /usr/local/bin/cqlsh
-  - ./scripts/travis/get-rocksdb.sh
+  - travis_wait 20 ./scripts/travis/get-rocksdb.sh
 
 script:
   - EMBEDROCKSDB=0 make cover_ci

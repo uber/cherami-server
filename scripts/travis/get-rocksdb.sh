@@ -12,6 +12,6 @@ if [ -f $DIR/librocksdb.4.11.2.dylib ]; then
 	ln -sf $DIR/librocksdb.4.11.2.dylib librocksdb.4.11.dylib 
 fi
 
-if [ -f $DIR/librocksdb.4.11.2.so ]; then
-	ln -sf $DIR/librocksdb.4.11.2.so librocksdb.4.11.so 
+if [ -f $DIR/librocksdb.so.4.11.2 ]; then
+	ln -sf $DIR/librocksdb.so.4.11.2 librocksdb.so.4.11
 fi

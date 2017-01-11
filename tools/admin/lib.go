@@ -30,13 +30,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/uber/cherami-thrift/.generated/go/cherami"
-	"github.com/uber/cherami-thrift/.generated/go/metadata"
-	"github.com/uber/cherami-thrift/.generated/go/shared"
+	"github.com/codegangsta/cli"
 	mcli "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	toolscommon "github.com/uber/cherami-server/tools/common"
-	"github.com/codegangsta/cli"
+	"github.com/uber/cherami-thrift/.generated/go/cherami"
+	"github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber/cherami-thrift/.generated/go/shared"
 )
 
 const (
@@ -125,12 +125,6 @@ func Publish(c *cli.Context) {
 func Consume(c *cli.Context) {
 	cClient := toolscommon.GetCClient(c, adminToolService)
 	toolscommon.Consume(c, cClient)
-}
-
-// UpdateStoreHost updates the properties of the given storehost
-func UpdateStoreHost(c *cli.Context) {
-	mClient := toolscommon.GetMClient(c, adminToolService)
-	toolscommon.UpdateStoreHost(c, mClient)
 }
 
 // UnloadConsumerGroup unloads the CG on the given outputhost
@@ -997,4 +991,105 @@ func HostAddr2uuid(c *cli.Context) {
 	toolscommon.ExitIfError(err)
 
 	fmt.Fprintf(os.Stdout, "%v\n", uuid)
+}
+
+const nServiceConfigTreeLevels = 5
+
+var errInvalidConfigKey = errors.New("configKey must be of the form serviceName.version.sku.hostname.key")
+
+// GetServiceConfig prints the config items matching
+// the given input criteria.
+func GetServiceConfig(c *cli.Context) {
+	if len(c.Args()) < 1 {
+		toolscommon.ExitIfError(errors.New("not enough arguments"))
+	}
+
+	configKey := ""
+	serviceName := c.Args().First()
+
+	isKeySet := c.IsSet("key")
+	if isKeySet {
+		configKey = c.String("key")
+	}
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	request := &metadata.ReadServiceConfigRequest{
+		ServiceName: common.StringPtr(serviceName),
+	}
+
+	result, err := mClient.ReadServiceConfig(request)
+	toolscommon.ExitIfError(err)
+
+	for _, cItem := range result.GetConfigItems() {
+
+		if isKeySet && cItem.GetConfigKey() != configKey {
+			continue
+		}
+
+		keyParams := []string{
+			serviceName,
+			cItem.GetServiceVersion(),
+			cItem.GetSku(),
+			cItem.GetHostname(),
+			cItem.GetConfigKey(),
+		}
+
+		fmt.Fprintf(os.Stdout, "%v=%v\n", strings.Join(keyParams, "."), cItem.GetConfigValue())
+	}
+}
+
+// SetServiceConfig persists the given key-value
+// config mapping onto the config store.
+func SetServiceConfig(c *cli.Context) {
+	if len(c.Args()) < 2 {
+		toolscommon.ExitIfError(errors.New("not enough arguments"))
+	}
+
+	tokens := strings.Split(c.Args()[0], ".")
+	if len(tokens) != nServiceConfigTreeLevels {
+		toolscommon.ExitIfError(errInvalidConfigKey)
+	}
+
+	configValue := c.Args()[1]
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+
+	cItem := &metadata.ServiceConfigItem{
+		ServiceName:    common.StringPtr(strings.ToLower(tokens[0])),
+		ServiceVersion: common.StringPtr(strings.ToLower(tokens[1])),
+		Sku:            common.StringPtr(strings.ToLower(tokens[2])),
+		Hostname:       common.StringPtr(strings.ToLower(tokens[3])),
+		ConfigKey:      common.StringPtr(strings.ToLower(tokens[4])),
+		ConfigValue:    common.StringPtr(strings.ToLower(configValue)),
+	}
+
+	req := &metadata.UpdateServiceConfigRequest{ConfigItem: cItem}
+	err := mClient.UpdateServiceConfig(req)
+	toolscommon.ExitIfError(err)
+}
+
+// DeleteServiceConfig deletes the service config items
+// matching the given criteria
+func DeleteServiceConfig(c *cli.Context) {
+	if len(c.Args()) < 1 {
+		toolscommon.ExitIfError(errors.New("not enough arguments"))
+	}
+
+	tokens := strings.Split(c.Args().First(), ".")
+	if len(tokens) != nServiceConfigTreeLevels {
+		toolscommon.ExitIfError(errInvalidConfigKey)
+	}
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+
+	req := &metadata.DeleteServiceConfigRequest{
+		ServiceName:    common.StringPtr(strings.ToLower(tokens[0])),
+		ServiceVersion: common.StringPtr(strings.ToLower(tokens[1])),
+		Sku:            common.StringPtr(strings.ToLower(tokens[2])),
+		Hostname:       common.StringPtr(strings.ToLower(tokens[3])),
+		ConfigKey:      common.StringPtr(strings.ToLower(tokens[4])),
+	}
+
+	err := mClient.DeleteServiceConfig(req)
+	toolscommon.ExitIfError(err)
 }

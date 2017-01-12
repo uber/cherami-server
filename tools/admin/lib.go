@@ -998,25 +998,6 @@ const nServiceConfigTreeLevels = 5
 var errInvalidServiceName = errors.New("ServiceName is invalid")
 var errInvalidConfigKey = errors.New("configKey must be of the form serviceName.version.sku.hostname.key")
 
-func isValidServiceName(name string) bool {
-	switch name {
-	case common.InputServiceName:
-		return true
-	case common.OutputServiceName:
-		return true
-	case common.StoreServiceName:
-		return true
-	case common.ControllerServiceName:
-		return true
-	case common.FrontendServiceName:
-		return true
-	case common.ReplicatorServiceName:
-		return true
-	default:
-		return false
-	}
-}
-
 func splitServiceConfigKey(arg string) ([]string, error) {
 	tokens := strings.Split(arg, ".")
 	if len(tokens) != nServiceConfigTreeLevels {
@@ -1027,7 +1008,7 @@ func splitServiceConfigKey(arg string) ([]string, error) {
 			return nil, errInvalidConfigKey
 		}
 	}
-	if !isValidServiceName(tokens[0]) {
+	if !common.IsValidServiceName(tokens[0]) {
 		return nil, errInvalidServiceName
 	}
 	// make sure configKey is not a wildcard
@@ -1047,7 +1028,7 @@ func GetServiceConfig(c *cli.Context) {
 	configKey := ""
 	serviceName := c.Args().First()
 
-	if !isValidServiceName(serviceName) {
+	if !common.IsValidServiceName(serviceName) {
 		toolscommon.ExitIfError(errInvalidServiceName)
 	}
 

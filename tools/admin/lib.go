@@ -995,7 +995,47 @@ func HostAddr2uuid(c *cli.Context) {
 
 const nServiceConfigTreeLevels = 5
 
+var errInvalidServiceName = errors.New("ServiceName is invalid")
 var errInvalidConfigKey = errors.New("configKey must be of the form serviceName.version.sku.hostname.key")
+
+func isValidServiceName(name string) bool {
+	switch name {
+	case common.InputServiceName:
+		return true
+	case common.OutputServiceName:
+		return true
+	case common.StoreServiceName:
+		return true
+	case common.ControllerServiceName:
+		return true
+	case common.FrontendServiceName:
+		return true
+	case common.ReplicatorServiceName:
+		return true
+	default:
+		return false
+	}
+}
+
+func splitServiceConfigKey(arg string) ([]string, error) {
+	tokens := strings.Split(arg, ".")
+	if len(tokens) != nServiceConfigTreeLevels {
+		return nil, errInvalidConfigKey
+	}
+	for i := 0; i < len(tokens); i++ {
+		if len(tokens[i]) == 0 {
+			return nil, errInvalidConfigKey
+		}
+	}
+	if !isValidServiceName(tokens[0]) {
+		return nil, errInvalidServiceName
+	}
+	// make sure configKey is not a wildcard
+	if tokens[4] == "*" {
+		return nil, errInvalidConfigKey
+	}
+	return tokens, nil
+}
 
 // GetServiceConfig prints the config items matching
 // the given input criteria.
@@ -1006,6 +1046,10 @@ func GetServiceConfig(c *cli.Context) {
 
 	configKey := ""
 	serviceName := c.Args().First()
+
+	if !isValidServiceName(serviceName) {
+		toolscommon.ExitIfError(errInvalidServiceName)
+	}
 
 	isKeySet := c.IsSet("key")
 	if isKeySet {
@@ -1045,10 +1089,8 @@ func SetServiceConfig(c *cli.Context) {
 		toolscommon.ExitIfError(errors.New("not enough arguments"))
 	}
 
-	tokens := strings.Split(c.Args()[0], ".")
-	if len(tokens) != nServiceConfigTreeLevels {
-		toolscommon.ExitIfError(errInvalidConfigKey)
-	}
+	tokens, err := splitServiceConfigKey(c.Args()[0])
+	toolscommon.ExitIfError(err)
 
 	configValue := c.Args()[1]
 
@@ -1064,7 +1106,7 @@ func SetServiceConfig(c *cli.Context) {
 	}
 
 	req := &metadata.UpdateServiceConfigRequest{ConfigItem: cItem}
-	err := mClient.UpdateServiceConfig(req)
+	err = mClient.UpdateServiceConfig(req)
 	toolscommon.ExitIfError(err)
 }
 
@@ -1075,10 +1117,8 @@ func DeleteServiceConfig(c *cli.Context) {
 		toolscommon.ExitIfError(errors.New("not enough arguments"))
 	}
 
-	tokens := strings.Split(c.Args().First(), ".")
-	if len(tokens) != nServiceConfigTreeLevels {
-		toolscommon.ExitIfError(errInvalidConfigKey)
-	}
+	tokens, err := splitServiceConfigKey(c.Args().First())
+	toolscommon.ExitIfError(err)
 
 	mClient := toolscommon.GetMClient(c, adminToolService)
 
@@ -1090,6 +1130,6 @@ func DeleteServiceConfig(c *cli.Context) {
 		ConfigKey:      common.StringPtr(strings.ToLower(tokens[4])),
 	}
 
-	err := mClient.DeleteServiceConfig(req)
+	err = mClient.DeleteServiceConfig(req)
 	toolscommon.ExitIfError(err)
 }

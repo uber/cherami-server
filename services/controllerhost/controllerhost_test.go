@@ -30,15 +30,15 @@ import (
 	"testing"
 	"time"
 
-	c "github.com/uber/cherami-thrift/.generated/go/controller"
-	m "github.com/uber/cherami-thrift/.generated/go/metadata"
-	"github.com/uber/cherami-thrift/.generated/go/shared"
 	mc "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
 	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	mockreplicator "github.com/uber/cherami-server/test/mocks/replicator"
+	c "github.com/uber/cherami-thrift/.generated/go/controller"
+	m "github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber/cherami-thrift/.generated/go/shared"
 
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -378,12 +378,12 @@ func (s *McpSuite) TestGetInputHosts() {
 	// make sure we create no more extents than needed
 	extentStats, err := s.listExtents(dstUUID)
 	s.Equal(totalExtents, len(extentStats), "Wrong number of extents for destination")
-	for i := 0; i < minOpenExtentsForDstType(dstTypePlain); i++ {
+	for i := 0; i < minOpenExtentsForDst(s.mcp.context, `/`, dstTypePlain); i++ {
 		resp, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
 		s.Nil(err)
 	}
 	extentStats, err = s.listExtents(dstUUID)
-	s.Equal(sealedExtents+minOpenExtentsForDstType(dstTypePlain), len(extentStats), "Wrong number of extents for destination")
+	s.Equal(sealedExtents+minOpenExtentsForDst(s.mcp.context, `/`, dstTypePlain), len(extentStats), "Wrong number of extents for destination")
 
 	// now verify we serve results from cache until ttl
 	// seal the extents and verify we still get them
@@ -398,7 +398,7 @@ func (s *McpSuite) TestGetInputHosts() {
 	resp, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
 	s.Nil(err, "GetInputHosts() failed to serve result from cache")
 	extentStats, err = s.listExtents(dstUUID)
-	s.Equal(sealedExtents+minOpenExtentsForDstType(dstTypePlain), len(extentStats), "Wrong number of extents for destination")
+	s.Equal(sealedExtents+minOpenExtentsForDst(s.mcp.context, `/`, dstTypePlain), len(extentStats), "Wrong number of extents for destination")
 
 	// now advance clock and expire the cache
 	timeSource.currTime = time.Now().Add(time.Hour).Add(time.Second)
@@ -406,7 +406,7 @@ func (s *McpSuite) TestGetInputHosts() {
 	s.Nil(err, "GetInputHosts() failed to return non-empty result")
 	s.Equal(1, len(resp.GetInputHostIds()), "GetInputHosts() must return only one value")
 	extentStats, err = s.listExtents(dstUUID)
-	s.Equal(1+sealedExtents+minOpenExtentsForDstType(dstTypePlain), len(extentStats), "Wrong number of extents for destination")
+	s.Equal(1+sealedExtents+minOpenExtentsForDst(s.mcp.context, `/`, dstTypePlain), len(extentStats), "Wrong number of extents for destination")
 }
 
 func (s *McpSuite) TestGetOutputHostsMaxOpenExtentsLimit() {

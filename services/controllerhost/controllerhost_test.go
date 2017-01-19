@@ -36,6 +36,7 @@ import (
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
 	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	mockreplicator "github.com/uber/cherami-server/test/mocks/replicator"
+	"github.com/uber/tchannel-go"
 	c "github.com/uber/cherami-thrift/.generated/go/controller"
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
@@ -45,13 +46,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"github.com/uber/tchannel-go"
 )
 
 const (
-	inputAddr  = "127.0.1.1"
-	outputAddr = "127.0.2.1"
-	storeAddr  = "127.0.3.1"
+	inputAddr                      = "127.0.1.1"
+	outputAddr                     = "127.0.2.1"
+	storeAddr                      = "127.0.3.1"
 )
 
 type McpSuite struct {
@@ -437,7 +437,7 @@ func (s *McpSuite) TestGetOutputHostsMaxOpenExtentsLimit() {
 
 		extents := make(map[string]bool)
 
-		maxExtents := maxExtentsToConsumeForDstType(getDstType(dstDesc), nil)
+		maxExtents := maxExtentsToConsumeForDst(s.mcp.context, `/`, `/`, getDstType(dstDesc), nil)
 
 		for i := 0; i < maxExtents+1; i++ {
 			extentUUID := uuid.New()

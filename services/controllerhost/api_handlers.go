@@ -23,12 +23,12 @@ package controllerhost
 import (
 	"time"
 
-	m "github.com/uber/cherami-thrift/.generated/go/metadata"
-	"github.com/uber/cherami-thrift/.generated/go/shared"
-	"github.com/uber/cherami-server/common"
-	"github.com/uber/cherami-server/common/metrics"
 	"github.com/pborman/uuid"
 	"github.com/uber-common/bark"
+	"github.com/uber/cherami-server/common"
+	"github.com/uber/cherami-server/common/metrics"
+	m "github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber/cherami-thrift/.generated/go/shared"
 	"github.com/uber/tchannel-go/thrift"
 )
 
@@ -215,13 +215,12 @@ func getDstType(desc *shared.DestinationDescription) dstType {
 	dstType := desc.GetType()
 	switch dstType {
 	case shared.DestinationType_PLAIN:
-		return dstTypePlain
-	case shared.DestinationType_TIMER:
-		return dstTypeTimer
-	default:
 		if common.PathDLQRegex.MatchString(desc.GetPath()) {
 			return dstTypeDLQ
 		}
+		return dstTypePlain
+	case shared.DestinationType_TIMER:
+		return dstTypeTimer
 	}
 	return dstTypePlain
 }

@@ -29,16 +29,16 @@ import (
 	"testing"
 	"time"
 
-	c "github.com/uber/cherami-thrift/.generated/go/controller"
-	m "github.com/uber/cherami-thrift/.generated/go/metadata"
-	"github.com/uber/cherami-thrift/.generated/go/shared"
 	mc "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
-	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	"github.com/uber/cherami-server/test"
+	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	mockreplicator "github.com/uber/cherami-server/test/mocks/replicator"
+	c "github.com/uber/cherami-thrift/.generated/go/controller"
+	m "github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber/cherami-thrift/.generated/go/shared"
 
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/assert"
@@ -869,4 +869,24 @@ func (s *McpSuite) TestCreateRemoteZoneExtent() {
 		}
 	}
 	s.True(primaryValid)
+}
+
+func (s *McpSuite) TestGetDstType() {
+
+	dstType := shared.DestinationType_PLAIN
+
+	dstDesc := &shared.DestinationDescription{
+		Path:            common.StringPtr("/unit/desttype"),
+		DestinationUUID: common.StringPtr(uuid.New()),
+		Type:            &dstType,
+	}
+
+	s.Equal(dstTypePlain, getDstType(dstDesc), "getDstTyple(PLAIN) failed")
+	dstType = shared.DestinationType_TIMER
+	s.Equal(dstTypeTimer, getDstType(dstDesc), "getDstTyple(TIMER) failed")
+
+	// test dlq
+	dstType = shared.DestinationType_PLAIN
+	dstDesc.Path = common.StringPtr("/unit/desttype.dlq")
+	s.Equal(dstTypeDLQ, getDstType(dstDesc), "getDstTyple(TIMER) failed")
 }

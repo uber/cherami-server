@@ -881,12 +881,12 @@ func (s *McpSuite) TestGetDstType() {
 		Type:            &dstType,
 	}
 
-	s.Equal(dstTypePlain, getDstType(dstDesc), "getDstTyple(PLAIN) failed")
+	s.Equal(dstTypePlain, getDstType(dstDesc), "getDstType(PLAIN) failed")
 	dstType = shared.DestinationType_TIMER
-	s.Equal(dstTypeTimer, getDstType(dstDesc), "getDstTyple(TIMER) failed")
+	s.Equal(dstTypeTimer, getDstType(dstDesc), "getDstType(TIMER) failed")
 
 	// test dlq
 	dstType = shared.DestinationType_PLAIN
 	dstDesc.Path = common.StringPtr("/unit/desttype.dlq")
-	s.Equal(dstTypeDLQ, getDstType(dstDesc), "getDstTyple(TIMER) failed")
+	s.Equal(dstTypeDLQ, getDstType(dstDesc), "getDstType(TIMER) failed")
 }

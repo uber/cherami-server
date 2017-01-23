@@ -24,6 +24,7 @@ import:
   - require
   - suite
 - package: github.com/tecbot/gorocksdb
+- package: github.com/cockroachdb/c-jemalloc
 - package: github.com/uber-common/bark
 - package: github.com/uber/cherami-client-go
   subpackages:
@@ -42,7 +43,7 @@ import:
   - .generated/go/shared
   - .generated/go/store
 - package: github.com/uber/ringpop-go
-  version: ^0.7.0
+  version: = 0.7.0
   subpackages:
   - discovery
   - discovery/statichosts
@@ -54,7 +55,7 @@ import:
   - swim
   - util
 - package: github.com/uber/tchannel-go
-  version: ^1.2.1
+  version: = 1.2.1
   subpackages:
   - hyperbahn
   - thrift

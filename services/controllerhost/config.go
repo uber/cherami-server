@@ -21,10 +21,10 @@
 package controllerhost
 
 import (
-	m "github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/dconfig"
-	"github.com/uber-common/bark"
+	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 )
 
 type (
@@ -49,15 +49,22 @@ type (
 	OutputPlacementConfig struct {
 		AdminStatus string `name:"adminStatus" default:"enabled"`
 	}
+
+	ControllerDynamicConfig struct {
+		NumPublisherExtentsByPath      []string `name:"numPublisherExtentsByPath" default:"/=4"`
+		NumConsumerExtentsByPath       []string `name:"numConsumerExtentsByPath" default:"/=8"`
+		NumRemoteConsumerExtentsByPath []string `name:"numRemoteConsumerExtentsByPath" default:"/=4"`
+	}
 )
 
 // newConfigManager creates and returns a new instance
 // of CassandraConfigManager.
 func newConfigManager(mClient m.TChanMetadataService, logger bark.Logger) *dconfig.CassandraConfigManager {
 	cfgTypes := map[string]interface{}{
-		common.InputServiceName:  InputPlacementConfig{},
-		common.OutputServiceName: OutputPlacementConfig{},
-		common.StoreServiceName:  StorePlacementConfig{},
+		common.InputServiceName:      InputPlacementConfig{},
+		common.OutputServiceName:     OutputPlacementConfig{},
+		common.StoreServiceName:      StorePlacementConfig{},
+		common.ControllerServiceName: ControllerDynamicConfig{},
 	}
 	return dconfig.NewCassandraConfigManager(mClient, cfgTypes, logger)
 }

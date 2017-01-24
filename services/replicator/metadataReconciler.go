@@ -28,10 +28,10 @@ import (
 	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go/thrift"
 
-	"github.com/uber/cherami-thrift/.generated/go/metadata"
-	"github.com/uber/cherami-thrift/.generated/go/shared"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/metrics"
+	"github.com/uber/cherami-thrift/.generated/go/metadata"
+	"github.com/uber/cherami-thrift/.generated/go/shared"
 )
 
 type (
@@ -327,7 +327,7 @@ func (r *metadataReconciler) reconcileDestExtentMetadata() error {
 	for _, dest := range dests {
 		localExtents, errCur := r.getAllDestExtentInCurrentZone(dest.GetDestinationUUID())
 		if errCur != nil {
-			return errCur
+			continue
 		}
 		for _, zoneConfig := range dest.GetZoneConfigs() {
 			// skip local zone
@@ -338,11 +338,11 @@ func (r *metadataReconciler) reconcileDestExtentMetadata() error {
 			if zoneConfig.GetAllowPublish() {
 				remoteExtents, errRemote := r.getAllDestExtentInRemoteZone(zoneConfig.GetZone(), dest.GetDestinationUUID())
 				if errRemote != nil {
-					return errRemote
+					continue
 				}
 
 				if err = r.reconcileDestExtent(dest.GetDestinationUUID(), localExtents, remoteExtents, zoneConfig.GetZone()); err != nil {
-					return err
+					continue
 				}
 			}
 		}

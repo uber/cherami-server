@@ -162,6 +162,7 @@ type AckID string
 const defaultLockTimeoutInSeconds int32 = 42
 const defaultMaxDeliveryCount int32 = 2
 const blockCheckingTimeout time.Duration = time.Minute
+const redeliveryInterval = time.Second / 2
 
 // SmartRetryDisableString can be added to a destination or CG owner email to request smart retry to be disabled
 // Note that Google allows something like this: gbailey+smartRetryDisable@uber.com
@@ -718,6 +719,7 @@ func (msgCache *cgMsgCache) stop() {
 	if msgCache.dlq != nil {
 		msgCache.dlq.close()
 	}
+	msgCache.redeliveryTicker.Stop()
 }
 
 func (msgCache *cgMsgCache) start() {
@@ -735,12 +737,16 @@ func (msgCache *cgMsgCache) start() {
 func (msgCache *cgMsgCache) manageMessageDeliveryCache() {
 	msgCache.blockCheckingTimer = common.NewTimer(blockCheckingTimeout)
 	msgCache.dlqPublishCh = msgCache.dlq.getPublishCh()
-	badConns := make(map[int]int)                       // this is the map of all bad connections, i.e, connections which get Nacks and timeouts
-	creditBatchSize := msgCache.maxOutstandingMsgs / 10 // this is the number of acks we need to get before renewing credits
+	badConns := make(map[int]int) // this is the map of all bad connections, i.e, connections which get Nacks and timeouts
 	lastPumpHealthLog := common.UnixNanoTime(0)
+	var creditBatchSize int32
 
 	for {
 		fullCount := msgCache.updatePumpHealth()
+		// calculate the creditBatchSize here, since we could have updated the
+		// maxOutstandingMsgs dynamically.
+		// This is the number of acks we need to get before renewing credits
+		creditBatchSize = msgCache.maxOutstandingMsgs / 10
 
 		if fullCount > 3 && common.Now()-lastPumpHealthLog > common.UnixNanoTime(time.Minute) {
 			msgCache.logMessageCacheHealth()
@@ -768,6 +774,7 @@ func (msgCache *cgMsgCache) manageMessageDeliveryCache() {
 			if msgCache.numAcks > 0 && numOutstandingMsgs < msgCache.maxOutstandingMsgs {
 				msgCache.utilRenewCredits()
 			}
+			msgCache.refreshCgConfig(msgCache.maxOutstandingMsgs)
 		case ackID := <-msgCache.nackMsgCh:
 			msgCache.utilHandleNackMsg(ackID, badConns)
 		case ackID := <-msgCache.ackMsgCh:
@@ -966,30 +973,27 @@ func (msgCache *cgMsgCache) updateConn(connID int, event msgEvent, badConns map[
 	}
 }
 
-// TODO: Make the delivery cache shared among all consumer groups
-func newMessageDeliveryCache(
-	msgsRedeliveryCh chan<- *cherami.ConsumerMessage,
-	priorityMsgsRedeliveryCh chan<- *cherami.ConsumerMessage,
-	msgCacheCh <-chan cacheMsg,
-	msgCacheRedeliveredCh <-chan cacheMsg,
-	ackMsgCh <-chan timestampedAckID,
-	nackMsgCh <-chan timestampedAckID,
-	cgDesc shared.ConsumerGroupDescription,
-	dlq *deadLetterQueue,
-	logger bark.Logger,
-	m3Client metrics.Client,
-	consumerM3Client metrics.Client,
-	notifier Notifier,
-	creditNotifyCh chan int32,
-	creditRequestCh chan string,
-	numOutstandingMsgs int32,
-	cgCache *consumerGroupCache) *cgMsgCache {
-	if cgDesc.GetLockTimeoutSeconds() == 0 {
-		cgDesc.LockTimeoutSeconds = common.Int32Ptr(defaultLockTimeoutInSeconds)
+func (msgCache *cgMsgCache) refreshCgConfig(oldOutstandingMessages int32) {
+	outstandingMsgs := oldOutstandingMessages
+	cfg, err := msgCache.cgCache.getDynamicCgConfig()
+	if err == nil {
+		outstandingMsgs = msgCache.cgCache.getMessageCacheSize(cfg, oldOutstandingMessages)
 	}
 
-	if cgDesc.GetMaxDeliveryCount() == 0 {
-		cgDesc.MaxDeliveryCount = common.Int32Ptr(defaultMaxDeliveryCount)
+	msgCache.maxOutstandingMsgs = outstandingMsgs
+}
+
+// TODO: Make the delivery cache shared among all consumer groups
+func newMessageDeliveryCache(
+	dlq *deadLetterQueue,
+	defaultNumOutstandingMsgs int32,
+	cgCache *consumerGroupCache) *cgMsgCache {
+	if cgCache.cachedCGDesc.GetLockTimeoutSeconds() == 0 {
+		cgCache.cachedCGDesc.LockTimeoutSeconds = common.Int32Ptr(defaultLockTimeoutInSeconds)
+	}
+
+	if cgCache.cachedCGDesc.GetMaxDeliveryCount() == 0 {
+		cgCache.cachedCGDesc.MaxDeliveryCount = common.Int32Ptr(defaultMaxDeliveryCount)
 	}
 
 	msgCache := &cgMsgCache{
@@ -997,22 +1001,21 @@ func newMessageDeliveryCache(
 		redeliveryTimerCache:     make([]*timerCacheEntry, 0),
 		cleanupTimerCache:        make([]*timerCacheEntry, 0),
 		dlq:                      dlq,
-		msgsRedeliveryCh:         msgsRedeliveryCh,
-		priorityMsgsRedeliveryCh: priorityMsgsRedeliveryCh,
-		msgCacheCh:               msgCacheCh,
-		msgCacheRedeliveredCh:    msgCacheRedeliveredCh,
-		ackMsgCh:                 ackMsgCh,
-		nackMsgCh:                nackMsgCh,
+		msgsRedeliveryCh:         cgCache.msgsRedeliveryCh,
+		priorityMsgsRedeliveryCh: cgCache.priorityMsgsRedeliveryCh,
+		msgCacheCh:               cgCache.msgCacheCh,
+		msgCacheRedeliveredCh:    cgCache.msgCacheRedeliveredCh,
+		ackMsgCh:                 cgCache.ackMsgCh,
+		nackMsgCh:                cgCache.nackMsgCh,
 		closeChannel:             make(chan struct{}),
-		redeliveryTicker:         time.NewTicker(time.Second / 2),
-		ConsumerGroupDescription: cgDesc,
-		consumerM3Client:         consumerM3Client,
-		m3Client:                 m3Client,
-		notifier:                 notifier,
-		creditNotifyCh:           creditNotifyCh,
-		creditRequestCh:          creditRequestCh,
-		maxOutstandingMsgs:       numOutstandingMsgs, // ideally this should be part of the cgDesc
-		cgCache:                  cgCache,            // just a reference to the cgCache
+		redeliveryTicker:         time.NewTicker(redeliveryInterval),
+		ConsumerGroupDescription: cgCache.cachedCGDesc,
+		consumerM3Client:         cgCache.consumerM3Client,
+		m3Client:                 cgCache.m3Client,
+		notifier:                 cgCache.notifier,
+		creditNotifyCh:           cgCache.creditNotifyCh,
+		creditRequestCh:          cgCache.creditRequestCh,
+		cgCache:                  cgCache, // just a reference to the cgCache
 		consumerHealth: consumerHealth{
 			badConns:        make(map[int]int),
 			lastAckTime:     common.Now(), // Need to start in the non-stalled state
@@ -1020,7 +1023,8 @@ func newMessageDeliveryCache(
 		},
 	}
 
-	msgCache.lclLg = logger
+	msgCache.lclLg = cgCache.logger
+	msgCache.refreshCgConfig(defaultNumOutstandingMsgs)
 
 	return msgCache
 }

@@ -101,7 +101,7 @@ type (
 	Context struct {
 		hostID          string
 		localZone       string
-		mm              common.MetadataMgr
+		mm              MetadataMgr
 		rpm             common.RingpopMonitor
 		failureDetector Dfdd
 		log             bark.Logger
@@ -173,7 +173,7 @@ func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadat
 
 	context.dstLock = lockMgr
 	context.m3Client = metrics.NewClient(instance.Service.GetMetricsReporter(), metrics.Controller)
-	context.mm = common.NewMetadataMgr(metadataClient, context.m3Client, context.log)
+	context.mm = NewMetadataMgr(metadataClient, context.m3Client, context.log)
 	context.extentSeals.inProgress = common.NewShardedConcurrentMap(1024, common.UUIDHashCode)
 	context.extentSeals.failed = common.NewShardedConcurrentMap(1024, common.UUIDHashCode)
 	context.extentSeals.tokenBucket = common.NewTokenBucket(maxExtentSealsPerSecond, common.NewRealTimeSource())

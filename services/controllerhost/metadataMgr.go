@@ -59,6 +59,10 @@ type (
 		ListDestinationsPage(mReq *shared.ListDestinationsRequest) (*shared.ListDestinationsResult_, error)
 		// ListDestinationsByUUID returns an iterator to the destinations
 		ListDestinationsByUUID() ([]*shared.DestinationDescription, error)
+		// ListDestinationExtentsByStatus lists extents by dstID/status
+		// The returned type is a list of DestinationExtent objects as
+		// opposed to list of Extent objects
+		ListDestinationExtentsByStatus(dstID string, filterByStatus []shared.ExtentStatus) ([]*m.DestinationExtent, error)
 		// ListExtentsByDstIDStatus lists extents dstID/Status
 		ListExtentsByDstIDStatus(dstID string, filterByStatus []shared.ExtentStatus) ([]*shared.ExtentStats, error)
 		// ListExtentsByInputIDStatus lists extents for dstID/InputUUID/Status
@@ -182,6 +186,63 @@ func (mm *metadataMgrImpl) ListDestinationsByUUID() ([]*shared.DestinationDescri
 			break
 		} else {
 			mReq.PageToken = resp.GetNextPageToken()
+		}
+	}
+
+	return result, nil
+}
+
+func (mm *metadataMgrImpl) ListDestinationExtentsByStatus(dstID string, filterByStatus []shared.ExtentStatus) ([]*m.DestinationExtent, error) {
+
+	listReq := &m.ListDestinationExtentsRequest{
+		DestinationUUID: common.StringPtr(dstID),
+		Limit:           common.Int64Ptr(defaultPageSize),
+	}
+
+	filterLocally := len(filterByStatus) > 1
+	if len(filterByStatus) == 1 {
+		listReq.Status = common.MetadataExtentStatusPtr(filterByStatus[0])
+	}
+
+	startTime := time.Now()
+	defer func() {
+
+		elapsed := time.Since(startTime)
+
+		if elapsed >= time.Second {
+			mm.logger.WithFields(bark.Fields{
+				common.TagDst:   dstID,
+				`filter`:        filterByStatus,
+				`latencyMillis`: float64(elapsed) / float64(time.Millisecond),
+			}).Info("listDestinationExtentsByStatus high latency")
+		}
+	}()
+
+	var result []*m.DestinationExtent
+	for {
+		listResp, err := mm.mClient.ListDestinationExtents(nil, listReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if filterLocally {
+			for _, ext := range listResp.GetExtents() {
+			statusLoop:
+				for _, status := range filterByStatus {
+					if ext.GetStatus() == status {
+						result = append(result, ext)
+						break statusLoop
+					}
+				}
+			}
+		} else {
+			result = append(result, listResp.GetExtents()...)
+		}
+
+		if len(listResp.GetNextPageToken()) == 0 {
+			break
+		} else {
+			listReq.PageToken = listResp.GetNextPageToken()
 		}
 	}
 

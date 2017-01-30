@@ -143,8 +143,7 @@ func pickOutputHostForStoreHosts(context *Context, storeUUIDs []string) (*common
 	return context.placement.PickOutputHost(storeHosts)
 }
 
-func canConsumeDstExtent(context *Context, stat *shared.ExtentStats, consumedCGExtents map[string]struct{}) bool {
-	ext := stat.GetExtent()
+func canConsumeDstExtent(context *Context, ext *m.DestinationExtent, consumedCGExtents map[string]struct{}) bool {
 	extID := ext.GetExtentUUID()
 	if _, ok := consumedCGExtents[extID]; ok {
 		return false
@@ -248,7 +247,7 @@ func repairExtentsAndUpdateOutputHosts(
 	return nRepaired
 }
 
-func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, newExtents []*shared.Extent, outputHosts map[string]*common.HostInfo, m3Scope int) int {
+func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, newExtents []*m.DestinationExtent, outputHosts map[string]*common.HostInfo, m3Scope int) int {
 	nAdded := 0
 
 	for _, ext := range newExtents {
@@ -361,30 +360,29 @@ func selectNextExtentsToConsume(
 	dstDesc *shared.DestinationDescription,
 	cgDesc *shared.ConsumerGroupDescription,
 	cgExtents *cgExtentsByCategory,
-	m3Scope int) ([]*shared.Extent, int, error) {
+	m3Scope int) ([]*m.DestinationExtent, int, error) {
 
 	dstID := dstDesc.GetDestinationUUID()
 	cgID := cgDesc.GetConsumerGroupUUID()
 
 	filterBy := []shared.ExtentStatus{shared.ExtentStatus_SEALED, shared.ExtentStatus_OPEN}
-	dstExtStats, err := context.mm.ListExtentsByDstIDStatus(dstID, filterBy)
+	dstExtents, err := context.mm.ListDestinationExtentsByStatus(dstID, filterBy)
 	if err != nil {
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
-		return []*shared.Extent{}, 0, err
+		return []*m.DestinationExtent{}, 0, err
 	}
 
 	dedupMap := make(map[string]struct{})
 
 	var nCGDlqExtents int
-	var dstDlqExtents []*shared.Extent
+	var dstDlqExtents []*m.DestinationExtent
 	dstExtentsCount := 0
-	dstExtentsByZone := make(map[string][]*shared.Extent)
+	dstExtentsByZone := make(map[string][]*m.DestinationExtent)
 
-	sortExtentStatsByTime(dstExtStats)
+	sortExtentStatsByTime(dstExtents)
 
-	for _, stat := range dstExtStats {
+	for _, ext := range dstExtents {
 
-		ext := stat.GetExtent()
 		extID := ext.GetExtentUUID()
 
 		if _, ok := dedupMap[extID]; ok {
@@ -393,11 +391,11 @@ func selectNextExtentsToConsume(
 
 		dedupMap[extID] = struct{}{}
 
-		if !canConsumeDstExtent(context, stat, cgExtents.consumed) {
+		if !canConsumeDstExtent(context, ext, cgExtents.consumed) {
 			continue
 		}
 
-		visibility := stat.GetConsumerGroupVisibility()
+		visibility := ext.GetConsumerGroupVisibility()
 
 		if _, ok := cgExtents.open[extID]; ok {
 			if len(visibility) > 0 {
@@ -439,9 +437,9 @@ func selectNextExtentsToConsume(
 			// we have a dlq extent available now (and there
 			// is none currently consumed). So pick the
 			// dlq extent and bail out
-			return []*shared.Extent{dstDlqExtents[0]}, nAvailable, nil
+			return []*m.DestinationExtent{dstDlqExtents[0]}, nAvailable, nil
 		}
-		return []*shared.Extent{}, nAvailable, nil
+		return []*m.DestinationExtent{}, nAvailable, nil
 	}
 
 	nZone := 0
@@ -450,7 +448,7 @@ func selectNextExtentsToConsume(
 	nDstDlqExtents := 0
 	remDstDlqExtents := len(dstDlqExtents)
 
-	result := make([]*shared.Extent, capacity)
+	result := make([]*m.DestinationExtent, capacity)
 
 	for i := 0; i < capacity; i++ {
 		if remDstDlqExtents > 0 {
@@ -522,7 +520,7 @@ func refreshCGExtents(context *Context,
 			for i := 0; i < len(storehosts); i++ {
 				storeids[i] = storehosts[i].UUID
 			}
-			ext := &shared.Extent{
+			ext := &m.DestinationExtent{
 				ExtentUUID: common.StringPtr(extentID),
 				StoreUUIDs: storeids,
 			}

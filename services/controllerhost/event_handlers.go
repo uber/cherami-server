@@ -274,10 +274,10 @@ func (event *ExtentCreatedEvent) Handle(context *Context) error {
 	inHostIDs[event.inHostID] = true
 	// Notify all in hosts handling open extents for this destination
 	filterBy := []shared.ExtentStatus{shared.ExtentStatus_OPEN}
-	stats, err := mm.ListExtentsByDstIDStatus(event.dstID, filterBy)
+	extents, err := mm.ListDestinationExtentsByStatus(event.dstID, filterBy)
 	if err == nil {
-		for _, stat := range stats {
-			inHostIDs[stat.GetExtent().GetInputHostUUID()] = true
+		for _, ext := range extents {
+			inHostIDs[ext.GetInputHostUUID()] = true
 		}
 	} else {
 		context.m3Client.IncCounter(metrics.ExtentCreatedEventScope, metrics.ControllerErrMetadataReadCounter)

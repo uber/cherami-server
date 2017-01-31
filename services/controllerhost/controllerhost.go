@@ -43,6 +43,7 @@ import (
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
 	"github.com/uber/cherami-server/common/dconfig"
+	"github.com/uber/cherami-server/common/metadata"
 	"github.com/uber/cherami-server/common/metrics"
 	"github.com/uber/cherami-server/services/controllerhost/load"
 	a "github.com/uber/cherami-thrift/.generated/go/admin"
@@ -173,7 +174,8 @@ func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadat
 
 	context.dstLock = lockMgr
 	context.m3Client = metrics.NewClient(instance.Service.GetMetricsReporter(), metrics.Controller)
-	context.mm = NewMetadataMgr(metadataClient, context.m3Client, context.log)
+	mClient := metadata.NewMetadataMetricsMgr(metadataClient, context.m3Client, context.log)
+	context.mm = NewMetadataMgr(mClient, context.m3Client, context.log)
 	context.extentSeals.inProgress = common.NewShardedConcurrentMap(1024, common.UUIDHashCode)
 	context.extentSeals.failed = common.NewShardedConcurrentMap(1024, common.UUIDHashCode)
 	context.extentSeals.tokenBucket = common.NewTokenBucket(maxExtentSealsPerSecond, common.NewRealTimeSource())

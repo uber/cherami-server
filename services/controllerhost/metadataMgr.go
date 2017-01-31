@@ -26,7 +26,6 @@ import (
 	"github.com/uber-common/bark"
 
 	"github.com/uber/cherami-server/common"
-	"github.com/uber/cherami-server/common/metadata"
 	"github.com/uber/cherami-server/common/metrics"
 
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
@@ -113,7 +112,7 @@ type (
 // NewMetadataMgr creates and returns a new instance of MetadataMgr
 func NewMetadataMgr(mClient m.TChanMetadataService, m3Client metrics.Client, logger bark.Logger) MetadataMgr {
 	return &metadataMgrImpl{
-		mClient: metadata.NewMetadataMetricsMgr(mClient, m3Client, logger),
+		mClient: mClient,
 		logger:  logger,
 	}
 }

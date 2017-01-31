@@ -328,7 +328,7 @@ func (event *ConsGroupUpdatedEvent) Handle(context *Context) error {
 	outHostIDs[event.outputHostID] = true
 
 	filterBy := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_OPEN}
-	cgExtents, err := mm.ListExtentsByConsumerGroup(event.dstID, event.consGroupID, filterBy)
+	cgExtents, err := mm.ListExtentsByConsumerGroupLite(event.dstID, event.consGroupID, filterBy)
 	if err == nil {
 		for _, cge := range cgExtents {
 			outHostIDs[cge.GetOutputHostUUID()] = true
@@ -1003,7 +1003,7 @@ func reconfigureAllConsumers(context *Context, dstID, extentID, reason, reasonCo
 		}
 
 		filterBy := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_OPEN}
-		extents, err := context.mm.ListExtentsByConsumerGroup(dstID, cgd.GetConsumerGroupUUID(), filterBy)
+		extents, err := context.mm.ListExtentsByConsumerGroupLite(dstID, cgd.GetConsumerGroupUUID(), filterBy)
 		if err != nil {
 			continue
 		}

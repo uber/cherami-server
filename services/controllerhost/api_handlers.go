@@ -165,8 +165,8 @@ func validateDstStatus(dstDesc *shared.DestinationDescription) error {
 	}
 }
 
-func listConsumerGroupExtents(context *Context, dstUUID string, cgUUID string, m3Scope int, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtent, error) {
-	cgExtents, err := context.mm.ListExtentsByConsumerGroup(dstUUID, cgUUID, filterByStatus)
+func listConsumerGroupExtents(context *Context, dstUUID string, cgUUID string, m3Scope int, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtentLite, error) {
+	cgExtents, err := context.mm.ListExtentsByConsumerGroupLite(dstUUID, cgUUID, filterByStatus)
 	if err != nil {
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
 	}

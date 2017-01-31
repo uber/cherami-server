@@ -73,6 +73,10 @@ type (
 		ListExtentsByReplicationStatus(storeID string, status *shared.ExtentReplicaReplicationStatus) ([]*shared.ExtentStats, error)
 		// ListExtentsByConsumerGroup lists all extents for the given destination / consumer group
 		ListExtentsByConsumerGroup(dstID string, cgID string, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtent, error)
+		// ListExtentsByConsumerGroupLite lists all extents for the given destination / consumer group
+		// this api only returns a few interesting columns for each consumer group extent in the
+		// result. For detailed info, see ListExtentsByConsumerGroup
+		ListExtentsByConsumerGroupLite(dstID string, cgID string, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtentLite, error)
 		// CreateExtent creates a new extent for the given destination and marks the status as OPEN
 		CreateExtent(dstID string, extentID string, inhostID string, storeIDs []string) (*shared.CreateExtentResult_, error)
 		// CreateRemoteZoneExtent creates a new remote zone extent for the given destination and marks the status as OPEN
@@ -349,6 +353,63 @@ func (mm *metadataMgrImpl) ListExtentsByReplicationStatus(storeID string, status
 	}
 
 	return resp.GetExtentStatsList(), nil
+}
+
+func (mm *metadataMgrImpl) ListExtentsByConsumerGroupLite(dstID string, cgID string, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtentLite, error) {
+
+	mReq := &m.ReadConsumerGroupExtentsRequest{
+		DestinationUUID:   common.StringPtr(dstID),
+		ConsumerGroupUUID: common.StringPtr(cgID),
+		MaxResults:        common.Int32Ptr(defaultPageSize),
+	}
+
+	filterLocally := len(filterByStatus) > 1
+	if len(filterByStatus) == 1 {
+		mReq.Status = common.MetadataConsumerGroupExtentStatusPtr(filterByStatus[0])
+	}
+
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		if elapsed >= time.Second {
+			mm.logger.WithFields(bark.Fields{
+				common.TagDst:   dstID,
+				common.TagCnsm:  cgID,
+				`filter`:        filterByStatus,
+				`latencyMillis`: float64(elapsed) / float64(time.Millisecond),
+			}).Info("listExtentsByConsumerGroupLite high latency")
+		}
+	}()
+
+	var result []*m.ConsumerGroupExtentLite
+	for {
+		mResp, err := mm.mClient.ReadConsumerGroupExtentsLite(nil, mReq)
+		if err != nil {
+			return nil, err
+		}
+
+		if filterLocally {
+			for _, ext := range mResp.GetExtents() {
+			statusLoop:
+				for _, status := range filterByStatus {
+					if ext.GetStatus() == status {
+						result = append(result, ext)
+						break statusLoop
+					}
+				}
+			}
+		} else {
+			result = append(result, mResp.GetExtents()...)
+		}
+
+		if len(mResp.GetNextPageToken()) == 0 {
+			break
+		} else {
+			mReq.PageToken = mResp.GetNextPageToken()
+		}
+	}
+
+	return result, nil
 }
 
 func (mm *metadataMgrImpl) ListExtentsByConsumerGroup(dstID string, cgID string, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtent, error) {

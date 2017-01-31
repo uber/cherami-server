@@ -255,7 +255,6 @@ extentIter:
 		shared.ExtentStatus_OPEN,
 		shared.ExtentStatus_SEALED,
 		shared.ExtentStatus_CONSUMED,
-		shared.ExtentStatus_DELETED,
 	} {
 		filterBy := []shared.ExtentStatus{status}
 		extents, err = context.mm.ListDestinationExtentsByStatus(dstDesc.GetDestinationUUID(), filterBy)
@@ -288,8 +287,6 @@ extentIter:
 		monitor.context.resultCache.Delete(dstDesc.GetDestinationUUID()) // clear the cache that gives out publish endpoints
 		monitor.deleteConsumerGroups(dstDesc)
 	}
-
-	monitor.publishConsumerGroups(dstDesc)
 }
 
 func (monitor *extentStateMonitor) processExtents(dstDesc *shared.DestinationDescription, extents []*metadata.DestinationExtent) {
@@ -393,14 +390,14 @@ func (monitor *extentStateMonitor) deleteConsumerGroups(dstDesc *shared.Destinat
 		cgID := cg.GetConsumerGroupUUID()
 
 		filterBy := []metadata.ConsumerGroupExtentStatus{metadata.ConsumerGroupExtentStatus_OPEN}
-		extents, e := context.mm.ListExtentsByConsumerGroup(dstID, cgID, filterBy)
+		extents, e := context.mm.ListExtentsByConsumerGroupLite(dstID, cgID, filterBy)
 		if e != nil {
 			monitor.ll.WithFields(bark.Fields{
 				common.TagErr:  e,
 				common.TagDst:  dstID,
 				common.TagCnsm: cgID,
 				`statusFilter`: filterBy[0],
-			}).Error(`ListExtentsByConsumerGroup failed`)
+			}).Error(`ListExtentsByConsumerGroupLite failed`)
 			// if we cannot list extents, we wont be
 			// able to find the output hosts to notify.
 			// lets try next time
@@ -490,7 +487,7 @@ nextConsGroup:
 			//metadata.ConsumerGroupExtentStatus_DELETED,
 		} {
 			filterBy := []metadata.ConsumerGroupExtentStatus{status}
-			extents, e := monitor.context.mm.ListExtentsByConsumerGroup(dstID, cgID, filterBy)
+			extents, e := monitor.context.mm.ListExtentsByConsumerGroupLite(dstID, cgID, filterBy)
 			if e == nil {
 			nextExtent:
 				for _, ext := range extents {
@@ -505,7 +502,7 @@ nextConsGroup:
 					common.TagDst:  dstID,
 					common.TagCnsm: cgID,
 					`statusFilter`: status,
-				}).Error(`ListExtentsByConsumerGroup failed`)
+				}).Error(`ListExtentsByConsumerGroupLite failed`)
 			}
 		}
 		monitor.mi.publishEvent(eCnsmExtentIterEnd, nil)

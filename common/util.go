@@ -563,6 +563,20 @@ func NewMetricReporterWithHostname(cfg configure.CommonServiceConfig) metrics.Re
 	return reporter
 }
 
+//NewTestMetricsReporter creates a test reporter that allows registration of handler functions
+func NewTestMetricsReporter() metrics.Reporter {
+	hostName, e := os.Hostname()
+	lcLg := GetDefaultLogger()
+	if e != nil {
+		lcLg.WithFields(bark.Fields{TagErr: e}).Fatal("Error getting hostname")
+	}
+
+	reporter := metrics.NewTestReporter(map[string]string{
+		metrics.HostnameTagName: hostName,
+	})
+	return reporter
+}
+
 //GetLocalClusterInfo gets the zone and tenancy from the given deployment
 func GetLocalClusterInfo(deployment string) (zone string, tenancy string) {
 	parts := strings.Split(deployment, "_")
@@ -599,6 +613,15 @@ func (r *cliHelper) GetDefaultOwnerEmail() string {
 // GetCanonicalZone is the implementation of the corresponding method
 func (r *cliHelper) GetCanonicalZone(zone string) (cZone string, err error) {
 	var ok bool
+	if len(zone) == 0 {
+		return "", errors.New("Invalid Zone Name")
+	}
+
+	// If canonical zone list is empty, then any zone is valid
+	if len(r.cZones) == 0 {
+		return zone, nil
+	}
+
 	if cZone, ok = r.cZones[zone]; !ok {
 		return "", errors.New("Invalid Zone Name")
 	}

@@ -160,7 +160,6 @@ func New(opts *Options, metadata metadata.TChanMetadataService, clientFactory co
 	}
 
 	logger = logger.WithField(common.TagModule, `retMgr`)
-	metadata = metadataMetrics.NewMetadataMetricsMgr(metadata, m3Client, logger)
 
 	return &RetentionManager{
 		Options:             opts,

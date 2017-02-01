@@ -699,6 +699,8 @@ const (
 	OutputhostInternalFailures
 	// OutputhostConsConnection is the number of active connections
 	OutputhostConsConnection
+	// OutputhostCreditsAccumulated is a gauge to record credits that are accumulated locally
+	OutputhostCreditsAccumulated
 	// OutputhostLatencyTimer represents time taken by an operation
 	OutputhostLatencyTimer
 	// OutputhostCGMessageSent records the count of messages sent per consumer group
@@ -719,6 +721,8 @@ const (
 	OutputhostCGMessageSentNAck
 	// OutputhostCGMessagesThrottled records the count of messages throttled
 	OutputhostCGMessagesThrottled
+	// OutputhostCGAckMgrSeqNotFound is the gauge to track acks whose seq number is not found
+	OutputhostCGAckMgrSeqNotFound
 	// OutputhostCGMessageSentLatency is the latency to send a message
 	OutputhostCGMessageSentLatency
 	//OutputhostCGMessageCacheSize is the cashe size of consumer group message
@@ -743,6 +747,8 @@ const (
 	OutputhostCGAckMgrResetMsgError
 	// OutputhostCGSkippedMessages is the gauge to track skipped messages
 	OutputhostCGSkippedMessages
+	// OutputhostCGCreditsAccumulated is a gauge to record credits that are accumulated locally per consumer group
+	OutputhostCGCreditsAccumulated
 
 	// -- Frontend metrics -- //
 
@@ -991,6 +997,7 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		OutputhostUserFailures:                          {Counter, "outputhost.user-errors"},
 		OutputhostInternalFailures:                      {Counter, "outputhost.internal-errors"},
 		OutputhostConsConnection:                        {Gauge, "outputhost.consconnection"},
+		OutputhostCreditsAccumulated:                    {Gauge, "outputhost.credit-accumulated"},
 		OutputhostLatencyTimer:                          {Timer, "outputhost.latency"},
 	},
 
@@ -1116,6 +1123,7 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 		OutputhostCGMessageSentAck:        {Counter, "outputhost.message.sent-ack.cg"},
 		OutputhostCGMessageSentNAck:       {Counter, "outputhost.message.sent-nack.cg"},
 		OutputhostCGMessagesThrottled:     {Counter, "outputhost.message.throttled"},
+		OutputhostCGAckMgrSeqNotFound:     {Counter, "outputhost.ackmgr.seq-not-found.cg"},
 		OutputhostCGMessageSentLatency:    {Timer, "outputhost.message.sent-latency.cg"},
 		OutputhostCGMessageCacheSize:      {Gauge, "outputhost.message.cache.size.cg"},
 		OutputhostCGConsConnection:        {Gauge, "outputhost.consconnection.cg"},
@@ -1128,6 +1136,7 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 		OutputhostCGAckMgrResetMsg:        {Gauge, "outputhost.ackmgr.reset.message.cg"},
 		OutputhostCGAckMgrResetMsgError:   {Gauge, "outputhost.ackmgr.reset.message.error.cg"},
 		OutputhostCGSkippedMessages:       {Gauge, "outputhost.skipped.messages.cg"},
+		OutputhostCGCreditsAccumulated:    {Gauge, "outputhost.credit-accumulated.cg"},
 	},
 
 	// definitions for Controller metrics

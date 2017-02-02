@@ -357,7 +357,7 @@ func (mm *metadataMgrImpl) ListExtentsByReplicationStatus(storeID string, status
 
 func (mm *metadataMgrImpl) ListExtentsByConsumerGroupLite(dstID string, cgID string, filterByStatus []m.ConsumerGroupExtentStatus) ([]*m.ConsumerGroupExtentLite, error) {
 
-	mReq := &m.ReadConsumerGroupExtentsRequest{
+	mReq := &m.ReadConsumerGroupExtentsLiteRequest{
 		DestinationUUID:   common.StringPtr(dstID),
 		ConsumerGroupUUID: common.StringPtr(cgID),
 		MaxResults:        common.Int32Ptr(defaultPageSize),

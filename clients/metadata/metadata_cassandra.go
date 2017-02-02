@@ -2727,7 +2727,7 @@ func (s *CassandraMetadataService) listExtentsStatsHelper(request *shared.ListEx
 	return query.Iter(), nil
 }
 
-// ListDestinationExtens lists all the extents mapped to a given destination
+// ListDestinationExtents lists all the extents mapped to a given destination
 func (s *CassandraMetadataService) ListDestinationExtents(ctx thrift.Context, request *m.ListDestinationExtentsRequest) (*m.ListDestinationExtentsResult_, error) {
 
 	if len(request.GetDestinationUUID()) == 0 {
@@ -3804,7 +3804,7 @@ func (s *CassandraMetadataService) readConsumerGroupExtentsHelper(request *m.Rea
 // extents, see ReadConsumerGroupExtents
 func (s *CassandraMetadataService) ReadConsumerGroupExtentsLite(ctx thrift.Context, request *m.ReadConsumerGroupExtentsLiteRequest) (*m.ReadConsumerGroupExtentsLiteResult_, error) {
 
-	if request.GetMaxResults() < 1 {
+	if request.GetMaxResults() <= 0 {
 		return nil, errPageLimitOutOfRange
 	}
 
@@ -3819,9 +3819,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtentsLite(ctx thrift.Conte
 	}
 
 	qry := s.session.Query(sql).Consistency(s.lowConsLevel).Bind(request.GetConsumerGroupUUID())
-	if request.GetMaxResults() > 0 {
-		qry = qry.PageSize(int(request.GetMaxResults())).PageState(request.GetPageToken())
-	}
+	qry = qry.PageSize(int(request.GetMaxResults())).PageState(request.GetPageToken())
 
 	iter := qry.Iter()
 	allocSize := iter.NumRows()

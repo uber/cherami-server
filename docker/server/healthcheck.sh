@@ -20,19 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-# start up cassandra
-pushd /
-./docker-entrypoint.sh cassandra
-popd
-sleep 40
-
 export HOST_IP=`hostname --ip-address`
 
-# setup schema
-CQLSH_HOST=$HOST_IP RF=1 ./scripts/cherami-setup-schema
-
-# fix up config
-envsubst < config/docker_template.yaml > config/docker.yaml
-
-export CHERAMI_ENVIRONMENT=docker
-./cherami-server start all
+./cherami-cli --env=prod --hostport=$HOST_IP:4922 show destination /healthcheck/healthcheck || ./cherami-cli --env=prod --hostport=$HOST_IP:4922 create destination /healthcheck/healthcheck

@@ -631,7 +631,26 @@ func main() {
 		{
 			Name:    "seal_consistency_check",
 			Aliases: []string{"scc"},
-			Usage:   "scc",
+			Usage:   "scc <dest> [--seal]",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "prefix, pf",
+					Value: "/",
+					Usage: "only process destinations with prefix",
+				},
+				cli.BoolFlag{
+					Name:  "seal",
+					Usage: "seal extents on replica that are not sealed",
+				},
+				cli.BoolFlag{
+					Name:  "verbose, v",
+					Usage: "verbose output",
+				},
+				cli.BoolFlag{
+					Name:  "veryverbose, vv",
+					Usage: "very verbose output",
+				},
+			},
 			Action: func(c *cli.Context) {
 				admin.SealConsistencyCheck(c)
 			},

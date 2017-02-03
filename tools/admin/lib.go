@@ -1123,3 +1123,11 @@ func DeleteServiceConfig(c *cli.Context) {
 	err = mClient.DeleteServiceConfig(req)
 	toolscommon.ExitIfError(err)
 }
+
+// SealConsistencyCheck iterates through every sealed extent for every destination
+// and checks to see if the corresponding replicas have been sealed.
+func SealConsistencyCheck(c *cli.Context) {
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	toolscommon.SealConsistencyCheck(c, mClient)
+}

@@ -628,6 +628,14 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:    "seal_consistency_check",
+			Aliases: []string{"scc"},
+			Usage:   "scc",
+			Action: func(c *cli.Context) {
+				admin.SealConsistencyCheck(c)
+			},
+		},
 	}
 
 	app.Run(os.Args)

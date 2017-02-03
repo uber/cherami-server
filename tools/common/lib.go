@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"regexp"
@@ -1078,4 +1079,149 @@ func getIfSetString(c *cli.Context, p string, setCount *int) (r *string) {
 		return &v
 	}
 	return
+}
+
+type storeClientCache struct {
+	mClient mcli.Client
+	cache   map[string]*storehost.StoreClientImpl
+}
+
+func newStoreClientCache(mClient mcli.Client) *storeClientCache {
+	return &storeClientCache{
+		mClient: mClient,
+		cache:   make(map[string]*storehost.StoreClientImpl),
+	}
+}
+
+func (t *storeClientCache) get(storeUUID string) (*storehost.StoreClientImpl, error) {
+
+	client, ok := t.cache[storeUUID]
+
+	if !ok {
+		hostAddr, err := t.mClient.UUIDToHostAddr(storeUUID)
+		if err != nil {
+			hostAddr = storeUUID + UnknownUUID
+		}
+
+		client, err = storehost.NewClient(storeUUID, hostAddr)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return client, nil
+}
+
+func (t *storeClientCache) close() {
+	for _, client := range t.cache {
+		client.Close()
+	}
+}
+
+// SealConsistencyCheck implement for show msg command line
+func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
+
+	/*
+		if len(c.Args()) < 1 {
+			ExitIfError(errors.New("destination needs to be specified"))
+		}
+
+		uuidStr := c.Args()[0]
+	*/
+
+	storeClients := newStoreClientCache(mClient)
+	defer storeClients.close()
+
+	const (
+		seqNumBits       = 26
+		seqNumBitmask    = (int64(1) << seqNumBits) - 1
+		timestampBitmask = math.MaxInt64 &^ seqNumBitmask
+		sealKeyTimestamp = math.MaxInt64 & timestampBitmask
+	)
+
+	prefix := string(c.String("prefix"))
+
+	req := &shared.ListDestinationsRequest{
+		Prefix: &prefix,
+		Limit:  common.Int64Ptr(DefaultPageSize),
+	}
+
+	for {
+		resp, err := mClient.ListDestinations(req)
+		ExitIfError(err)
+
+		for _, desc := range resp.GetDestinations() {
+
+			destUUID := desc.GetDestinationUUID()
+
+			listExtentsStats := &shared.ListExtentsStatsRequest{
+				DestinationUUID: common.StringPtr(string(destUUID)),
+				Limit:           common.Int64Ptr(DefaultPageSize),
+			}
+
+			for {
+				listExtentStatsResult, err1 := mClient.ListExtentsStats(listExtentsStats)
+				ExitIfError(err1)
+
+				for _, stats := range listExtentStatsResult.ExtentStatsList {
+
+					if stats.GetStatus() == shared.ExtentStatus_SEALED {
+
+						extent := stats.GetExtent()
+
+						extentUUID, storeUUIDs := extent.GetExtentUUID(), extent.GetStoreUUIDs()
+
+						for _, storeUUID := range storeUUIDs {
+
+							storeClient, err1 := storeClients.get(storeUUID)
+
+							if err1 != nil {
+								fmt.Printf("store=%v: error getting store client: %v\n", storeUUID, err1)
+								continue
+							}
+
+							req := store.NewGetAddressFromTimestampRequest()
+							req.ExtentUUID = common.StringPtr(string(extentUUID))
+							req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
+
+							// query storage to find address of the message with the given timestamp
+							resp, err1 := storeClient.GetAddressFromTimestamp(req)
+
+							if err1 != nil {
+								fmt.Printf("dest=%v extent=%v store=%v: GetAddressFromTimestamp error=%v\n",
+									destUUID, extentUUID, storeUUID, err1)
+								continue
+							}
+
+							if !resp.GetSealed() { // handle un-sealed extent
+
+								fmt.Printf("dest=%v extent=%v store=%v: not sealed\n", destUUID, extentUUID, storeUUID)
+
+							} else if resp.GetAddress() == store.ADDR_BEGIN { // handle empty, sealed extent
+
+								fmt.Printf("dest=%v extent=%v store=%v: sealed (and empty)\n", destUUID, extentUUID, storeUUID)
+
+							} else {
+
+								fmt.Printf("dest=%v extent=%v store=%v: sealed\n", destUUID, extentUUID, storeUUID)
+							}
+						}
+					}
+				}
+
+				if len(listExtentStatsResult.GetNextPageToken()) == 0 {
+					break
+				}
+
+				listExtentsStats.PageToken = listExtentStatsResult.GetNextPageToken()
+			}
+		}
+
+		if len(resp.GetNextPageToken()) == 0 {
+			break
+		}
+
+		req.PageToken = resp.GetNextPageToken()
+	}
 }

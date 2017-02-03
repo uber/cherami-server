@@ -67,3 +67,19 @@ func (s *StoreClientImpl) ReadMessages(req *store.ReadMessagesRequest) (*store.R
 
 	return s.client.ReadMessages(ctx, req)
 }
+
+// GetAddressFromTimestamp queries store for the address corresponding to the given timestamp
+func (s *StoreClientImpl) GetAddressFromTimestamp(req *store.GetAddressFromTimestampRequest) (*store.GetAddressFromTimestampResult_, error) {
+	ctx, cancel := tcthrift.NewContext(2 * time.Second)
+	defer cancel()
+
+	return s.client.GetAddressFromTimestamp(ctx, req)
+}
+
+// SealExtent queries store for the address corresponding to the given timestamp
+func (s *StoreClientImpl) SealExtent(req *store.SealExtentRequest) error {
+	ctx, cancel := tcthrift.NewContext(2 * time.Second)
+	defer cancel()
+
+	return s.client.SealExtent(ctx, req)
+}

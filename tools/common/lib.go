@@ -1391,7 +1391,8 @@ func StoreIsExtentSealed(c *cli.Context, mClient mcli.Client) {
 	var extentNotFound bool
 
 	if err != nil {
-		_, extentNotFound := err.(*store.ExtentNotFoundError)
+
+		_, extentNotFound = err.(*store.ExtentNotFoundError)
 
 		if !extentNotFound {
 			fmt.Fprintf(os.Stderr, "GetAddressFromTimestamp error: %v\n", err)

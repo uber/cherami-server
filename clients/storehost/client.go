@@ -76,7 +76,7 @@ func (s *StoreClientImpl) GetAddressFromTimestamp(req *store.GetAddressFromTimes
 	return s.client.GetAddressFromTimestamp(ctx, req)
 }
 
-// SealExtent queries store for the address corresponding to the given timestamp
+// SealExtent seals an extent on the specified store
 func (s *StoreClientImpl) SealExtent(req *store.SealExtentRequest) error {
 	ctx, cancel := tcthrift.NewContext(2 * time.Second)
 	defer cancel()

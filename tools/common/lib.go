@@ -1239,7 +1239,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 								req.ExtentUUID = common.StringPtr(string(extentUUID))
 								req.SequenceNumber = nil // seal at 'unspecified' seqnum
 
-								// query storage to find address of the message with the given timestamp
+								// seal the extent on the store
 								err2 := storeClient.SealExtent(req)
 
 								if err2 != nil {

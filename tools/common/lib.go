@@ -768,7 +768,7 @@ func ReadMessage(c *cli.Context, mClient mcli.Client) {
 		req.StartAddressInclusive = common.BoolPtr(true)
 		req.NumMessages = common.Int32Ptr(1)
 
-		// query storage to find address of the message with the given timestamp
+		// read messages from replica
 		resp, err4 := sClient.ReadMessages(req)
 		ExitIfError(err4)
 
@@ -1108,6 +1108,8 @@ func (t *storeClientCache) get(storeUUID string) (*storehost.StoreClientImpl, er
 		if err != nil {
 			return nil, err
 		}
+
+		t.cache[storeUUID] = client
 	}
 
 	return client, nil
@@ -1119,13 +1121,22 @@ func (t *storeClientCache) close() {
 	}
 }
 
+type sealcheckJSONOutputFields struct {
+	DestinationUUID string `json:"destination_uuid"`
+	ExtentUUID      string `json:"extent_uuid"`
+	StoreUUID       string `json:"store_uuid"`
+	IsSealed        bool   `json:"is_sealed"`
+	IsMissing       bool   `json:"is_missing"`
+	IsEmpty         bool   `json:"is_empty"`
+}
+
 // SealConsistencyCheck implement for show msg command line
 func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 	prefix := c.String("prefix")
-	seal := c.BoolT("seal")
-	verbose := c.BoolT("verbose")
-	veryVerbose := c.BoolT("veryverbose")
+	seal := c.Bool("seal")
+	verbose := c.Bool("verbose")
+	veryVerbose := c.Bool("veryverbose")
 
 	storeClients := newStoreClientCache(mClient)
 	defer storeClients.close()
@@ -1137,117 +1148,126 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 		sealKeyTimestamp = math.MaxInt64 & timestampBitmask
 	)
 
-	req := &shared.ListDestinationsRequest{
+	reqListDest := &shared.ListDestinationsRequest{
 		Prefix: common.StringPtr(prefix),
 		Limit:  common.Int64Ptr(DefaultPageSize),
 	}
 
 	for {
-		resp, err := mClient.ListDestinations(req)
+		if veryVerbose {
+			fmt.Printf("querying metadata: ListDestinations(prefix=\"%s\")\n", prefix)
+		}
+
+		respListDest, err := mClient.ListDestinations(reqListDest)
 		ExitIfError(err)
 
-		for _, desc := range resp.GetDestinations() {
+		for _, desc := range respListDest.GetDestinations() {
 
 			destUUID := desc.GetDestinationUUID()
 
-			// fmt.Printf("destUUID=%v\n", destUUID)
-
 			listExtentsStats := &shared.ListExtentsStatsRequest{
-				DestinationUUID: common.StringPtr(string(destUUID)),
-				Limit:           common.Int64Ptr(DefaultPageSize),
+				DestinationUUID:  common.StringPtr(string(destUUID)),
+				Status:           shared.ExtentStatusPtr(shared.ExtentStatus_SEALED),
+				LocalExtentsOnly: common.BoolPtr(true), // FIXME: make arg
+				Limit:            common.Int64Ptr(DefaultPageSize),
 			}
 
 			for {
+				if veryVerbose {
+					fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v localextentsonly=%v)\n",
+						listExtentsStats, shared.ExtentStatus_SEALED)
+				}
+
 				listExtentStatsResult, err1 := mClient.ListExtentsStats(listExtentsStats)
-				ExitIfError(err1)
+				ExitIfError(err1) // FIXME
 
 				for _, stats := range listExtentStatsResult.ExtentStatsList {
 
 					extent := stats.GetExtent()
 					extentUUID := extent.GetExtentUUID()
+					storeUUIDs := extent.GetStoreUUIDs()
 
-					if stats.GetStatus() == shared.ExtentStatus_SEALED {
+					for _, storeUUID := range storeUUIDs {
 
-						storeUUIDs := extent.GetStoreUUIDs()
+						storeClient, err1 := storeClients.get(storeUUID)
 
-						for _, storeUUID := range storeUUIDs {
+						if err1 != nil {
+							fmt.Printf("store=%v: error getting store client: %v\n", storeUUID, err1)
+							continue
+						}
 
-							storeClient, err1 := storeClients.get(storeUUID)
+						req := store.NewGetAddressFromTimestampRequest()
+						req.ExtentUUID = common.StringPtr(string(extentUUID))
+						req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
 
-							if err1 != nil {
-								fmt.Printf("store=%v: error getting store client: %v\n", storeUUID, err1)
+						// query storage to find address of the message with the given timestamp
+						resp, err1 := storeClient.GetAddressFromTimestamp(req)
+
+						var extentNotFound bool
+
+						if err1 != nil {
+							_, extentNotFound = err1.(*store.ExtentNotFoundError)
+
+							if !extentNotFound {
+								fmt.Printf("dest=%v extent=%v store=%v: GetAddressFromTimestamp error=%v\n",
+									destUUID, extentUUID, storeUUID, err1)
 								continue
 							}
-
-							req := store.NewGetAddressFromTimestampRequest()
-							req.ExtentUUID = common.StringPtr(string(extentUUID))
-							req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
-
-							// query storage to find address of the message with the given timestamp
-							resp, err1 := storeClient.GetAddressFromTimestamp(req)
-
-							var extentNotFound bool
-
-							if err1 != nil {
-								_, extentNotFound = err1.(*store.ExtentNotFoundError)
-
-								if !extentNotFound {
-									fmt.Printf("dest=%v extent=%v store=%v: GetAddressFromTimestamp error=%v\n",
-										destUUID, extentUUID, storeUUID, err1)
-									continue
-								}
-							}
-
-							switch {
-							case extentNotFound || !resp.GetSealed(): // handle un-sealed extent
-
-								fmt.Printf("dest=%v extent=%v store=%v: ", destUUID, extentUUID, storeUUID)
-
-								if extentNotFound {
-									fmt.Printf("not sealed (extent missing)\n", destUUID, extentUUID, storeUUID)
-								} else {
-									fmt.Printf("not sealed\n", destUUID, extentUUID, storeUUID)
-								}
-
-								// now seal the extent
-								if seal {
-
-									fmt.Printf("sealing extent on replica: ", destUUID, extentUUID, storeUUID)
-
-									req := store.NewSealExtentRequest()
-									req.ExtentUUID = common.StringPtr(string(extentUUID))
-									req.SequenceNumber = nil // seal at 'unspecified' seqnum
-
-									// query storage to find address of the message with the given timestamp
-									err2 := storeClient.SealExtent(req)
-
-									if err2 != nil {
-										fmt.Printf("%v\n", err2)
-									} else {
-										fmt.Printf("done\n")
-									}
-								}
-
-							default:
-
-								if veryVerbose {
-									fmt.Printf("dest=%v extent=%v store=%v: ", destUUID, extentUUID, storeUUID)
-
-									if resp.GetAddress() == store.ADDR_BEGIN { // handle empty, sealed extent
-										fmt.Printf("dest=%v extent=%v store=%v: sealed (and empty)\n", destUUID, extentUUID, storeUUID)
-									} else {
-										fmt.Printf("dest=%v extent=%v store=%v: sealed\n", destUUID, extentUUID, storeUUID)
-									}
-								}
-							}
 						}
 
-					} else {
+						switch {
+						case extentNotFound || !resp.GetSealed(): // handle un-sealed extent
 
-						if veryVerbose {
-							fmt.Printf("dest=%v extent=%v: status=%v\n", destUUID, extentUUID, stats.GetStatus())
+							output := &sealcheckJSONOutputFields{
+								DestinationUUID: destUUID,
+								ExtentUUID:      extentUUID,
+								StoreUUID:       storeUUID,
+								IsSealed:        false,
+								IsMissing:       extentNotFound,
+								IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
+							}
+
+							outputStr, _ := json.Marshal(output)
+							fmt.Fprintln(os.Stdout, string(outputStr))
+
+							// now seal the extent
+							if seal {
+
+								fmt.Printf("sealing extent on replica: ", destUUID, extentUUID, storeUUID)
+
+								req := store.NewSealExtentRequest()
+								req.ExtentUUID = common.StringPtr(string(extentUUID))
+								req.SequenceNumber = nil // seal at 'unspecified' seqnum
+
+								// query storage to find address of the message with the given timestamp
+								err2 := storeClient.SealExtent(req)
+
+								if err2 != nil {
+									fmt.Printf("%v\n", err2)
+								} else {
+									fmt.Printf("done\n")
+								}
+							}
+
+						default:
+
+							if verbose {
+
+								output := &sealcheckJSONOutputFields{
+									DestinationUUID: destUUID,
+									ExtentUUID:      extentUUID,
+									StoreUUID:       storeUUID,
+									IsSealed:        resp.GetSealed(),
+									IsMissing:       extentNotFound,
+									IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
+								}
+
+								outputStr, _ := json.Marshal(output)
+								fmt.Fprintln(os.Stdout, string(outputStr))
+							}
 						}
 					}
+
 				}
 
 				if len(listExtentStatsResult.GetNextPageToken()) == 0 {
@@ -1258,10 +1278,129 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 			}
 		}
 
-		if len(resp.GetNextPageToken()) == 0 {
+		if len(respListDest.GetNextPageToken()) == 0 {
 			break
 		}
 
-		req.PageToken = resp.GetNextPageToken()
+		reqListDest.PageToken = respListDest.GetNextPageToken()
 	}
+}
+
+type sealextentJSONOutputFields struct {
+	StoreUUID  string `json:"store_uuid"`
+	ExtentUUID string `json:"extent_uuid"`
+	IsSealed   bool   `json:"is_sealed"`
+}
+
+// StoreSealExtent sends a SealExtent request for an extent on a storehost
+func StoreSealExtent(c *cli.Context, mClient mcli.Client) {
+
+	if len(c.Args()) < 2 {
+		ExitIfError(errors.New(strNotEnoughArgs))
+	}
+
+	storeUUID, extentUUID := c.Args()[0], c.Args()[1]
+
+	hostAddr, err := mClient.UUIDToHostAddr(storeUUID)
+	if err != nil {
+		hostAddr = storeUUID + UnknownUUID
+	}
+
+	storeClient, err := storehost.NewClient(storeUUID, hostAddr)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving host (%v): %v\n", storeUUID, err)
+		return
+	}
+
+	req := store.NewSealExtentRequest()
+	req.ExtentUUID = common.StringPtr(string(extentUUID))
+	req.SequenceNumber = nil // seal at 'unspecified' seqnum
+
+	// query storage to find address of the message with the given timestamp
+	err = storeClient.SealExtent(req)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "SealExtent error: %v\n", err)
+		return
+	}
+
+	output := &sealextentJSONOutputFields{
+		StoreUUID:  storeUUID,
+		ExtentUUID: extentUUID,
+		IsSealed:   true,
+	}
+
+	outputStr, _ := json.Marshal(output)
+	fmt.Fprintln(os.Stdout, string(outputStr))
+}
+
+type isextentsealedJSONOutputFields struct {
+	StoreUUID  string `json:"store_uuid"`
+	ExtentUUID string `json:"extent_uuid"`
+	IsSealed   bool   `json:"is_sealed"`
+	IsMissing  bool   `json:"is_missing"`
+}
+
+// StoreIsExtentSealed checks if an extent is sealed on the specified store
+func StoreIsExtentSealed(c *cli.Context, mClient mcli.Client) {
+
+	const (
+		seqNumBits       = 26
+		seqNumBitmask    = (int64(1) << seqNumBits) - 1
+		timestampBitmask = math.MaxInt64 &^ seqNumBitmask
+		sealKeyTimestamp = math.MaxInt64 & timestampBitmask
+	)
+
+	if len(c.Args()) < 2 {
+		ExitIfError(errors.New(strNotEnoughArgs))
+	}
+
+	storeUUID, extentUUID := c.Args()[0], c.Args()[1]
+
+	hostAddr, err := mClient.UUIDToHostAddr(storeUUID)
+	if err != nil {
+		hostAddr = storeUUID + UnknownUUID
+	}
+
+	storeClient, err := storehost.NewClient(storeUUID, hostAddr)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving host (%v): %v\n", storeUUID, err)
+		return
+	}
+
+	req := store.NewGetAddressFromTimestampRequest()
+	req.ExtentUUID = common.StringPtr(string(extentUUID))
+	req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
+
+	// query storage to find address of the message with the given timestamp
+	resp, err := storeClient.GetAddressFromTimestamp(req)
+
+	var extentNotFound bool
+
+	if err != nil {
+		_, extentNotFound := err.(*store.ExtentNotFoundError)
+
+		if !extentNotFound {
+			fmt.Fprintf(os.Stderr, "GetAddressFromTimestamp error: %v\n", err)
+			return
+		}
+	}
+
+	output := &isextentsealedJSONOutputFields{
+		StoreUUID:  storeUUID,
+		ExtentUUID: extentUUID,
+		IsMissing:  extentNotFound,
+		IsSealed:   (err == nil) && resp.GetSealed(),
+	}
+
+	outputStr, _ := json.Marshal(output)
+	fmt.Fprintln(os.Stdout, string(outputStr))
+}
+
+// StoreGetAddressFromTimestamp sends a GetAddressFromTimestamp request to the specified store
+func StoreGetAddressFromTimestamp(c *cli.Context, mClient mcli.Client) {
+
+	// TODO //
 }

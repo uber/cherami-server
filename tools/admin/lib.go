@@ -1131,3 +1131,24 @@ func SealConsistencyCheck(c *cli.Context) {
 	mClient := toolscommon.GetMClient(c, adminToolService)
 	toolscommon.SealConsistencyCheck(c, mClient)
 }
+
+// StoreSealExtent sends a SealExtent command to the specified store.
+func StoreSealExtent(c *cli.Context) {
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	toolscommon.StoreSealExtent(c, mClient)
+}
+
+// StoreIsExtentSealed checks if an extent is sealed on the specified store
+func StoreIsExtentSealed(c *cli.Context) {
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	toolscommon.StoreIsExtentSealed(c, mClient)
+}
+
+// StoreGetAddressFromTimestamp sends a GetAddressFromTimestamp command to the specified store.
+func StoreGetAddressFromTimestamp(c *cli.Context) {
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	toolscommon.StoreGetAddressFromTimestamp(c, mClient)
+}

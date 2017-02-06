@@ -629,9 +629,9 @@ func main() {
 			},
 		},
 		{
-			Name:    "seal_consistency_check",
-			Aliases: []string{"scc"},
-			Usage:   "scc <dest> [--seal]",
+			Name:    "seal-check",
+			Aliases: []string{"sc"},
+			Usage:   "seal-check <dest> [--seal]",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "prefix, pf",
@@ -653,6 +653,30 @@ func main() {
 			},
 			Action: func(c *cli.Context) {
 				admin.SealConsistencyCheck(c)
+			},
+		},
+		{
+			Name:    "store-seal",
+			Aliases: []string{"seal"},
+			Usage:   "seal <store_uuid> <extent_uuid> [<seqnum>]",
+			Action: func(c *cli.Context) {
+				admin.StoreSealExtent(c)
+			},
+		},
+		{
+			Name:    "store-isextentsealed",
+			Aliases: []string{"issealed"},
+			Usage:   "store-isextentsealed <store_uuid> <extent_uuid>",
+			Action: func(c *cli.Context) {
+				admin.StoreIsExtentSealed(c)
+			},
+		},
+		{
+			Name:    "store-gaft",
+			Aliases: []string{"gaft"},
+			Usage:   "gaft <store_uuid> <extent_uuid> <timestamp>",
+			Action: func(c *cli.Context) {
+				admin.StoreGetAddressFromTimestamp(c)
 			},
 		},
 	}

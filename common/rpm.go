@@ -65,8 +65,8 @@ type (
 		FindHostForAddr(service string, addr string) (*HostInfo, error)
 		// FindHostForKey finds and returns the host responsible for handling the given (service, key)
 		FindHostForKey(service string, key string) (*HostInfo, error)
-		// FindRandomHostForKey finds and returns a random host responsible for handling the given service
-		FindRandomHostForKey(service string) (*HostInfo, error)
+		// FindRandomHost finds and returns a random host responsible for handling the given service
+		FindRandomHost(service string) (*HostInfo, error)
 		// IsHostHealthy returns true if the given (service, host) is healthy
 		IsHostHealthy(service string, uuid string) bool
 		// ResolveUUID resovles a host UUID to an IP address, if the host is found
@@ -277,11 +277,11 @@ func (rpm *ringpopMonitorImpl) FindHostForKey(service string, key string) (*Host
 	return &host, nil
 }
 
-// FindRandomHostForKey finds and returns a random host responsible for handling the given key
-func (rpm *ringpopMonitorImpl) FindRandomHostForKey(service string) (*HostInfo, error) {
+// FindRandomHost finds and returns a random host responsible for handling the given key
+func (rpm *ringpopMonitorImpl) FindRandomHost(service string) (*HostInfo, error) {
 	members, err := rpm.GetHosts(service)
-	if err != nil || members == nil || len(members) == 0 {
-		return nil, ErrUnknownService
+	if err != nil {
+		return nil, err
 	}
 
 	return members[rand.Intn(len(members))], nil

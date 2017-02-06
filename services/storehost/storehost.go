@@ -1395,7 +1395,7 @@ func getReplicationArgsFromRemoteReplicateRequest(req *store.RemoteReplicateExte
 	}
 
 	rpm := sCommon.GetRingpopMonitor()
-	hostInfo, err := rpm.FindRandomHostForKey(common.ReplicatorServiceName)
+	hostInfo, err := rpm.FindRandomHost(common.ReplicatorServiceName)
 	if err != nil {
 		return nil, newInternalServiceError(fmt.Sprintf("error finding replicator host : (%v)", err))
 	}

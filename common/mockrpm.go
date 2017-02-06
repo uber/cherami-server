@@ -108,8 +108,8 @@ func (rpm *MockRingpopMonitor) FindHostForKey(service string, key string) (*Host
 	return &HostInfo{}, ErrInsufficientHosts
 }
 
-// FindRandomHostForKey finds and returns a random host responsible for handling the given key
-func (rpm *MockRingpopMonitor) FindRandomHostForKey(service string) (*HostInfo, error) {
+// FindRandomHost finds and returns a random host responsible for handling the given key
+func (rpm *MockRingpopMonitor) FindRandomHost(service string) (*HostInfo, error) {
 	rpm.RLock()
 	defer rpm.RUnlock()
 

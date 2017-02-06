@@ -1153,13 +1153,18 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 		Limit:  common.Int64Ptr(DefaultPageSize),
 	}
 
+iterate_listdestinations_pages:
 	for {
 		if veryVerbose {
 			fmt.Printf("querying metadata: ListDestinations(prefix=\"%s\")\n", prefix)
 		}
 
 		respListDest, err := mClient.ListDestinations(reqListDest)
-		ExitIfError(err)
+
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ListDestinations error: %v\n", err)
+			break iterate_listdestinations_pages
+		}
 
 		for _, desc := range respListDest.GetDestinations() {
 
@@ -1172,6 +1177,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 				Limit:            common.Int64Ptr(DefaultPageSize),
 			}
 
+		iterate_listextents_pages:
 			for {
 				if veryVerbose {
 					fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v localextentsonly=%v)\n",
@@ -1179,7 +1185,11 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 				}
 
 				listExtentStatsResult, err1 := mClient.ListExtentsStats(listExtentsStats)
-				ExitIfError(err1) // FIXME
+
+				if err1 != nil {
+					fmt.Fprintf(os.Stderr, "ListExtentsStats(dest=%v) error: %v\n", destUUID, err)
+					break iterate_listextents_pages
+				}
 
 				for _, stats := range listExtentStatsResult.ExtentStatsList {
 
@@ -1187,13 +1197,14 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 					extentUUID := extent.GetExtentUUID()
 					storeUUIDs := extent.GetStoreUUIDs()
 
+				iterate_stores:
 					for _, storeUUID := range storeUUIDs {
 
 						storeClient, err1 := storeClients.get(storeUUID)
 
 						if err1 != nil {
-							fmt.Printf("store=%v: error getting store client: %v\n", storeUUID, err1)
-							continue
+							fmt.Fprintf(os.Stderr, "error getting store client (store=%v): %v\n", storeUUID, err)
+							continue iterate_stores
 						}
 
 						req := store.NewGetAddressFromTimestampRequest()
@@ -1209,9 +1220,9 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 							_, extentNotFound = err1.(*store.ExtentNotFoundError)
 
 							if !extentNotFound {
-								fmt.Printf("dest=%v extent=%v store=%v: GetAddressFromTimestamp error=%v\n",
+								fmt.Fprintf(os.Stderr, "dest=%v extent=%v store=%v: GetAddressFromTimestamp error: %v\n",
 									destUUID, extentUUID, storeUUID, err1)
-								continue
+								continue iterate_stores
 							}
 						}
 
@@ -1243,9 +1254,9 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 								err2 := storeClient.SealExtent(req)
 
 								if err2 != nil {
-									fmt.Printf("%v\n", err2)
-								} else {
-									fmt.Printf("done\n")
+									fmt.Fprintf(os.Stderr, "dest=%v extent=%v store=%v: GetAddressFromTimestamp error: %v\n",
+										destUUID, extentUUID, storeUUID, err1)
+									continue iterate_stores
 								}
 							}
 
@@ -1271,7 +1282,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 				}
 
 				if len(listExtentStatsResult.GetNextPageToken()) == 0 {
-					break
+					break iterate_listextents_pages
 				}
 
 				listExtentsStats.PageToken = listExtentStatsResult.GetNextPageToken()
@@ -1279,7 +1290,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 		}
 
 		if len(respListDest.GetNextPageToken()) == 0 {
-			break
+			break iterate_listdestinations_pages
 		}
 
 		reqListDest.PageToken = respListDest.GetNextPageToken()

@@ -666,7 +666,7 @@ func main() {
 		{
 			Name:    "store-isextentsealed",
 			Aliases: []string{"issealed"},
-			Usage:   "store-isextentsealed <store_uuid> <extent_uuid>",
+			Usage:   "issealed <store_uuid> <extent_uuid>",
 			Action: func(c *cli.Context) {
 				admin.StoreIsExtentSealed(c)
 			},
@@ -677,6 +677,26 @@ func main() {
 			Usage:   "gaft <store_uuid> <extent_uuid> <timestamp>",
 			Action: func(c *cli.Context) {
 				admin.StoreGetAddressFromTimestamp(c)
+			},
+		},
+		{
+			Name:    "store-purgeextent",
+			Aliases: []string{"purge"},
+			Usage:   "purge <store_uuid> <extent_uuid> [<address> | --entirely]",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:  "entirely",
+					Usage: "deletes extent entirely",
+				},
+
+				cli.Int64Flag{
+					Name:  "address, a",
+					Value: 0,
+					Usage: "address to delete upto",
+				},
+			},
+			Action: func(c *cli.Context) {
+				admin.StorePurgeMessages(c)
 			},
 		},
 	}

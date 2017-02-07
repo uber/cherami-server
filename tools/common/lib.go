@@ -1328,7 +1328,7 @@ func StoreSealExtent(c *cli.Context, mClient mcli.Client) {
 	req.ExtentUUID = common.StringPtr(string(extentUUID))
 	req.SequenceNumber = nil // seal at 'unspecified' seqnum
 
-	// query storage to find address of the message with the given timestamp
+	// send a seal-extent request to store
 	err = storeClient.SealExtent(req)
 
 	if err != nil {
@@ -1415,4 +1415,64 @@ func StoreIsExtentSealed(c *cli.Context, mClient mcli.Client) {
 func StoreGetAddressFromTimestamp(c *cli.Context, mClient mcli.Client) {
 
 	// TODO //
+}
+
+type purgeJSONOutputFields struct {
+	StoreUUID  string `json:"store_uuid"`
+	ExtentUUID string `json:"extent_uuid"`
+	Address    int64  `json:"first_available_address"`
+}
+
+// StorePurgeMessages sends a purge command for an extent to the specified store.
+func StorePurgeMessages(c *cli.Context, mClient mcli.Client) {
+
+	if len(c.Args()) < 2 {
+		ExitIfError(errors.New(strNotEnoughArgs))
+	}
+
+	storeUUID, extentUUID := c.Args()[0], c.Args()[1]
+
+	deleteExtent := c.Bool("entirely")
+	purgeAddr := c.Int64("address")
+
+	if !deleteExtent && purgeAddr == 0 {
+		ExitIfError(errors.New(strNotEnoughArgs))
+	}
+
+	if deleteExtent {
+		purgeAddr = store.ADDR_SEAL
+	}
+
+	hostAddr, err := mClient.UUIDToHostAddr(storeUUID)
+	if err != nil {
+		hostAddr = storeUUID + UnknownUUID
+	}
+
+	storeClient, err := storehost.NewClient(storeUUID, hostAddr)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving host (%v): %v\n", storeUUID, err)
+		return
+	}
+
+	req := store.NewPurgeMessagesRequest()
+	req.ExtentUUID = common.StringPtr(string(extentUUID))
+	req.Address = common.Int64Ptr(purgeAddr)
+
+	// send a purge-messages request
+	resp, err := storeClient.PurgeMessages(req)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "PurgeMessages error: %v\n", err)
+		return
+	}
+
+	output := &purgeJSONOutputFields{
+		StoreUUID:  storeUUID,
+		ExtentUUID: extentUUID,
+		Address:    resp.GetAddress(),
+	}
+
+	outputStr, _ := json.Marshal(output)
+	fmt.Fprintln(os.Stdout, string(outputStr))
 }

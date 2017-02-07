@@ -1152,3 +1152,10 @@ func StoreGetAddressFromTimestamp(c *cli.Context) {
 	mClient := toolscommon.GetMClient(c, adminToolService)
 	toolscommon.StoreGetAddressFromTimestamp(c, mClient)
 }
+
+// StorePurgeMessages sends a purge command for an extent to the specified store.
+func StorePurgeMessages(c *cli.Context) {
+
+	mClient := toolscommon.GetMClient(c, adminToolService)
+	toolscommon.StorePurgeMessages(c, mClient)
+}

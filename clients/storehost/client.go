@@ -83,3 +83,11 @@ func (s *StoreClientImpl) SealExtent(req *store.SealExtentRequest) error {
 
 	return s.client.SealExtent(ctx, req)
 }
+
+// PurgeMessages seals an extent on the specified store
+func (s *StoreClientImpl) PurgeMessages(req *store.PurgeMessagesRequest) (*store.PurgeMessagesResult_, error) {
+	ctx, cancel := tcthrift.NewContext(2 * time.Second)
+	defer cancel()
+
+	return s.client.PurgeMessages(ctx, req)
+}

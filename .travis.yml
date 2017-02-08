@@ -47,12 +47,14 @@ script:
   - EMBEDROCKSDB=0 make cover_ci
 
 after_success:
-  - export REPO=ubercherami/cherami-server-standalone
   - export BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
-  - export TAG=`if [ "$BRANCH" == "master" ]; then echo "latest"; else echo $BRANCH; fi`
-  - echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, REPO=$REPO, PR=$PR, BRANCH=$BRANCH, TAG=$TAG"
-  - docker login -u $DOCKER_USER -p $DOCKER_PASS
-  - docker build -f docker/standalone/Dockerfile -t $REPO:$COMMIT docker/standalone/
-  - docker tag $REPO:$COMMIT $REPO:$TAG
-  - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
-  - docker push $REPO
+  - 'if [ "$BRANCH" == "master" ]; then
+        export REPO=ubercherami/cherami-server-standalone;
+        export TAG=latest;
+        echo "TRAVIS_BRANCH=$TRAVIS_BRANCH, REPO=$REPO, PR=$PR, BRANCH=$BRANCH, TAG=$TAG";
+        docker login -u $DOCKER_USER -p $DOCKER_PASS;
+        docker build -f docker/standalone/Dockerfile -t $REPO:$COMMIT docker/standalone/;
+        docker tag $REPO:$COMMIT $REPO:$TAG;
+        docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER;
+        docker push $REPO;
+    fi'

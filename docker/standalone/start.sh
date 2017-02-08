@@ -24,9 +24,15 @@
 pushd /
 ./docker-entrypoint.sh cassandra
 popd
-sleep 40
 
 export HOST_IP=`hostname --ip-address`
+
+until cqlsh "$HOST_IP" < /dev/null; do
+    echo 'waiting for cassandra to start up'
+    sleep 1
+done
+
+echo 'cassandra started'
 
 # setup schema
 CQLSH_HOST=$HOST_IP RF=1 ./scripts/cherami-setup-schema

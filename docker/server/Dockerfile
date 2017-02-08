@@ -29,12 +29,7 @@ RUN cd $CHERAMI_HOME; make bins
 
 EXPOSE 4922 4253 4240 4254 5425 6280 6189 6190 6191 6310
 
-COPY ./healthcheck.sh $CHERAMI_HOME/healthcheck.sh
-RUN chmod a+x $CHERAMI_HOME/healthcheck.sh
-
 WORKDIR $CHERAMI_HOME
 
 # Remember to mount host directories (config and data), and have CHERAMI_CONFIG_DIR properly point to config.
 CMD ["./cherami-server", "start", "all"]
-
-HEALTHCHECK --interval=1s --timeout=1s --retries=120 CMD ./healthcheck.sh

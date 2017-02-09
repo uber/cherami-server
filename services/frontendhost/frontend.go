@@ -1301,12 +1301,25 @@ func (h *Frontend) GetQueueDepthInfo(ctx thrift.Context, queueRequest *c.GetQueu
 	if _, err = h.prolog(ctx, queueRequest); err != nil {
 		return
 	}
+	var cgDesc *c.ConsumerGroupDescription
 
-	cgUUID := queueRequest.GetKey()
+	cgUUID := queueRequest.GetConsumerGroupName()
 
-	if !common.UUIDRegex.MatchString(cgUUID) { // Special handling to ensure only a UUID is allowed
-		err = &c.BadRequestError{Message: fmt.Sprintf("Consumer group must be given as UUID, not \"%v\"", cgUUID)}
-		return
+	if !common.UUIDRegex.MatchString(cgUUID) {
+		rcgReq := &c.ReadConsumerGroupRequest{
+			ConsumerGroupName: common.StringPtr(queueRequest.GetConsumerGroupName()),
+			DestinationPath:   common.StringPtr(queueRequest.GetDestinationPath()),
+		}
+		cgDesc, err = h.ReadConsumerGroup(ctx, rcgReq)
+		if err != nil {
+			return
+		}
+
+		cgUUID = cgDesc.GetConsumerGroupUUID()
+	} else {
+		if queueRequest.GetDestinationPath() != `` {
+			return nil, &c.BadRequestError{Message: `DestinationName must be nil or empty when consumer group supplied as UUID`}
+		}
 	}
 
 	// Request to the extent controller
@@ -1464,7 +1477,8 @@ func (h *Frontend) prolog(ctx thrift.Context, request interface{}) (allowMutate 
 	case *c.DeleteDestinationRequest:
 		allowMutate, eD = h.validateName(v.Path, destinationName, validateDisallowUUID, validateDisallowEmpty)
 	case *c.GetQueueDepthInfoRequest:
-		_, eC = h.validateName(v.Key, consumerGroupName, validateAllowUUID, validateDisallowEmpty)
+		_, eC = h.validateName(v.ConsumerGroupName, consumerGroupName, validateAllowUUID, validateDisallowEmpty)
+		_, eC = h.validateName(v.DestinationPath, destinationName, validateDisallowUUID, validateAllowEmpty)
 	case *c.ListConsumerGroupRequest:
 		_, eD = h.validateName(v.DestinationPath, destinationName, validateDisallowUUID, validateDisallowEmpty)
 		_, eC = h.validateName(v.ConsumerGroupName, consumerGroupName, validateDisallowUUID, validateAllowEmpty)

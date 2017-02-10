@@ -22,4 +22,5 @@
 
 export HOST_IP=`hostname --ip-address`
 
-./cherami-cli --env=prod --hostport=$HOST_IP:4922 show destination /healthcheck/healthcheck || ./cherami-cli --env=prod --hostport=$HOST_IP:4922 create destination /healthcheck/healthcheck
+(./cherami-cli --env=prod --hostport=$HOST_IP:4922 show destination /healthcheck/healthcheck && echo 'message' | ./cherami-cli --env=prod --hostport=$HOST_IP:4922 publish /healthcheck/healthcheck) || \
+(./cherami-cli --env=prod --hostport=$HOST_IP:4922 create destination /healthcheck/healthcheck && echo 'message' | ./cherami-cli --env=prod --hostport=$HOST_IP:4922 publish /healthcheck/healthcheck)

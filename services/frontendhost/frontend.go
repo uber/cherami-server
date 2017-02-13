@@ -1302,10 +1302,9 @@ func (h *Frontend) GetQueueDepthInfo(ctx thrift.Context, queueRequest *c.GetQueu
 		return
 	}
 	var cgDesc *c.ConsumerGroupDescription
+	var cgUUID string
 
-	cgUUID := queueRequest.GetConsumerGroupName()
-
-	if !common.UUIDRegex.MatchString(cgUUID) {
+	if queueRequest.GetDestinationPath() != `` { // Normal path+cg-name specification
 		rcgReq := &c.ReadConsumerGroupRequest{
 			ConsumerGroupName: common.StringPtr(queueRequest.GetConsumerGroupName()),
 			DestinationPath:   common.StringPtr(queueRequest.GetDestinationPath()),
@@ -1314,11 +1313,11 @@ func (h *Frontend) GetQueueDepthInfo(ctx thrift.Context, queueRequest *c.GetQueu
 		if err != nil {
 			return
 		}
-
 		cgUUID = cgDesc.GetConsumerGroupUUID()
-	} else {
-		if queueRequest.GetDestinationPath() != `` {
-			return nil, &c.BadRequestError{Message: `DestinationName must be nil or empty when consumer group supplied as UUID`}
+	} else { // No destination path, therefore consumer group specified by UUID
+		cgUUID = queueRequest.GetConsumerGroupName()
+		if !common.UUIDRegex.MatchString(cgUUID) {
+			return nil, &c.BadRequestError{Message: `if destination path not specified, consumer group must be supplied as UUID`}
 		}
 	}
 

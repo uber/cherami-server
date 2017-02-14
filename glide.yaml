@@ -34,7 +34,6 @@ import:
   - common/websocket
   - stream
 - package: github.com/uber/cherami-thrift
-  version: output_admin
   subpackages:
   - .generated/go/admin
   - .generated/go/cherami

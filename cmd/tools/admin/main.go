@@ -619,7 +619,7 @@ func main() {
 						cli.StringFlag{
 							Name:  "cg_uuid, cg",
 							Value: "",
-							Usage: "The consumergroup UUID whose in-memory state to dump",
+							Usage: "The UUID of the consumer group whose state will be dumped",
 						},
 					},
 					Action: func(c *cli.Context) {
@@ -649,8 +649,9 @@ func main() {
 						admin.UnloadConsumerGroup(c)
 					},
 				},
-      },
-      {
+			},
+		},
+		{
 			Name:    "seal-check",
 			Aliases: []string{"sc"},
 			Usage:   "seal-check <dest> [--seal]",

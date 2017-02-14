@@ -1568,3 +1568,49 @@ func StorePurgeMessages(c *cli.Context, mClient mcli.Client) {
 	outputStr, _ := json.Marshal(output)
 	fmt.Fprintln(os.Stdout, string(outputStr))
 }
+
+type listextentsJSONOutputFields struct {
+	StoreUUID  string `json:"store_uuid"`
+	ExtentUUID string `json:"extent_uuid"`
+}
+
+// StoreListExtents sends a request to the specified store to get a list of extents
+func StoreListExtents(c *cli.Context, mClient mcli.Client) {
+
+	if len(c.Args()) < 1 {
+		ExitIfError(errors.New(strNotEnoughArgs))
+	}
+
+	storeUUID := c.Args()[0]
+
+	hostAddr, err := mClient.UUIDToHostAddr(storeUUID)
+	if err != nil {
+		hostAddr = storeUUID + UnknownUUID
+	}
+
+	storeClient, err := storehost.NewClient(storeUUID, hostAddr)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error resolving host (%v): %v\n", storeUUID, err)
+		return
+	}
+
+	// send a purge-messages request
+	resp, err := storeClient.ListExtents()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ListExtents error: %v\n", err)
+		return
+	}
+
+	for _, x := range resp.GetExtents() {
+
+		output := &listextentsJSONOutputFields{
+			StoreUUID:  storeUUID,
+			ExtentUUID: x.GetExtentUUID(),
+		}
+
+		outputStr, _ := json.Marshal(output)
+		fmt.Fprintln(os.Stdout, string(outputStr))
+	}
+}

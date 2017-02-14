@@ -71,6 +71,9 @@ type StoreManager interface {
 	// (FIXME: This should probably take in some manager-specific
 	// configuration parameters, as an empty struct/interface?)
 	OpenExtent(id ExtentUUID, pattern KeyPattern, notify NotifyFunc, failIfNotExist bool) (ExtentStore, error)
+
+	// ListExtents returns list of available extents
+	ListExtents() ([]ExtentUUID, error)
 }
 
 // -- EXTENT STORE -- //

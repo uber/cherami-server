@@ -229,6 +229,30 @@ func (t *ManyRocks) OpenExtent(id s.ExtentUUID, keyPattern s.KeyPattern, notify 
 	}, nil
 }
 
+// ListExtents returns a list of extents available on the store
+func (t *ManyRocks) ListExtents() (extents []s.ExtentUUID, err error) {
+
+	dir, err := os.Open(t.opts.BaseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	defer dir.Close()
+
+	names, err := dir.Readdirnames(0)
+
+	if err == nil {
+
+		extents = make([]s.ExtentUUID, len(names))
+
+		for i, x := range names {
+			extents[i] = s.ExtentUUID(x)
+		}
+	}
+
+	return extents, err
+}
+
 // setExtentDeleted set the map entry to deleted status; if the command is
 // from db drop action, it is delete for sure so go ahead to set the map;
 // if it is due to folder check error or db open errors, we need to make

@@ -352,6 +352,23 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent) {
 	return
 }
 
+// ListExtents returns list of extents on store
+func (xMgr *ExtentManager) ListExtents() (extentIDs []string, err error) {
+
+	extents, err := xMgr.storeMgr.ListExtents()
+
+	if len(extents) > 0 {
+
+		extentIDs = make([]string, len(extents))
+
+		for i, x := range extents {
+			extentIDs[i] = string(x)
+		}
+	}
+
+	return
+}
+
 // IsExtentOpenedForReplication checks whether an extent is already opened for replication
 func (xMgr *ExtentManager) IsExtentOpenedForReplication(extentID string) bool {
 	xMgr.RLock()

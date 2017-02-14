@@ -1558,3 +1558,43 @@ func (t *StoreHost) RemoteReplicateExtent(tCtx thrift.Context, req *store.Remote
 
 	return nil
 }
+
+// ListExtents lists extents available on this storehost
+func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResult_, err error) {
+
+	t.m3Client.IncCounter(metrics.ListExtentsScope, metrics.StorageRequests)
+
+	sw := t.m3Client.StartTimer(metrics.ListExtentsScope, metrics.StorageLatencyTimer)
+	defer sw.Stop()
+
+	log := t.logger
+
+	log.Info("ListExtents()")
+
+	extents, err := t.xMgr.ListExtents()
+
+	if len(extents) > 0 {
+
+		res = store.NewListExtentsResult_()
+
+		res.Extents = make([]*store.ListExtentsElem, len(extents))
+
+		for i, x := range extents {
+
+			res.Extents[i] = store.NewListExtentsElem()
+			res.Extents[i].ExtentUUID = common.StringPtr(x)
+			// res.Extents[i].DestinationUUID  = common.StringPtr(...) // TODO: currently unavailable
+		}
+	}
+
+	if err == nil {
+		return res, nil
+	}
+
+	log.WithField(common.TagErr, err).Error(`ListExtents failed`)
+
+	storeSvcErr := store.NewStoreServiceError()
+	storeSvcErr.Message = fmt.Sprintf("ListExtents error: %v", err)
+
+	return res, storeSvcErr
+}

@@ -949,10 +949,14 @@ const (
 	ReplicatorReconcileDestExtentFail
 	// ReplicatorReconcileDestExtentFoundMissing indicates the reconcile for dest extent found a missing dest extent
 	ReplicatorReconcileDestExtentFoundMissing
+	// ReplicatorReconcileDestExtentRemoteConsumedLocalMissing indicates the reconcile for dest extent found a dest extent that is consumed on remote side and local is missing
+	ReplicatorReconcileDestExtentRemoteConsumedLocalMissing
 	// ReplicatorReconcileDestExtentRemoteDeleted indicates the reconcile for dest extent found a dest extent that is deleted on remote side and local is missing
 	ReplicatorReconcileDestExtentRemoteDeletedLocalMissing
 	// ReplicatorReconcileDestExtentRemoteDeletedLocalNot indicates the reconcile for dest extent found an inconsistent extent status(remote is deleted, local is not)
 	ReplicatorReconcileDestExtentRemoteDeletedLocalNot
+	// ReplicatorReconcileDestExtentSuspectMissingExtents indicates the length of the suspect missing extent list
+	ReplicatorReconcileDestExtentSuspectMissingExtents
 
 	numMetrics
 )
@@ -1105,8 +1109,10 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ReplicatorReconcileDestExtentRun:                       {Gauge, "replicator.reconcile.destextent.run"},
 		ReplicatorReconcileDestExtentFail:                      {Gauge, "replicator.reconcile.destextent.fail"},
 		ReplicatorReconcileDestExtentFoundMissing:              {Gauge, "replicator.reconcile.destextent.foundmissing"},
+		ReplicatorReconcileDestExtentRemoteConsumedLocalMissing:{Gauge, "replicator.reconcile.destextent.remote-consumed-local-missing"},
 		ReplicatorReconcileDestExtentRemoteDeletedLocalMissing: {Gauge, "replicator.reconcile.destextent.remote-deleted-local-missing"},
 		ReplicatorReconcileDestExtentRemoteDeletedLocalNot:     {Gauge, "replicator.reconcile.destextent.remote-deleted-local-not"},
+		ReplicatorReconcileDestExtentSuspectMissingExtents:     {Gauge, "replicator.reconcile.destextent.suspect-missing-extent"},
 	},
 }
 

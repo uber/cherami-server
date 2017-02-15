@@ -441,7 +441,11 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 			}).Warn(`Found missing extent from remote!`)
 
 			// if the extent is already in consumed/deleted state on remote side, don't bother to create the extent locally because all data is gone on remote side already
-			if remoteExtentStatus == shared.ExtentStatus_CONSUMED || remoteExtentStatus == shared.ExtentStatus_DELETED {
+			if remoteExtentStatus == shared.ExtentStatus_CONSUMED {
+				r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentRemoteConsumedLocalMissing, 1)
+				continue
+			}
+			if remoteExtentStatus == shared.ExtentStatus_DELETED {
 				r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentRemoteDeletedLocalMissing, 1)
 				continue
 			}
@@ -486,7 +490,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 	// so we maintain a timestamp to track how long the extent has been missing
 	// we act on it only after it has been missing for a certain period of time
 
-	remoteMissingExtents := make(map[string]bool)
+	remoteMissingExtents := make(map[string]struct{})
 	for localExtentUUID, localExtentStatus := range localExtents {
 		// we're going to delete this extent soon locally so no need to act on it
 		if localExtentStatus == shared.ExtentStatus_CONSUMED || localExtentStatus == shared.ExtentStatus_DELETED {
@@ -494,7 +498,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 		}
 		if _, ok := remoteExtents[localExtentUUID]; !ok {
 			// extent exists in local but not in remote
-			remoteMissingExtents[localExtentUUID] = true
+			remoteMissingExtents[localExtentUUID] = struct{}{}
 		}
 	}
 
@@ -507,7 +511,15 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 			delete(r.suspectMissingExtents, suspectExtent)
 		} else {
 			if time.Since(suspectExtentInfo.missingSince) > extentMissingDurationThreshold {
-				r.handleExtentDeletedOrMissingInRemote(suspectExtentInfo.destUUID, suspectExtent, localExtents[suspectExtent])
+				localStatus, ok := localExtents[suspectExtent];
+				if !ok {
+					r.logger.WithFields(bark.Fields{
+						common.TagDst:      common.FmtDst(suspectExtentInfo.destUUID),
+						common.TagExt:      common.FmtExt(suspectExtent),
+					}).Error(`code bug!! suspect extent should in local extent map!!`)
+					continue
+				}
+				r.handleExtentDeletedOrMissingInRemote(suspectExtentInfo.destUUID, suspectExtent, localStatus)
 			}
 		}
 	}
@@ -522,6 +534,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 		}
 	}
 
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentSuspectMissingExtents, int64(len(r.suspectMissingExtents)))
 	return nil
 }
 

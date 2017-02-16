@@ -474,7 +474,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 				continue
 			}
 		} else {
-			if remoteExtentStatus == shared.ExtentStatus_SEALED && localExtentStatus == shared.ExtentStatus_OPEN {
+			if (remoteExtentStatus == shared.ExtentStatus_SEALED || remoteExtentStatus == shared.ExtentStatus_CONSUMED) && localExtentStatus == shared.ExtentStatus_OPEN {
 				r.sealExtentInMetadata(destUUID, remoteExtentUUID)
 			}
 			if remoteExtentStatus == shared.ExtentStatus_DELETED {

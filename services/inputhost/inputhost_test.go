@@ -1219,7 +1219,7 @@ func (s *InputHostSuite) TestInputExtHostSizeLimit() {
 			&pathCache.connsWG,
 			true)
 		// overwrite the size limit
-		connection.maxSizeMB = 0.001 // 1k extent size
+		connection.maxSizeBytes = 1024 // 1k extent size
 		err := pathCache.checkAndLoadReplicaStreams(connection, extentUUID(extent.uuid), extent.replicas)
 		s.Nil(err)
 

@@ -71,7 +71,7 @@ const (
 	runInterval                    = time.Duration(10 * time.Minute)
 	metadataListRequestPageSize    = 50
 	storeCallTimeout               = 10 * time.Second
-	extentMissingDurationThreshold = time.Duration(24 * time.Hour)
+	extentMissingDurationThreshold = time.Duration(1 * time.Hour)
 )
 
 // NewMetadataReconciler returns an instance of MetadataReconciler

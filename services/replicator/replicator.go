@@ -61,7 +61,6 @@ type (
 		tenancy                   string
 		defaultAuthoritativeZone  string
 		replicatorclientFactory   ClientFactory
-		clientFactory             common.ClientFactory
 		remoteReplicatorConn      map[string]*outConnection
 		remoteReplicatorConnMutex sync.RWMutex
 		storehostConn             map[string]*outConnection
@@ -141,7 +140,6 @@ func (r *Replicator) Start(thriftService []thrift.TChanServer) {
 	r.hostIDHeartbeater = common.NewHostIDHeartbeater(r.metaClient, r.GetHostUUID(), r.GetHostPort(), r.GetHostName(), r.logger)
 	r.hostIDHeartbeater.Start()
 	r.replicatorclientFactory.SetTChannel(r.GetTChannel())
-	r.clientFactory = r.GetClientFactory()
 
 	r.metadataReconciler = NewMetadataReconciler(r.metaClient, r, r.localZone, r.logger, r.m3Client)
 	r.metadataReconciler.Start()

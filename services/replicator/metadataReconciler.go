@@ -336,7 +336,7 @@ func (r *metadataReconciler) reconcileDestExtentMetadata() error {
 	}
 
 	for _, dest := range dests {
-		localExtents, errCur := r.getAllDestExtentInCurrentZone(dest.GetDestinationUUID())
+		localExtentsPerZone, errCur := r.getAllDestExtentInCurrentZone(dest.GetDestinationUUID())
 		if errCur != nil {
 			continue
 		}
@@ -353,14 +353,8 @@ func (r *metadataReconciler) reconcileDestExtentMetadata() error {
 				}
 
 				// only need to reconcile for extents that are originated from the remote zone
-				filteredLocalExtents := make(map[string]shared.ExtentStatus)
-				for uuid, extentStats := range localExtents {
-					if strings.EqualFold(extentStats.GetExtent().GetOriginZone(), zoneConfig.GetZone()) {
-						filteredLocalExtents[uuid] = extentStats.GetStatus()
-					}
-				}
-
-				if err = r.reconcileDestExtent(dest.GetDestinationUUID(), filteredLocalExtents, remoteExtents, zoneConfig.GetZone()); err != nil {
+				localExtents := localExtentsPerZone[zoneConfig.GetZone()]
+				if err = r.reconcileDestExtent(dest.GetDestinationUUID(), localExtents, remoteExtents, zoneConfig.GetZone()); err != nil {
 					continue
 				}
 			}
@@ -409,14 +403,14 @@ func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID 
 	return extents, nil
 }
 
-func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map[string]*shared.ExtentStats, error) {
+func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map[string]map[string]shared.ExtentStatus, error) {
 	listReq := &shared.ListExtentsStatsRequest{
 		DestinationUUID:  common.StringPtr(destUUID),
 		LocalExtentsOnly: common.BoolPtr(false),
 		Limit:            common.Int64Ptr(metadataListRequestPageSize),
 	}
 
-	extents := make(map[string]*shared.ExtentStats)
+	perZoneExtents := make(map[string]map[string]shared.ExtentStatus)
 	for {
 		res, err := r.mClient.ListExtentsStats(nil, listReq)
 		if err != nil {
@@ -425,7 +419,11 @@ func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map
 		}
 
 		for _, ext := range res.GetExtentStatsList() {
-			extents[ext.GetExtent().GetExtentUUID()] = ext
+			zone := ext.GetExtent().GetOriginZone()
+			if _, ok := perZoneExtents[zone]; !ok {
+				perZoneExtents[zone] = make(map[string]shared.ExtentStatus)
+			}
+			perZoneExtents[zone][ext.GetExtent().GetExtentUUID()] = ext.GetStatus()
 		}
 
 		if len(res.GetNextPageToken()) == 0 {
@@ -434,7 +432,7 @@ func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map
 
 		listReq.PageToken = res.GetNextPageToken()
 	}
-	return extents, nil
+	return perZoneExtents, nil
 }
 
 func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents map[string]shared.ExtentStatus, remoteExtents map[string]shared.ExtentStatus, remoteZone string) error {

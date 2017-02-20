@@ -161,9 +161,6 @@ const (
 
 	// extLoadReportingInterval is the interval destination extent load is reported to controller
 	extLoadReportingInterval = 2 * time.Second
-
-	// bytesPerMiB is used to maintain the size in MiB
-	bytesPerMiB float64 = 1024 * 1024
 )
 
 var (
@@ -257,7 +254,7 @@ func (conn *extHost) open() {
 
 		conn.logger.WithFields(bark.Fields{
 			`extentRolloverSeqnum`: conn.maxSequenceNumber,
-			`maxSizeMiB`:           conn.getSizeInMiB(conn.maxSizeBytes),
+			`maxSizeBytes`:         conn.maxSizeBytes,
 		}).Info("extHost opened")
 	}
 }
@@ -319,10 +316,10 @@ func (conn *extHost) close() {
 	conn.lk.Unlock() // no longer need the lock
 
 	conn.logger.WithFields(bark.Fields{
-		`sentSeqNo`:      conn.seqNo,
-		`ackSeqNo`:       conn.lastSuccessSeqNo,
-		`currentSizeMiB`: conn.getSizeInMiB(conn.currSizeBytes),
-		`maxSizeMiB`:     conn.getSizeInMiB(conn.maxSizeBytes),
+		`sentSeqNo`:        conn.seqNo,
+		`ackSeqNo`:         conn.lastSuccessSeqNo,
+		`currentSizeBytes`: conn.currSizeBytes,
+		`maxSizeBytes`:     conn.maxSizeBytes,
 	}).Info("extHost closed")
 
 	// notify the pathCache so that we can tear down the client
@@ -719,9 +716,9 @@ func (conn *extHost) sealExtent() error {
 		}
 
 		conn.logger.WithFields(bark.Fields{
-			common.TagSeq:    atomic.LoadInt64(&conn.lastSuccessSeqNo),
-			`currentSizeMiB`: conn.getSizeInMiB(conn.currSizeBytes),
-			`maxSizeMiB`:     conn.getSizeInMiB(conn.maxSizeBytes),
+			common.TagSeq:      atomic.LoadInt64(&conn.lastSuccessSeqNo),
+			`currentSizeBytes`: conn.currSizeBytes,
+			`maxSizeBytes`:     conn.maxSizeBytes,
 		}).Info("Notifying controller to seal extent")
 
 		ctx, cancel := thrift.NewContext(thriftCallTimeout)
@@ -810,9 +807,4 @@ func (conn *extHost) GetExtTokenBucketValue() common.TokenBucket {
 func (conn *extHost) SetExtTokenBucketValue(connLimit int32) {
 	tokenBucket := common.NewTokenBucket(int(connLimit), common.NewRealTimeSource())
 	conn.extTokenBucketValue.Store(tokenBucket)
-}
-
-// getSizeInMiB returns the size in MiB given the size in bytes
-func (conn *extHost) getSizeInMiB(sizeInBytes int64) float64 {
-	return float64(sizeInBytes) / bytesPerMiB
 }

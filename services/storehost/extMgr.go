@@ -369,6 +369,23 @@ func (xMgr *ExtentManager) ListExtents() (extentIDs []string, err error) {
 	return
 }
 
+type ExtentInfo struct {
+	Size     int64
+	Modified int64
+}
+
+// GetExtentInfo returns info about an extent
+func (xMgr *ExtentManager) GetExtentInfo(extentID string) (info *Extentinfo, err error) {
+
+	xInfo, err := xMgr.storeMgr.ListExtents()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &Extentinfo{Size: xInfo.Size, Modified: xInfo.Modified}, nil
+}
+
 // IsExtentOpenedForReplication checks whether an extent is already opened for replication
 func (xMgr *ExtentManager) IsExtentOpenedForReplication(extentID string) bool {
 	xMgr.RLock()

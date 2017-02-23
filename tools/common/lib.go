@@ -1570,8 +1570,11 @@ func StorePurgeMessages(c *cli.Context, mClient mcli.Client) {
 }
 
 type listextentsJSONOutputFields struct {
-	StoreUUID  string `json:"store_uuid"`
-	ExtentUUID string `json:"extent_uuid"`
+	StoreUUID    string `json:"store_uuid"`
+	ExtentUUID   string `json:"extent_uuid"`
+	Size         int64  `json:"size"`
+	Modified     int64  `json:"modified_time"`
+	ModifiedTime string `json:"modified_time_string"`
 }
 
 // StoreListExtents sends a request to the specified store to get a list of extents
@@ -1606,8 +1609,11 @@ func StoreListExtents(c *cli.Context, mClient mcli.Client) {
 	for _, x := range resp.GetExtents() {
 
 		output := &listextentsJSONOutputFields{
-			StoreUUID:  storeUUID,
-			ExtentUUID: x.GetExtentUUID(),
+			StoreUUID:    storeUUID,
+			ExtentUUID:   x.GetExtentUUID(),
+			Size:         x.GetSize(),
+			Modified:     x.GetModifiedTime(),
+			ModifiedTime: time.Unix(0, x.GetModifiedTime()).String(),
 		}
 
 		outputStr, _ := json.Marshal(output)

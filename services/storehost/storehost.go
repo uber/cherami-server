@@ -1581,9 +1581,17 @@ func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResu
 
 		for i, x := range extents {
 
+			info, err := t.xMgr.GetExtentInfo(x)
+
+			if err != nil {
+				continue
+			}
+
 			res.Extents[i] = store.NewListExtentsElem()
 			res.Extents[i].ExtentUUID = common.StringPtr(x)
 			// res.Extents[i].DestinationUUID  = common.StringPtr(...) // TODO: currently unavailable
+			res.Extents[i].Size = common.Int64Ptr(info.Size)
+			res.Extents[i].ModifiedTime = common.Int64Ptr(info.Modified)
 		}
 	}
 

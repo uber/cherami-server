@@ -90,5 +90,5 @@ func (m *MockStoreHost) RemoteReplicateExtent(ctx thrift.Context, request *store
 // ListExtents is a mock of the corresponding storehost routine
 func (m *MockStoreHost) ListExtents(ctx thrift.Context) (*store.ListExtentsResult_, error) {
 	args := m.Called(ctx)
-	return args.Get(0).(*store.ListExtentsResponse__), args.Error(1)
+	return args.Get(0).(*store.ListExtentsResult_), args.Error(1)
 }

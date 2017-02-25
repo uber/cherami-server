@@ -251,7 +251,7 @@ func (t *ManyRocks) ListExtents() (extents []s.ExtentUUID, err error) {
 		}
 	}
 
-	return extents, err
+	return
 }
 
 // GetExtentInfo returns information about an extent

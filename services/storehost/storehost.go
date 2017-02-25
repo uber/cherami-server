@@ -1569,11 +1569,7 @@ func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResu
 
 	log := t.logger
 
-	log.Info("ListExtents()")
-
-	extents, err := t.xMgr.ListExtents()
-
-	if len(extents) > 0 {
+	if extents, lsxErr := t.xMgr.ListExtents(); lsxErr == nil {
 
 		res = store.NewListExtentsResult_()
 
@@ -1581,28 +1577,24 @@ func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResu
 
 		for i, x := range extents {
 
-			info, err := t.xMgr.GetExtentInfo(x)
-
-			if err != nil {
-				continue
-			}
-
 			res.Extents[i] = store.NewListExtentsElem()
 			res.Extents[i].ExtentUUID = common.StringPtr(x)
 			// res.Extents[i].DestinationUUID  = common.StringPtr(...) // TODO: currently unavailable
-			res.Extents[i].Size = common.Int64Ptr(info.Size)
-			res.Extents[i].ModifiedTime = common.Int64Ptr(info.Modified)
+
+			if info, gxiErr := t.xMgr.GetExtentInfo(x); gxiErr == nil {
+
+				res.Extents[i].Size = common.Int64Ptr(info.Size)
+				res.Extents[i].ModifiedTime = common.Int64Ptr(info.Modified)
+			}
 		}
+
+	} else {
+
+		log.WithField(common.TagErr, lsxErr).Error(`ListExtents failed`)
+
+		err = store.NewStoreServiceError()
+		err.Message = fmt.Sprintf("ListExtents error: %v", lsxErr)
 	}
 
-	if err == nil {
-		return res, nil
-	}
-
-	log.WithField(common.TagErr, err).Error(`ListExtents failed`)
-
-	storeSvcErr := store.NewStoreServiceError()
-	storeSvcErr.Message = fmt.Sprintf("ListExtents error: %v", err)
-
-	return res, storeSvcErr
+	return
 }

@@ -1598,7 +1598,7 @@ func StoreListExtents(c *cli.Context, mClient mcli.Client) {
 		return
 	}
 
-	// send a purge-messages request
+	// send a list-extents request
 	resp, err := storeClient.ListExtents()
 
 	if err != nil {
@@ -1609,11 +1609,19 @@ func StoreListExtents(c *cli.Context, mClient mcli.Client) {
 	for _, x := range resp.GetExtents() {
 
 		output := &listextentsJSONOutputFields{
-			StoreUUID:    storeUUID,
-			ExtentUUID:   x.GetExtentUUID(),
-			Size:         x.GetSize(),
-			Modified:     x.GetModifiedTime(),
-			ModifiedTime: time.Unix(0, x.GetModifiedTime()).String(),
+			StoreUUID:  storeUUID,
+			ExtentUUID: x.GetExtentUUID(),
+			// DestinationUUID: x.GetDestinationUUID(), // TODO: currently unavailable
+		}
+
+		// size/modified time info may not be available
+		if x.IsSetSize() {
+
+			output.Size = x.GetSize()
+
+			mTime = x.GetModifiedTime()
+			output.Modified = mTime
+			output.ModifiedTime = time.Unix(0, mTime).String()
 		}
 
 		outputStr, _ := json.Marshal(output)

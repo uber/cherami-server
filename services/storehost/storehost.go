@@ -1592,8 +1592,10 @@ func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResu
 
 		log.WithField(common.TagErr, lsxErr).Error(`ListExtents failed`)
 
-		err = store.NewStoreServiceError()
-		err.Message = fmt.Sprintf("ListExtents error: %v", lsxErr)
+		svcErr := store.NewStoreServiceError()
+		svcErr.Message = fmt.Sprintf("ListExtents error: %v", lsxErr)
+
+		err = svcErr
 	}
 
 	return

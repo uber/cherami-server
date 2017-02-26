@@ -1619,7 +1619,7 @@ func StoreListExtents(c *cli.Context, mClient mcli.Client) {
 
 			output.Size = x.GetSize()
 
-			mTime = x.GetModifiedTime()
+			mTime := x.GetModifiedTime()
 			output.Modified = mTime
 			output.ModifiedTime = time.Unix(0, mTime).String()
 		}

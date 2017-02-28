@@ -1569,34 +1569,34 @@ func (t *StoreHost) ListExtents(tCtx thrift.Context) (res *store.ListExtentsResu
 
 	log := t.logger
 
-	if extents, lsxErr := t.xMgr.ListExtents(); lsxErr == nil {
+	extents, lsxErr := t.xMgr.ListExtents()
 
-		res = store.NewListExtentsResult_()
-
-		res.Extents = make([]*store.ListExtentsElem, len(extents))
-
-		for i, x := range extents {
-
-			res.Extents[i] = store.NewListExtentsElem()
-			res.Extents[i].ExtentUUID = common.StringPtr(x)
-			// res.Extents[i].DestinationUUID  = common.StringPtr(...) // TODO: currently unavailable
-
-			if info, gxiErr := t.xMgr.GetExtentInfo(x); gxiErr == nil {
-
-				res.Extents[i].Size = common.Int64Ptr(info.Size)
-				res.Extents[i].ModifiedTime = common.Int64Ptr(info.Modified)
-			}
-		}
-
-	} else {
+	if lsxErr != nil {
 
 		log.WithField(common.TagErr, lsxErr).Error(`ListExtents failed`)
 
 		svcErr := store.NewStoreServiceError()
-		svcErr.Message = fmt.Sprintf("ListExtents error: %v", lsxErr)
+		svcErr.Message = lsxErr.Error()
 
-		err = svcErr
+		return nil, svcErr
 	}
 
-	return
+	res = store.NewListExtentsResult_()
+
+	res.Extents = make([]*store.ListExtentsElem, len(extents))
+
+	for i, x := range extents {
+
+		res.Extents[i] = store.NewListExtentsElem()
+		res.Extents[i].ExtentUUID = common.StringPtr(x)
+		// res.Extents[i].DestinationUUID  = common.StringPtr(...) // TODO: currently unavailable
+
+		if info, gxiErr := t.xMgr.GetExtentInfo(x); gxiErr == nil {
+
+			res.Extents[i].Size = common.Int64Ptr(info.Size)
+			res.Extents[i].ModifiedTime = common.Int64Ptr(info.Modified)
+		}
+	}
+
+	return res, nil
 }

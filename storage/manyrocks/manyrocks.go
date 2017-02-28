@@ -274,7 +274,10 @@ func (t *ManyRocks) GetExtentInfo(id s.ExtentUUID) (info *s.ExtentInfo, err erro
 
 	modified := dirStat.ModTime().UnixNano() // get modified time
 
-	stat := dirStat.Sys().(*syscall.Stat_t)
+	stat, ok := dirStat.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil, errOpenFailed
+	}
 
 	// NB: on OSX, the Stat_t does not seem to contain the 'Ctim' member
 	// created := time.Unix(int64(stat.Ctim.Sec), int64(stat.Ctim.Nsec)).UnixNano()

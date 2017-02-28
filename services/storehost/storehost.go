@@ -195,8 +195,8 @@ type (
 		// ReplicationJobRunner periodically starts replication jobs
 		replicationJobRunner ReplicationJobRunner
 
-		// QueueMonitor monitors the queue info of this extent
-		queueMonitor QueueMonitor
+		// extStatsReporter reports various stats on active extents
+		extStatsReporter *ExtStatsReporter
 
 		// Storage Monitoring
 		storageMonitor StorageMonitor
@@ -292,8 +292,8 @@ func (t *StoreHost) Start(thriftService []thrift.TChanServer) {
 	t.lastLoadReportedTime = time.Now().UnixNano()
 	t.loadReporter.Start()
 
-	t.queueMonitor = t.NewQueueMonitor(t.mClient, t, t.logger)
-	t.queueMonitor.Start()
+	t.extStatsReporter = NewExtStatsReporter(hostID, t.xMgr, t.mClient, t.logger)
+	t.extStatsReporter.Start()
 
 	t.logger.WithField("options", fmt.Sprintf("Store=%v BaseDir=%v", t.opts.Store, t.opts.BaseDir)).
 		Info("StoreHost: started")
@@ -305,7 +305,7 @@ func (t *StoreHost) Stop() {
 	t.hostIDHeartbeater.Stop()
 	t.storageMonitor.Stop()
 	t.replicationJobRunner.Stop()
-	t.queueMonitor.Stop()
+	t.extStatsReporter.Stop()
 	t.SCommon.Stop()
 	t.logger.Info("StoreHost: stopped")
 }

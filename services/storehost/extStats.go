@@ -71,26 +71,36 @@ type (
 
 // the following globals and their methods are
 var (
-	reportInterval         time.Duration = defaultReportInterval
-	extStatsReporterPaused int32         = 0
+	reportInterval         atomic.Value
+	extStatsReporterPaused int32 = 0
 )
+
+func init() {
+	reportInterval.Store(defaultReportInterval)
+}
 
 // ExtStatsReporterPause pauses the reporting (intended for tests)
 func ExtStatsReporterPause() {
+
 	atomic.StoreInt32(&extStatsReporterPaused, 1)
-	glog.Info("extStatsReporter: paused")
+
+	common.GetDefaultLogger().Info("extStatsReporter: paused")
 }
 
 // ExtStatsReporterUnpause unpauses the reporting (intended for tests)
 func ExtStatsReporterUnpause() {
+
 	atomic.StoreInt32(&extStatsReporterPaused, 0)
-	glog.Info("extStatsReporter: unpaused")
+
+	common.GetDefaultLogger().Info("extStatsReporter: unpaused")
 }
 
 // ExtStatsReporterSetReportInterval updates the report interval (intended for tests)
 func ExtStatsReporterSetReportInterval(interval time.Duration) {
-	reportInterval = interval
-	glog.WithField(`interval`, interval).Info("extStatsReporter: updated report interval")
+
+	reportInterval.Store(interval)
+
+	common.GetDefaultLogger().WithField(`interval`, interval).Info("extStatsReporter: updated report interval")
 }
 
 func NewExtStatsReporter(hostID string, xMgr *ExtentManager, mClient metadata.TChanMetadataService, logger bark.Logger) *ExtStatsReporter {
@@ -176,7 +186,8 @@ func (t *ExtStatsReporter) schedulerPump() {
 
 	t.logger.Info("extStatsReporter: schedulerPump started")
 
-	ticker := time.NewTicker(reportInterval)
+	interval := reportInterval.Load().(time.Duration)
+	ticker := time.NewTicker(interval)
 
 pump:
 	for {
@@ -187,7 +198,7 @@ pump:
 			deleteExtents := make([]string, 8)
 
 			// pause between extents to spread out the calls
-			pause := time.Duration(reportInterval.Nanoseconds() / int64(1+len(t.extents)))
+			pause := time.Duration(interval.Nanoseconds() / int64(1+len(t.extents)))
 
 			// get lock shared, while iterating through map
 			t.RLock()
@@ -233,6 +244,12 @@ pump:
 		case <-t.stopC:
 			t.logger.Info("extStatsReporter: schedulerPump stopped")
 			break pump
+		}
+
+		if newInterval := reportInterval.Load().(time.Duration); interval != newInterval {
+			ticker.Stop()
+			interval = newInterval
+			ticker = time.NewTicker(interval)
 		}
 	}
 }
@@ -322,7 +339,7 @@ func (t *ExtStatsReporter) extentClosed(id uuid.UUID, ext *extentContext, intent
 			`intent`:      intent,
 			`old-ext`:     ctx.ext,
 			`new-ext`:     ext,
-		}).Error("extStatsReporter: extent-context changed")
+		}).Error("extStatsReporter: extent-context changed unexpectedly")
 	}
 
 	return true // go ahead with the cleanup

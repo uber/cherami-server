@@ -33,12 +33,9 @@ import (
 )
 
 const (
-	reportChanBufLen = 1024
-	reportInterval   = time.Duration(time.Minute)
+	reportChanBufLen      = 1024
+	defaultReportInterval = time.Duration(time.Minute)
 )
-
-// ReportInterval determines how often we report; it is expoerted to allow integration test to modify this value
-var ReportInterval = reportInterval
 
 type (
 	ExtStatsReporter struct {
@@ -71,6 +68,30 @@ type (
 		sealed                  bool
 	}
 )
+
+// the following globals and their methods are
+var (
+	reportInterval         time.Duration = defaultReportInterval
+	extStatsReporterPaused int32         = 0
+)
+
+// ExtStatsReporterPause pauses the reporting (intended for tests)
+func ExtStatsReporterPause() {
+	atomic.StoreInt32(&extStatsReporterPaused, 1)
+	glog.Info("extStatsReporter: paused")
+}
+
+// ExtStatsReporterUnpause unpauses the reporting (intended for tests)
+func ExtStatsReporterUnpause() {
+	atomic.StoreInt32(&extStatsReporterPaused, 0)
+	glog.Info("extStatsReporter: unpaused")
+}
+
+// ExtStatsReporterSetReportInterval updates the report interval (intended for tests)
+func ExtStatsReporterSetReportInterval(interval time.Duration) {
+	reportInterval = interval
+	glog.WithField(`interval`, interval).Info("extStatsReporter: updated report interval")
+}
 
 func NewExtStatsReporter(hostID string, xMgr *ExtentManager, mClient metadata.TChanMetadataService, logger bark.Logger) *ExtStatsReporter {
 
@@ -109,7 +130,7 @@ func (t *ExtStatsReporter) Stop() {
 func (t *ExtStatsReporter) trySendReport(extentID uuid.UUID, ext *extentContext, ctx *extStatsContext) bool {
 
 	// if paused, do nothing
-	if atomic.LoadInt32(&extStatsReporterPause) == 1 {
+	if atomic.LoadInt32(&extStatsReporterPaused) == 1 {
 		return false
 	}
 
@@ -141,7 +162,7 @@ func (t *ExtStatsReporter) schedulerPump() {
 
 	defer t.wg.Done()
 
-	ticker := time.NewTicker(ReportInterval)
+	ticker := time.NewTicker(reportInterval)
 
 pump:
 	for {
@@ -152,7 +173,7 @@ pump:
 			deleteExtents := make([]string, 8)
 
 			// pause between extents to spread out the calls
-			pause := time.Duration(ReportInterval.Nanoseconds() / int64(1+len(t.extents)))
+			pause := time.Duration(reportInterval.Nanoseconds() / int64(1+len(t.extents)))
 
 			// get lock shared, while iterating through map
 			t.RLock()
@@ -316,14 +337,14 @@ pump:
 				}).Error(`UpdateStoreExtentReplicaStats failed`)
 			}
 
-			// t.logger.WithFields(bark.Fields{ // #perfdisable
-			// 	common.TagExt:        extentID,                                // #perfdisable
-			// 	`begin-seq`:          extReplStats.GetBeginSequence(),         // #perfdisable
-			// 	`last-seq`:           extReplStats.GetLastSequence(),          // #perfdisable
-			// 	`last-seq-rate`:      extReplStats.GetLastSequenceRate(),      // #perfdisable
-			// 	`available-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
-			// 	`available-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
-			// }).Info("extStatsReporter: report") // #perfdisable
+			t.logger.WithFields(bark.Fields{ // #perfdisable
+				common.TagExt:        extentID,                                // #perfdisable
+				`begin-seq`:          extReplStats.GetBeginSequence(),         // #perfdisable
+				`last-seq`:           extReplStats.GetLastSequence(),          // #perfdisable
+				`last-seq-rate`:      extReplStats.GetLastSequenceRate(),      // #perfdisable
+				`available-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
+				`available-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
+			}).Info("extStatsReporter: report") // #perfdisable
 
 			report.ctx.lastReport = report // update last-report
 			t.reportPool.Put(lastReport)   // return old one to pool
@@ -332,14 +353,4 @@ pump:
 			break pump
 		}
 	}
-}
-
-var extStatsReporterPause int32
-
-func ExtStatsReporterPause() {
-	atomic.StoreInt32(&extStatsReporterPause, 1)
-}
-
-func ExtStatsReporterUnpause() {
-	atomic.StoreInt32(&extStatsReporterPause, 0)
 }

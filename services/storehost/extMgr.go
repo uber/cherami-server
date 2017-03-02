@@ -339,7 +339,7 @@ retryOpen:
 
 		// on failure call 'closeExtent' to remove reference and do any
 		// necessary clean-up (including updating the 'extents' map)
-		xMgr.closeExtent(ext, intent)
+		xMgr.closeExtent(ext, intent, err)
 
 		return nil, err
 	}
@@ -349,7 +349,7 @@ retryOpen:
 
 // closeExtent decrements the ref-count on the extent; if it falls to zero, this
 // does necessary clean-up, including closing the underlying DB.
-func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent) {
+func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent, openError error) {
 
 	// update metrics
 	switch intent {
@@ -370,11 +370,14 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent) {
 	// dereference, and if this was the last reference, remove from map
 	var cleanup = ext.dereference()
 
-	// invoke close callbacks
-	for _, closeCb := range xMgr.closeCallbacks {
-		if !closeCb(ext.id, ext, intent) {
-			atomic.AddUint32(&ext.cleanupRef, 1)
-			cleanup = false
+	if openError == nil {
+
+		// invoke close callbacks
+		for _, closeCb := range xMgr.closeCallbacks {
+			if !closeCb(ext.id, ext, intent) {
+				atomic.AddUint32(&ext.cleanupRef, 1)
+				cleanup = false
+			}
 		}
 	}
 

@@ -82,24 +82,21 @@ func init() {
 // ExtStatsReporterPause pauses the reporting (intended for tests)
 func ExtStatsReporterPause() {
 
-	atomic.StoreInt32(&extStatsReporterPaused, 1)
-
-	common.GetDefaultLogger().Info("extStatsReporter: paused")
+	swapped := atomic.CompareAndSwapInt32(&extStatsReporterPaused, 0, 1)
+	common.GetDefaultLogger().WithField(`already-paused`, !swapped).Info("extStatsReporter: paused")
 }
 
 // ExtStatsReporterUnpause unpauses the reporting (intended for tests)
 func ExtStatsReporterUnpause() {
 
-	atomic.StoreInt32(&extStatsReporterPaused, 0)
-
-	common.GetDefaultLogger().Info("extStatsReporter: unpaused")
+	swapped := atomic.CompareAndSwapInt32(&extStatsReporterPaused, 1, 0)
+	common.GetDefaultLogger().WithField(`already-unpaused`, !swapped).Info("extStatsReporter: unpaused")
 }
 
 // ExtStatsReporterSetReportInterval updates the report interval (intended for tests)
 func ExtStatsReporterSetReportInterval(interval time.Duration) {
 
 	reportInterval.Store(interval)
-
 	common.GetDefaultLogger().WithField(`interval`, interval).Info("extStatsReporter: updated report interval")
 }
 
@@ -184,10 +181,12 @@ func (t *ExtStatsReporter) schedulerPump() {
 
 	defer t.wg.Done()
 
-	t.logger.Info("extStatsReporter: schedulerPump started")
-
 	interval := reportInterval.Load().(time.Duration)
 	ticker := time.NewTicker(interval)
+
+	t.logger.WithFields(bark.Fields{
+		`report-interval`: interval,
+	}).Info("extStatsReporter: schedulerPump started")
 
 pump:
 	for {
@@ -250,6 +249,10 @@ pump:
 			ticker.Stop()
 			interval = newInterval
 			ticker = time.NewTicker(interval)
+
+			t.logger.WithFields(bark.Fields{
+				`report-interval`: interval,
+			}).Info("extStatsReporter: schedulerPump: report-interval changed")
 		}
 	}
 }

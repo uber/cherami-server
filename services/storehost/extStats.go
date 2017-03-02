@@ -316,14 +316,14 @@ pump:
 				}).Error(`UpdateStoreExtentReplicaStats failed`)
 			}
 
-			t.logger.WithFields(bark.Fields{ // #perfdisable
-				common.TagExt:        extentID,                                // #perfdisable
-				`begin-seq`:          extReplStats.GetBeginSequence(),         // #perfdisable
-				`last-seq`:           extReplStats.GetLastSequence(),          // #perfdisable
-				`last-seq-rate`:      extReplStats.GetLastSequenceRate(),      // #perfdisable
-				`available-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
-				`available-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
-			}).Info("extStatsReporter: report") // #perfdisable
+			// t.logger.WithFields(bark.Fields{ // #perfdisable
+			// 	common.TagExt:        extentID,                                // #perfdisable
+			// 	`begin-seq`:          extReplStats.GetBeginSequence(),         // #perfdisable
+			// 	`last-seq`:           extReplStats.GetLastSequence(),          // #perfdisable
+			// 	`last-seq-rate`:      extReplStats.GetLastSequenceRate(),      // #perfdisable
+			// 	`available-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
+			// 	`available-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
+			// }).Info("extStatsReporter: report") // #perfdisable
 
 			report.ctx.lastReport = report // update last-report
 			t.reportPool.Put(lastReport)   // return old one to pool

@@ -39,21 +39,27 @@ import (
 )
 
 type (
-	// InitCallback defines callback function called when a new extent is initialized
-	// called with extent-lock held exclusive
+	// InitCallback defines callback function called when a new extent context is
+	// initialized in memory (this could be for a new or existing extent);
+	// the callback is called with extent-lock held exclusive.
 	InitCallback func(id uuid.UUID, ext *extentContext)
 
 	// OpenCallback defines callback function called when an extent is referenced;
-	// called with extent-lock held shared
+	// this is called immediately after InitCallback and for every open that comes
+	// in while the extent is 'active';
+	// the callback is called with extent-lock held shared.
 	OpenCallback func(id uuid.UUID, ext *extentContext, intent OpenIntent)
 
 	// CloseCallback defines callback function called when an extent is dereferenced;
-	// called with extent-lock held shared
+	// the extent could still be 'active' due to other references;
+	// called with extent-lock held shared.
 	CloseCallback func(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool)
 
-	// CleanupCallback defines callback function called when an extent is cleaned-up
-	// called with no locks held; though the extentContext is already in 'closed' state
-	// ensuring it will not be racing with any activity
+	// CleanupCallback defines callback function called when an extent is cleaned-up, ie,
+	// when all the references to the extent have been removed and the extent context is
+	// about to be torn down;
+	// called with no locks held; the extentContext is already in 'closed' state ensuring
+	// it will not be racing with any activity.
 	CleanupCallback func(id uuid.UUID, ext *extentContext) (done bool)
 
 	// ExtentManager contains the map of all open extent-contexts

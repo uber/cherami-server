@@ -381,8 +381,9 @@ pump:
 				ExtentUUID: common.StringPtr(extentID.String()),
 				// BeginAddress:  common.Int64Ptr(report.firstAddress),
 				// LastAddress: common.Int64Ptr(report.lastAddress),
-				BeginSequence: common.Int64Ptr(report.firstSeqNum),
-				LastSequence:  common.Int64Ptr(report.lastSeqNum),
+				BeginSequence:     common.Int64Ptr(report.firstSeqNum),
+				LastSequence:      common.Int64Ptr(report.lastSeqNum),
+				AvailableSequence: common.Int64Ptr(report.lastSeqNum),
 				// BeginEnqueueTimeUtc: common.Int64Ptr(report.firstTimestamp),
 				// LastEnqueueTimeUtc: common.Int64Ptr(report.lastTimestamp),
 				// SizeInBytes: common.Int64Ptr(report.size),
@@ -390,8 +391,6 @@ pump:
 				AvailableSequenceRate: common.Float64Ptr(lastSeqRate),
 				LastSequenceRate:      common.Float64Ptr(lastSeqRate),
 				// AvailableAddress
-				// AvailableSequence
-				// LastSequenceRate
 				// SizeInBytesRate
 				// BeginTime
 				// EndTime

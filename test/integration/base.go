@@ -160,7 +160,7 @@ func (tb *testBase) setupSuiteImpl(t *testing.T) {
 
 	// Adjust the controller and storehost scan intervals
 	controllerhost.IntervalBtwnScans = time.Second
-	storehost.ReportInterval = time.Second
+	storehost.ExtStatsReporterSetReportInterval(time.Second)
 	storehost.ExtStatsReporterUnpause()
 
 	// Make sure the cassandra config refresh interval is small

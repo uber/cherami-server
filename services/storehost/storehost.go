@@ -49,9 +49,8 @@ import (
 	"github.com/uber/tchannel-go/thrift"
 )
 
-// Global logger for this storehost -- initialized with an "unvailable" id. This would be
-// updated with the host-id in NewStoreHost()
-//var glog = logger.WithField(common.TagStor, "[UNAVAILABLE]")
+// Global logger for this storehost
+var glog bark.Logger
 
 // sealCheckInterval is the regular interval at which both the read and write paths check
 // to see if the extent was sealed in the background. This is to handle the case where there
@@ -235,6 +234,8 @@ func NewStoreHost(serviceName string, sCommon common.SCommon, mClient metadata.T
 		common.TagStor:    common.FmtStor(sCommon.GetHostUUID()),
 		common.TagDplName: common.FmtDplName(sCommon.GetConfig().GetDeploymentName()),
 	})
+
+	glog = t.logger
 
 	t.mClient = mm.NewMetadataMetricsMgr(mClient, t.m3Client, t.logger)
 

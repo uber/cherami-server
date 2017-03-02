@@ -112,6 +112,9 @@ func (t *ExtStatsReporter) Start() {
 
 	t.logger.Info("extStatsReporter: started")
 
+	// register callbacks to get notified every time an extent is opened/closed
+	t.xMgr.RegisterCallbacks(nil, t.extentOpened, t.extentClosed, nil)
+
 	t.wg.Add(1)
 	go t.reporterPump()
 
@@ -147,12 +150,21 @@ func (t *ExtStatsReporter) trySendReport(extentID uuid.UUID, ext *extentContext,
 	// create and send report non-blockingly
 	select {
 	case t.reportC <- r:
+
 		return true // sent
 
 	default:
 		// drop the report, if we are running behind
-		t.reportPool.Put(ctx.lastReport) // return old 'lastReport' to pool
-		ctx.lastReport = r               // update lastReport to this one
+		if ctx.lastReport != nil {
+			t.reportPool.Put(ctx.lastReport) // return old 'lastReport' to pool
+		}
+		ctx.lastReport = r // update lastReport to this one
+
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt:  extentID,      // #perfdisable
+		// 	`first-seqnum`: r.firstSeqNum, // #perfdisable
+		// 	`last-seqnum`:  r.lastSeqNum,  // #perfdisable
+		// }).Info("extStatsReporter: report dropped") // #perfdisable
 
 		return false // not sent
 	}
@@ -161,6 +173,8 @@ func (t *ExtStatsReporter) trySendReport(extentID uuid.UUID, ext *extentContext,
 func (t *ExtStatsReporter) schedulerPump() {
 
 	defer t.wg.Done()
+
+	t.logger.Info("extStatsReporter: schedulerPump started")
 
 	ticker := time.NewTicker(reportInterval)
 
@@ -217,6 +231,7 @@ pump:
 			t.Unlock()
 
 		case <-t.stopC:
+			t.logger.Info("extStatsReporter: schedulerPump stopped")
 			break pump
 		}
 	}
@@ -229,6 +244,11 @@ func (t *ExtStatsReporter) extentOpened(id uuid.UUID, ext *extentContext, intent
 		intent != OpenIntentPurgeMessages &&
 		intent != OpenIntentReplicateExtent {
 
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,     // #perfdisable
+		// 	`intent`:      intent, // #perfdisable
+		// }).Info("extStatsReporter: ignoring extent opened event") // #perfdisable
+
 		return // ignore, if not any of the interesting 'intents'
 	}
 
@@ -236,15 +256,26 @@ func (t *ExtStatsReporter) extentOpened(id uuid.UUID, ext *extentContext, intent
 	t.Lock()
 	defer t.Unlock()
 
-	if ctx, ok := t.extents[string(id)]; ok && ctx.ext == ext {
+	ctx, ok := t.extents[string(id)]
+
+	if ok && ctx.ext == ext {
 
 		atomic.AddInt64(&ctx.ref, 1) // add ref
 
 	} else {
 
+		// assert(ctx.ref == 0) //
+
 		// create a new context
-		t.extents[string(id)] = &extStatsContext{ext: ext, ref: 1}
+		ctx = &extStatsContext{ext: ext, ref: 1}
+		t.extents[string(id)] = ctx
 	}
+
+	// t.logger.WithFields(bark.Fields{ // #perfdisable
+	// 	common.TagExt: id,                         // #perfdisable
+	// 	`intent`:      intent,                     // #perfdisable
+	// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
+	// }).Info("extStatsReporter: extent opened") // #perfdisable
 
 	return
 }
@@ -256,6 +287,11 @@ func (t *ExtStatsReporter) extentClosed(id uuid.UUID, ext *extentContext, intent
 		intent != OpenIntentPurgeMessages &&
 		intent != OpenIntentReplicateExtent {
 
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,     // #perfdisable
+		// 	`intent`:      intent, // #perfdisable
+		// }).Info("extStatsReporter: ignoring extent closed event") // #perfdisable
+
 		return true // ignore, if not any of the interesting 'intents'
 	}
 
@@ -263,16 +299,30 @@ func (t *ExtStatsReporter) extentClosed(id uuid.UUID, ext *extentContext, intent
 	t.RLock()
 	defer t.RUnlock()
 
-	if ctx, ok := t.extents[string(id)]; ok {
+	ctx, ok := t.extents[string(id)]
+
+	if ok && ctx.ext == ext {
 
 		// remove ref, if it drops to zero, then send out one last report
 		if atomic.AddInt64(&ctx.ref, -1) == 0 {
 			t.trySendReport(id, ext, ctx)
 		}
 
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,                         // #perfdisable
+		// 	`intent`:      intent,                     // #perfdisable
+		// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
+		// }).Info("extStatsReporter: extent closed") // #perfdisable
+
 	} else {
 
 		// assert(ok) //
+		t.logger.WithFields(bark.Fields{
+			common.TagExt: id,
+			`intent`:      intent,
+			`old-ext`:     ctx.ext,
+			`new-ext`:     ext,
+		}).Error("extStatsReporter: extent-context changed")
 	}
 
 	return true // go ahead with the cleanup
@@ -282,6 +332,8 @@ func (t *ExtStatsReporter) reporterPump() {
 
 	defer t.wg.Done()
 
+	t.logger.Info("extStatsReporter: reporterPump started")
+
 pump:
 	for {
 		select {
@@ -289,12 +341,15 @@ pump:
 
 			var extentID, lastReport = report.extentID, report.ctx.lastReport
 
-			var lastSeqRate = common.CalculateRate(
-				common.SequenceNumber(lastReport.lastSeqNum),
-				common.SequenceNumber(report.lastSeqNum),
-				common.UnixNanoTime(lastReport.timestamp),
-				common.UnixNanoTime(report.timestamp),
-			)
+			var lastSeqRate float64
+			if lastReport != nil {
+				lastSeqRate = common.CalculateRate(
+					common.SequenceNumber(lastReport.lastSeqNum),
+					common.SequenceNumber(report.lastSeqNum),
+					common.UnixNanoTime(lastReport.timestamp),
+					common.UnixNanoTime(report.timestamp),
+				)
+			}
 
 			var extReplStatus = shared.ExtentReplicaStatus_OPEN
 			if report.sealed {
@@ -338,18 +393,22 @@ pump:
 			}
 
 			t.logger.WithFields(bark.Fields{ // #perfdisable
-				common.TagExt:        extentID,                                // #perfdisable
-				`begin-seq`:          extReplStats.GetBeginSequence(),         // #perfdisable
-				`last-seq`:           extReplStats.GetLastSequence(),          // #perfdisable
-				`last-seq-rate`:      extReplStats.GetLastSequenceRate(),      // #perfdisable
-				`available-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
-				`available-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
+				common.TagExt:    extentID,                                // #perfdisable
+				`first-seq`:      extReplStats.GetBeginSequence(),         // #perfdisable
+				`last-seq`:       extReplStats.GetLastSequence(),          // #perfdisable
+				`last-seq-rate`:  extReplStats.GetLastSequenceRate(),      // #perfdisable
+				`avail-seq`:      extReplStats.GetAvailableSequence(),     // #perfdisable
+				`avail-seq-rate`: extReplStats.GetAvailableSequenceRate(), // #perfdisable
 			}).Info("extStatsReporter: report") // #perfdisable
 
 			report.ctx.lastReport = report // update last-report
-			t.reportPool.Put(lastReport)   // return old one to pool
+
+			if lastReport != nil {
+				t.reportPool.Put(lastReport) // return old one to pool
+			}
 
 		case <-t.stopC:
+			t.logger.Info("extStatsReporter: reporterPump stopped")
 			break pump
 		}
 	}

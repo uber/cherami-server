@@ -44,13 +44,17 @@ type (
 		mClient metadata.TChanMetadataService
 		logger  bark.Logger
 
-		sync.RWMutex
-		extents    map[string]*extStatsContext
+		extents    extStatsContextMap
 		reportPool sync.Pool
 		reportC    chan *report
 
 		wg    sync.WaitGroup
 		stopC chan struct{} // internal channel to stop
+	}
+
+	extStatsContextMap struct {
+		sync.RWMutex
+		xmap map[string]*extStatsContext
 	}
 
 	extStatsContext struct {
@@ -108,7 +112,10 @@ func NewExtStatsReporter(hostID string, xMgr *ExtentManager, mClient metadata.TC
 		mClient: mClient,
 		logger:  logger,
 
-		extents:    make(map[string]*extStatsContext),
+		extents: extStatsContextMap{
+			xmap: make(map[string]*extStatsContext),
+		},
+
 		reportPool: sync.Pool{New: func() interface{} { return &report{} }},
 		reportC:    make(chan *report, reportChanBufLen),
 		stopC:      make(chan struct{}),
@@ -196,16 +203,16 @@ pump:
 			// list of extents that can be deleted
 			deleteExtents := make([]string, 8)
 
-			// pause between extents to spread out the calls
-			pause := time.Duration(interval.Nanoseconds() / int64(1+len(t.extents)))
-
 			// get lock shared, while iterating through map
-			t.RLock()
+			t.extents.RLock()
+
+			// pause between extents to spread out the calls
+			pause := time.Duration(interval.Nanoseconds() / int64(1+len(t.extents.xmap)))
 
 			// iterate through the extents and prepare/send report
-			for id, ctx := range t.extents {
+			for id, ctx := range t.extents.xmap {
 
-				t.RUnlock()
+				t.extents.RUnlock()
 
 				if atomic.LoadInt64(&ctx.ref) > 0 {
 
@@ -226,19 +233,19 @@ pump:
 
 				time.Sleep(pause) // take a short nap
 
-				t.RLock()
+				t.extents.RLock()
 			}
 
-			t.RUnlock()
+			t.extents.RUnlock()
 
 			// get lock exclusive, and delete extents from the map whose ref has dropped to zero
-			t.Lock()
+			t.extents.Lock()
 			for _, id := range deleteExtents {
-				if ctx, ok := t.extents[string(id)]; ok && atomic.LoadInt64(&ctx.ref) == 0 {
-					delete(t.extents, id)
+				if ctx, ok := t.extents.xmap[string(id)]; ok && atomic.LoadInt64(&ctx.ref) == 0 {
+					delete(t.extents.xmap, id)
 				}
 			}
-			t.Unlock()
+			t.extents.Unlock()
 
 		case <-t.stopC:
 			t.logger.Info("extStatsReporter: schedulerPump stopped")
@@ -273,10 +280,10 @@ func (t *ExtStatsReporter) extentOpened(id uuid.UUID, ext *extentContext, intent
 	}
 
 	// get exclusive lock, since we could be adding to the map
-	t.Lock()
-	defer t.Unlock()
+	t.extents.Lock()
+	defer t.extents.Unlock()
 
-	ctx, ok := t.extents[string(id)]
+	ctx, ok := t.extents.xmap[string(id)]
 
 	if ok && ctx.ext == ext {
 
@@ -288,7 +295,7 @@ func (t *ExtStatsReporter) extentOpened(id uuid.UUID, ext *extentContext, intent
 
 		// create a new context
 		ctx = &extStatsContext{ext: ext, ref: 1}
-		t.extents[string(id)] = ctx
+		t.extents.xmap[string(id)] = ctx
 	}
 
 	// t.logger.WithFields(bark.Fields{ // #perfdisable
@@ -316,10 +323,10 @@ func (t *ExtStatsReporter) extentClosed(id uuid.UUID, ext *extentContext, intent
 	}
 
 	// get lock shared, when reading through the map
-	t.RLock()
-	defer t.RUnlock()
+	t.extents.RLock()
+	defer t.extents.RUnlock()
 
-	ctx, ok := t.extents[string(id)]
+	ctx, ok := t.extents.xmap[string(id)]
 
 	if ok && ctx.ext == ext {
 

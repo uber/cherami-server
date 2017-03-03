@@ -127,7 +127,7 @@ func (t *ExtStatsReporter) Start() {
 	t.logger.Info("extStatsReporter: started")
 
 	// register callbacks to get notified every time an extent is opened/closed
-	t.xMgr.RegisterCallbacks(nil, t.extentOpened, t.extentClosed, nil)
+	t.xMgr.RegisterCallbacks(t)
 
 	t.wg.Add(1)
 	go t.reporterPump()
@@ -264,97 +264,6 @@ pump:
 	}
 }
 
-func (t *ExtStatsReporter) extentOpened(id uuid.UUID, ext *extentContext, intent OpenIntent) {
-
-	if intent != OpenIntentAppendStream &&
-		intent != OpenIntentSealExtent &&
-		intent != OpenIntentPurgeMessages &&
-		intent != OpenIntentReplicateExtent {
-
-		// t.logger.WithFields(bark.Fields{ // #perfdisable
-		// 	common.TagExt: id,     // #perfdisable
-		// 	`intent`:      intent, // #perfdisable
-		// }).Info("extStatsReporter: ignoring extent opened event") // #perfdisable
-
-		return // ignore, if not any of the interesting 'intents'
-	}
-
-	// get exclusive lock, since we could be adding to the map
-	t.extents.Lock()
-	defer t.extents.Unlock()
-
-	ctx, ok := t.extents.xmap[string(id)]
-
-	if ok && ctx.ext == ext {
-
-		atomic.AddInt64(&ctx.ref, 1) // add ref
-
-	} else {
-
-		// assert(ctx.ref == 0) //
-
-		// create a new context
-		ctx = &extStatsContext{ext: ext, ref: 1}
-		t.extents.xmap[string(id)] = ctx
-	}
-
-	// t.logger.WithFields(bark.Fields{ // #perfdisable
-	// 	common.TagExt: id,                         // #perfdisable
-	// 	`intent`:      intent,                     // #perfdisable
-	// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
-	// }).Info("extStatsReporter: extent opened") // #perfdisable
-
-	return
-}
-
-func (t *ExtStatsReporter) extentClosed(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool) {
-
-	if intent != OpenIntentAppendStream &&
-		intent != OpenIntentSealExtent &&
-		intent != OpenIntentPurgeMessages &&
-		intent != OpenIntentReplicateExtent {
-
-		// t.logger.WithFields(bark.Fields{ // #perfdisable
-		// 	common.TagExt: id,     // #perfdisable
-		// 	`intent`:      intent, // #perfdisable
-		// }).Info("extStatsReporter: ignoring extent closed event") // #perfdisable
-
-		return true // ignore, if not any of the interesting 'intents'
-	}
-
-	// get lock shared, when reading through the map
-	t.extents.RLock()
-	defer t.extents.RUnlock()
-
-	ctx, ok := t.extents.xmap[string(id)]
-
-	if ok && ctx.ext == ext {
-
-		// remove ref, if it drops to zero, then send out one last report
-		if atomic.AddInt64(&ctx.ref, -1) == 0 {
-			t.trySendReport(id, ext, ctx)
-		}
-
-		// t.logger.WithFields(bark.Fields{ // #perfdisable
-		// 	common.TagExt: id,                         // #perfdisable
-		// 	`intent`:      intent,                     // #perfdisable
-		// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
-		// }).Info("extStatsReporter: extent closed") // #perfdisable
-
-	} else {
-
-		// assert(ok) //
-		t.logger.WithFields(bark.Fields{
-			common.TagExt: id,
-			`intent`:      intent,
-			`old-ext`:     ctx.ext,
-			`new-ext`:     ext,
-		}).Error("extStatsReporter: extent-context changed unexpectedly")
-	}
-
-	return true // go ahead with the cleanup
-}
-
 func (t *ExtStatsReporter) reporterPump() {
 
 	defer t.wg.Done()
@@ -438,4 +347,109 @@ pump:
 			break pump
 		}
 	}
+}
+
+// ExtentInit is the callback from extent-manager when a new extent is initialized
+func (t *ExtStatsReporter) ExtentInit(id uuid.UUID, ext *extentContext) {
+	// no-op
+	return
+}
+
+// ExtentOpen is the callback from extent-manager when an extent is opened/referenced
+func (t *ExtStatsReporter) ExtentOpen(id uuid.UUID, ext *extentContext, intent OpenIntent) {
+
+	if intent != OpenIntentAppendStream &&
+		intent != OpenIntentSealExtent &&
+		intent != OpenIntentPurgeMessages &&
+		intent != OpenIntentReplicateExtent {
+
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,     // #perfdisable
+		// 	`intent`:      intent, // #perfdisable
+		// }).Info("extStatsReporter: ignoring extent opened event") // #perfdisable
+
+		return // ignore, if not any of the interesting 'intents'
+	}
+
+	// get exclusive lock, since we could be adding to the map
+	t.extents.Lock()
+	defer t.extents.Unlock()
+
+	ctx, ok := t.extents.xmap[string(id)]
+
+	if ok && ctx.ext == ext {
+
+		atomic.AddInt64(&ctx.ref, 1) // add ref
+
+	} else {
+
+		// assert(ctx.ref == 0) //
+
+		// create a new context
+		ctx = &extStatsContext{ext: ext, ref: 1}
+		t.extents.xmap[string(id)] = ctx
+	}
+
+	// t.logger.WithFields(bark.Fields{ // #perfdisable
+	// 	common.TagExt: id,                         // #perfdisable
+	// 	`intent`:      intent,                     // #perfdisable
+	// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
+	// }).Info("extStatsReporter: extent opened") // #perfdisable
+
+	return
+}
+
+// ExtentClose is the callback from extent-manager when an extent is closed/dereferenced
+func (t *ExtStatsReporter) ExtentClose(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool) {
+
+	if intent != OpenIntentAppendStream &&
+		intent != OpenIntentSealExtent &&
+		intent != OpenIntentPurgeMessages &&
+		intent != OpenIntentReplicateExtent {
+
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,     // #perfdisable
+		// 	`intent`:      intent, // #perfdisable
+		// }).Info("extStatsReporter: ignoring extent closed event") // #perfdisable
+
+		return true // ignore, if not any of the interesting 'intents'
+	}
+
+	// get lock shared, when reading through the map
+	t.extents.RLock()
+	defer t.extents.RUnlock()
+
+	ctx, ok := t.extents.xmap[string(id)]
+
+	if ok && ctx.ext == ext {
+
+		// remove ref, if it drops to zero, then send out one last report
+		if atomic.AddInt64(&ctx.ref, -1) == 0 {
+			t.trySendReport(id, ext, ctx)
+		}
+
+		// t.logger.WithFields(bark.Fields{ // #perfdisable
+		// 	common.TagExt: id,                         // #perfdisable
+		// 	`intent`:      intent,                     // #perfdisable
+		// 	`ctx.ref`:     atomic.LoadInt64(&ctx.ref), // #perfdisable
+		// }).Info("extStatsReporter: extent closed") // #perfdisable
+
+	} else {
+
+		// assert(ok) //
+		t.logger.WithFields(bark.Fields{
+			common.TagExt: id,
+			`intent`:      intent,
+			`old-ext`:     ctx.ext,
+			`new-ext`:     ext,
+		}).Error("extStatsReporter: extent-context changed unexpectedly")
+	}
+
+	return true // go ahead with the cleanup
+}
+
+// ExtentCleanUp is the callback from extent-manager when an extent is cleaned-up/torn down
+func (t *ExtStatsReporter) ExtentCleanUp(id uuid.UUID, ext *extentContext) bool {
+	// no-op
+	return true // go ahead with cleanup
 }

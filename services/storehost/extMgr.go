@@ -39,28 +39,31 @@ import (
 )
 
 type (
-	// InitCallback defines callback function called when a new extent context is
-	// initialized in memory (this could be for a new or existing extent);
-	// the callback is called with extent-lock held exclusive.
-	InitCallback func(id uuid.UUID, ext *extentContext)
+	ExtentCallbacks interface {
 
-	// OpenCallback defines callback function called when an extent is referenced;
-	// this is called immediately after InitCallback and for every open that comes
-	// in while the extent is 'active';
-	// the callback is called with extent-lock held shared.
-	OpenCallback func(id uuid.UUID, ext *extentContext, intent OpenIntent)
+		// ExtentInit defines the callback function called when a new extent context
+		// is initialized in memory (this could be for a new or existing extent);
+		// the callback is called with extent-lock held exclusive.
+		ExtentInit(id uuid.UUID, ext *extentContext)
 
-	// CloseCallback defines callback function called when an extent is dereferenced;
-	// the extent could still be 'active' due to other references;
-	// called with extent-lock held shared.
-	CloseCallback func(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool)
+		// ExtentOpen defines the callback function called when an extent is referenced;
+		// this is called immediately after InitCallback and for every open that comes
+		// in while the extent is 'active';
+		// the callback is called with extent-lock held shared.
+		ExtentOpen(id uuid.UUID, ext *extentContext, intent OpenIntent)
 
-	// CleanupCallback defines callback function called when an extent is cleaned-up, ie,
-	// when all the references to the extent have been removed and the extent context is
-	// about to be torn down;
-	// called with no locks held; the extentContext is already in 'closed' state ensuring
-	// it will not be racing with any activity.
-	CleanupCallback func(id uuid.UUID, ext *extentContext) (done bool)
+		// ExtentClose defines the callback function called when an extent is dereferenced;
+		// the extent could still be 'active' due to other references;
+		// called with extent-lock held shared.
+		ExtentClose(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool)
+
+		// ExtentCleanUp defines the callback function called when an extent is cleaned-up,
+		// ie, when all the references to the extent have been removed and the extent
+		// context is about to be torn down;
+		// called with no locks held; the extentContext is already in 'closed' state
+		// ensuring it will not be racing with any activity.
+		ExtentCleanUp(id uuid.UUID, ext *extentContext) (done bool)
+	}
 
 	// ExtentManager contains the map of all open extent-contexts
 	ExtentManager struct {
@@ -93,10 +96,7 @@ type (
 		loadReporterFactory common.LoadReporterDaemonFactory
 
 		// list of registered extent lifecycle callbacks
-		initCallbacks    []InitCallback
-		openCallbacks    []OpenCallback
-		closeCallbacks   []CloseCallback
-		cleanupCallbacks []CleanupCallback
+		callbacks []ExtentCallbacks
 	}
 
 	// extentContext: contains objects and methods global to an extent.
@@ -373,8 +373,8 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent, op
 	if openError == nil {
 
 		// invoke close callbacks
-		for _, closeCb := range xMgr.closeCallbacks {
-			if !closeCb(ext.id, ext, intent) {
+		for _, cb := range xMgr.callbacks {
+			if !cb.ExtentClose(ext.id, ext, intent) {
 				atomic.AddUint32(&ext.cleanupRef, 1)
 				cleanup = false
 			}
@@ -471,8 +471,8 @@ func (xMgr *ExtentManager) cleanupExtent(ext *extentContext) bool {
 		var dontDelete = false
 
 		// invoke cleanup callbacks
-		for _, cleanupCb := range xMgr.cleanupCallbacks {
-			if !cleanupCb(ext.id, ext) {
+		for _, cb := range xMgr.callbacks {
+			if !cb.ExtentCleanUp(ext.id, ext) {
 				atomic.AddUint32(&ext.cleanupRef, 1)
 				dontDelete = true
 			}
@@ -515,23 +515,10 @@ func (xMgr *ExtentManager) IsExtentOpenedForReplication(extentID string) bool {
 	return false
 }
 
-func (xMgr *ExtentManager) RegisterCallbacks(initCb InitCallback, openCb OpenCallback, closeCb CloseCallback, cleanupCb CleanupCallback) {
+func (xMgr *ExtentManager) RegisterCallbacks(callbacks ExtentCallbacks) {
 
-	if initCb != nil {
-		xMgr.initCallbacks = append(xMgr.initCallbacks, initCb)
-	}
-
-	if openCb != nil {
-		xMgr.openCallbacks = append(xMgr.openCallbacks, openCb)
-	}
-
-	if closeCb != nil {
-		xMgr.closeCallbacks = append(xMgr.closeCallbacks, closeCb)
-	}
-
-	if cleanupCb != nil {
-		xMgr.cleanupCallbacks = append(xMgr.cleanupCallbacks, cleanupCb)
-	}
+	// add to list of callback objects
+	xMgr.callbacks = append(xMgr.callbacks, callbacks)
 }
 
 func (xMgr *ExtentManager) CallbackDone(ext *extentContext) {
@@ -639,8 +626,8 @@ func (ext *extentContext) prepareForOpen(intent OpenIntent) (err error) {
 	}
 
 	// invoke open callbacks
-	for _, openCb := range ext.xMgr.openCallbacks {
-		openCb(ext.id, ext, intent)
+	for _, cb := range ext.xMgr.callbacks {
+		cb.ExtentOpen(ext.id, ext, intent)
 	}
 
 	return nil
@@ -768,8 +755,8 @@ func (ext *extentContext) initialize(intent OpenIntent) (err error) {
 		ext.initialized = true // mark as initialized
 
 		// invoke init callbacks
-		for _, initCb := range ext.xMgr.initCallbacks {
-			initCb(ext.id, ext)
+		for _, cb := range ext.xMgr.callbacks {
+			cb.ExtentInit(ext.id, ext)
 		}
 	}
 

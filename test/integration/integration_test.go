@@ -2175,7 +2175,7 @@ func (s *NetIntegrationSuiteParallelB) TestQueueDepth() {
 		if reporterPaused {
 			reporterPaused = false
 			ll().Info(`Reporter unpaused`)
-			storehost.ExtStatsReporterUnpause()
+			storehost.ExtStatsReporterResume()
 		}
 	}
 	defer unpauseReporter()

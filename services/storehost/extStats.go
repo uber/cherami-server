@@ -87,14 +87,14 @@ func init() {
 func ExtStatsReporterPause() {
 
 	swapped := atomic.CompareAndSwapInt32(&extStatsReporterPaused, 0, 1)
-	common.GetDefaultLogger().WithField(`already-paused`, !swapped).Info("extStatsReporter: paused")
+	common.GetDefaultLogger().WithField(`was-running`, swapped).Info("extStatsReporter: paused")
 }
 
-// ExtStatsReporterUnpause unpauses the reporting (intended for tests)
-func ExtStatsReporterUnpause() {
+// ExtStatsReporterResume resumes the reporting (intended for tests)
+func ExtStatsReporterResume() {
 
 	swapped := atomic.CompareAndSwapInt32(&extStatsReporterPaused, 1, 0)
-	common.GetDefaultLogger().WithField(`already-unpaused`, !swapped).Info("extStatsReporter: unpaused")
+	common.GetDefaultLogger().WithField(`was-running`, !swapped).Info("extStatsReporter: resumed")
 }
 
 // ExtStatsReporterSetReportInterval updates the report interval (intended for tests)

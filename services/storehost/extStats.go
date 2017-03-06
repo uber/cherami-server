@@ -349,19 +349,26 @@ pump:
 	}
 }
 
+// ignoreExtentEvent is called by the ExtentOpen and ExtentClose callbacks to
+// check to see if the particular open/close extent can be ignored; we ignore
+// all extent open calls that will not mutate the extent.
+func ignoreExtentEvent(intent OpenIntent) bool {
+
+	return intent != OpenIntentAppendStream &&
+		intent != OpenIntentSealExtent &&
+		intent != OpenIntentPurgeMessages &&
+		intent != OpenIntentReplicateExtent
+}
+
 // ExtentInit is the callback from extent-manager when a new extent is initialized
 func (t *ExtStatsReporter) ExtentInit(id uuid.UUID, ext *extentContext) {
-	// no-op
-	return
+	return // no-op
 }
 
 // ExtentOpen is the callback from extent-manager when an extent is opened/referenced
 func (t *ExtStatsReporter) ExtentOpen(id uuid.UUID, ext *extentContext, intent OpenIntent) {
 
-	if intent != OpenIntentAppendStream &&
-		intent != OpenIntentSealExtent &&
-		intent != OpenIntentPurgeMessages &&
-		intent != OpenIntentReplicateExtent {
+	if ignoreExtentEvent(intent) {
 
 		// t.logger.WithFields(bark.Fields{ // #perfdisable
 		// 	common.TagExt: id,     // #perfdisable
@@ -402,10 +409,7 @@ func (t *ExtStatsReporter) ExtentOpen(id uuid.UUID, ext *extentContext, intent O
 // ExtentClose is the callback from extent-manager when an extent is closed/dereferenced
 func (t *ExtStatsReporter) ExtentClose(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool) {
 
-	if intent != OpenIntentAppendStream &&
-		intent != OpenIntentSealExtent &&
-		intent != OpenIntentPurgeMessages &&
-		intent != OpenIntentReplicateExtent {
+	if ignoreExtentEvent(intent) {
 
 		// t.logger.WithFields(bark.Fields{ // #perfdisable
 		// 	common.TagExt: id,     // #perfdisable
@@ -450,6 +454,5 @@ func (t *ExtStatsReporter) ExtentClose(id uuid.UUID, ext *extentContext, intent 
 
 // ExtentCleanUp is the callback from extent-manager when an extent is cleaned-up/torn down
 func (t *ExtStatsReporter) ExtentCleanUp(id uuid.UUID, ext *extentContext) bool {
-	// no-op
-	return true // go ahead with cleanup
+	return true // no-op; go ahead with cleanup
 }

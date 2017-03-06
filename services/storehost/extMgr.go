@@ -55,6 +55,9 @@ type (
 		// ExtentClose defines the callback function called when an extent is dereferenced;
 		// the extent could still be 'active' due to other references;
 		// called with extent-lock held shared.
+		// the callback can return a 'false' to indicate to the extent-manager that it needs
+		// the extent-context to be held on (not torn-down yet). when it is done and safe
+		// for the extent-context to be torn down, it is should call 'CallbackDone'.
 		ExtentClose(id uuid.UUID, ext *extentContext, intent OpenIntent) (done bool)
 
 		// ExtentCleanUp defines the callback function called when an extent is cleaned-up,
@@ -62,6 +65,9 @@ type (
 		// context is about to be torn down;
 		// called with no locks held; the extentContext is already in 'closed' state
 		// ensuring it will not be racing with any activity.
+		// the callback can return a 'false' to indicate to the extent-manager that it needs
+		// the extent-context to be held on (not torn-down yet). when it is done and safe
+		// for the extent-context to be torn down, it is should call 'CallbackDone'.
 		ExtentCleanUp(id uuid.UUID, ext *extentContext) (done bool)
 	}
 

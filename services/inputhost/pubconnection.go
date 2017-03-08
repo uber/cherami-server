@@ -26,9 +26,9 @@ import (
 	"time"
 
 	"github.com/uber-common/bark"
-
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/metrics"
+	"github.com/uber/cherami-server/services/inputhost/load"
 	serverStream "github.com/uber/cherami-server/stream"
 	"github.com/uber/cherami-thrift/.generated/go/cherami"
 )
@@ -191,6 +191,7 @@ func (conn *pubConnection) close() {
 // the writeAcksStream by sending a message to the intermediary "replyCh"
 func (conn *pubConnection) readRequestStream() {
 	defer conn.waitWG.Done()
+	var msgLength int64
 
 	// Setup the connIdleTimer
 	connIdleTimer := common.NewTimer(conn.cacheTimeout)
@@ -216,6 +217,12 @@ func (conn *pubConnection) readRequestStream() {
 			// record the counter metric
 			conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostMessageReceived)
 			conn.pathCache.destM3Client.IncCounter(metrics.PubConnectionScope, metrics.InputhostDestMessageReceived)
+
+			// Note: we increment the destination bytes in counter here because we could throttle this message
+			// even before it reaches any of the extents (which increments the extent specific bytes in counter)
+			msgLength = int64(len(msg.Data))
+			conn.pathCache.dstMetrics.Add(load.DstMetricBytesIn, msgLength)
+			conn.pathCache.hostMetrics.Add(load.HostMetricBytesIn, msgLength)
 
 			conn.recvMsgs++
 

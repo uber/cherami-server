@@ -483,18 +483,10 @@ func (pathCache *inPathCache) Report(reporter common.LoadReporter) {
 func (pathCache *inPathCache) getState() *admin.DestinationState {
 	pathCache.RLock()
 	defer pathCache.RUnlock()
-	now := time.Now().UnixNano()
-	diffSecs := (now - pathCache.lastDstLoadReportedTime) / int64(time.Second)
-	if diffSecs < 1 {
-		// just use the counter as is
-		diffSecs = 1
-	}
-
-	msgsInPerSec := pathCache.dstMetrics.GetAndReset(load.DstMetricMsgsIn) / diffSecs
 	destState := admin.NewDestinationState()
 	destState.DestUUID = common.StringPtr(pathCache.destUUID)
 	destState.MsgsChSize = common.Int64Ptr(int64(len(pathCache.putMsgCh)))
-	destState.NumMsgsIn = common.Int64Ptr(msgsInPerSec)
+	destState.NumMsgsIn = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricOverallNumMsgs))
 	destState.NumConnections = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricNumOpenConns))
 	destState.NumSentAcks = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricNumAcks))
 	destState.NumSentNacks = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricNumNacks))

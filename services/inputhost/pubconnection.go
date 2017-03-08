@@ -216,6 +216,7 @@ func (conn *pubConnection) readRequestStream() {
 			// record the counter metric
 			conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostMessageReceived)
 			conn.pathCache.destM3Client.IncCounter(metrics.PubConnectionScope, metrics.InputhostDestMessageReceived)
+			conn.pathCache.dstMetrics.Increment(load.DstMetricOverallNumMsgs)
 
 			conn.recvMsgs++
 

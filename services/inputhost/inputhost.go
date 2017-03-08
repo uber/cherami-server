@@ -585,6 +585,12 @@ ACKDRAIN:
 	pathCache.destM3Client.AddCounter(metrics.PutMessageBatchInputHostDestScope, metrics.InputhostDestMessageUserFailures, userErrs)
 	h.m3Client.AddCounter(metrics.PutMessageBatchInputHostScope, metrics.InputhostMessageInternalFailures, internalErrs)
 	pathCache.destM3Client.AddCounter(metrics.PutMessageBatchInputHostDestScope, metrics.InputhostDestMessageInternalFailures, internalErrs)
+
+	// Increment the overall incoming messages, failed messages and acks
+	pathCache.dstMetrics.Add(load.DstMetricOverallNumMsgs, int64(len(messages)))
+	pathCache.dstMetrics.Add(load.DstMetricNumFailed, (internalErrs + userErrs))
+	pathCache.dstMetrics.Add(load.DstMetricNumAcks, int64(len(result.SuccessMessages)))
+
 	return result, nil
 }
 

@@ -69,6 +69,9 @@ const (
 	DstMetricNumThrottled
 	// DstMetricsNumFailed represents count of number of failed messages per dst
 	DstMetricNumFailed
+	// DstMetricOverallNumMsgs represents count of the overall number of messages per dst
+	// Note: this is different than the MsgsIn above since that maintains the per second msgs
+	DstMetricOverallNumMsgs
 	// numDstMetrics gives the number of inpust host dst level metrics
 	numDstMetrics
 )

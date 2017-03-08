@@ -226,18 +226,6 @@ func (cfgMgr *CassandraConfigManager) runLoop() {
 	cfgMgr.logger.Info("Config refresher stopped")
 }
 
-func printConfigTree(tree *configTreeNode, keys []string, idx int) {
-
-	key := strings.Join(keys, ".")
-	fmt.Printf("key=%v %+v\n", key, tree.value)
-
-	for k,v := range tree.children {
-		keys[idx] = k
-		printConfigTree(v, keys, idx+1)
-		keys[idx] = "*"
-	}
-}
-
 // Get returns the config value that best matches the given
 // input criteria. svc param cannot be empty.
 func (cfgMgr *CassandraConfigManager) Get(svc string, version string, sku string, host string) (interface{}, error) {
@@ -318,7 +306,6 @@ func (cfgMgr *CassandraConfigManager) mkConfigTree(inputKVTree *kvTree) *configT
 	for k, v := range cfgMgr.configTypes {
 		tree := inputKVTree.children[k]
 		result.children[k] = cfgMgr.mkConfigTreeForSvc(v, nil, tree)
-		printConfigTree(result.children[k], []string{k, "*", "*", "*"}, 1)
 	}
 
 	return result

@@ -244,16 +244,16 @@ func (runner *replicationJobRunner) run() {
 			if newFailedTimes > maxConsecutiveFailures {
 				maxConsecutiveFailures = newFailedTimes
 			}
+
+			runner.logger.WithFields(bark.Fields{
+				common.TagExt:  common.FmtExt(existingFailedJob),
+				`failed times`: newFailedTimes,
+			}).Info(`replication job failed for at least twice`)
 		}
 	}
-	for currentFailedJob, _ := range currentFailedJobs {
-		if failedTimes, ok := runner.failedJobs[currentFailedJob]; !ok {
+	for currentFailedJob := range currentFailedJobs {
+		if _, ok := runner.failedJobs[currentFailedJob]; !ok {
 			runner.failedJobs[currentFailedJob] = 1
-		} else {
-			runner.logger.WithFields(bark.Fields{
-				common.TagExt:  common.FmtExt(currentFailedJob),
-				`failed times`: failedTimes,
-			}).Info(`replication job failed for at least twice`)
 		}
 	}
 

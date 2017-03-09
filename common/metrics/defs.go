@@ -831,6 +831,8 @@ const (
 	StorageOutFlushTChannelLatency
 	// StorageReplicationJobMaxConsecutiveFailures is the max number of consecutive failures for any replication job
 	StorageReplicationJobMaxConsecutiveFailures
+	// StorageReplicationJobCurrentFailures is the number of failed job in current run
+	StorageReplicationJobCurrentFailures
 
 	// -- Controller metrics -- //
 
@@ -1074,6 +1076,7 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		StorageOutWriteTChannelLatency:              {Timer, "storage.out.write-tchannel-latency"},
 		StorageOutFlushTChannelLatency:              {Timer, "storage.out.flush-tchannel-latency"},
 		StorageReplicationJobMaxConsecutiveFailures: {Gauge, "storage.replication-job.max-consecutive-failures"},
+		StorageReplicationJobCurrentFailures:        {Gauge, "storage.replication-job.current-failures"},
 	},
 
 	// definitions for Controller metrics

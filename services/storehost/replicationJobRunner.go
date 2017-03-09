@@ -239,17 +239,30 @@ func (runner *replicationJobRunner) run() {
 		if _, ok := currentFailedJobs[existingFailedJob]; !ok {
 			delete(runner.failedJobs, existingFailedJob)
 		} else {
-			runner.failedJobs[existingFailedJob] = failedTimes + 1
-			if runner.failedJobs[existingFailedJob] > maxConsecutiveFailures {
-				maxConsecutiveFailures = runner.failedJobs[existingFailedJob]
+			newFailedTimes := failedTimes + 1
+			runner.failedJobs[existingFailedJob] = newFailedTimes
+			if newFailedTimes > maxConsecutiveFailures {
+				maxConsecutiveFailures = newFailedTimes
 			}
 		}
 	}
+	for currentFailedJob, _ := range currentFailedJobs {
+		if failedTimes, ok := runner.failedJobs[currentFailedJob]; !ok {
+			runner.failedJobs[currentFailedJob] = 1
+		} else {
+			runner.logger.WithFields(bark.Fields{
+				common.TagExt:  common.FmtExt(currentFailedJob),
+				`failed times`: failedTimes,
+			}).Info(`replication job failed for at least twice`)
+		}
+	}
+
+	runner.m3Client.UpdateGauge(metrics.ReplicateExtentScope, metrics.StorageReplicationJobCurrentFailures, int64(len(currentFailedJobs)))
 	runner.m3Client.UpdateGauge(metrics.ReplicateExtentScope, metrics.StorageReplicationJobMaxConsecutiveFailures, int64(maxConsecutiveFailures))
 
 	runner.logger.WithFields(bark.Fields{
-		`stats`: fmt.Sprintf(`total extents: %v, remote extents:%v, opened for replication: %v, primary: %v, secondary: %v`,
-			totalExtents, totalRemoteExtents, openedForReplication, primaryExtents, secondaryExtents),
+		`stats`: fmt.Sprintf(`total extents: %v, remote extents:%v, opened for replication: %v, primary: %v, secondary: %v, failed: %v`,
+			totalExtents, totalRemoteExtents, openedForReplication, primaryExtents, secondaryExtents, len(currentFailedJobs)),
 		common.TagStor: common.FmtStor(runner.storeID),
 	}).Info(`replication run finished`)
 

@@ -647,7 +647,7 @@ func (h *InputHost) DestinationsUpdated(ctx thrift.Context, request *admin.Desti
 	return
 }
 
-// UnloadDestinations is the API used to unload consumer groups to clear the cache
+// UnloadDestinations is the API used to unload destination to clear the cache
 func (h *InputHost) UnloadDestinations(ctx thrift.Context, request *admin.UnloadDestinationsRequest) (err error) {
 	defer atomic.AddInt32(&h.loadShutdownRef, -1)
 	sw := h.m3Client.StartTimer(metrics.UnloadDestinationsScope, metrics.InputhostLatencyTimer)
@@ -694,21 +694,23 @@ func (h *InputHost) ListLoadedDestinations(ctx thrift.Context) (result *admin.Li
 	}
 
 	result = admin.NewListDestinationsResult_()
-	result.Dests = make([]*admin.Destinations, 0)
 	h.pathMutex.RLock()
+	result.Dests = make([]*admin.Destinations, len(h.pathCache))
+	count := 0
 	for destUUID, pathCache := range h.pathCache {
 		destRes := admin.NewDestinations()
 		destRes.DestUUID = common.StringPtr(destUUID)
 		destRes.DestPath = common.StringPtr(pathCache.destinationPath)
 
-		result.Dests = append(result.Dests, destRes)
+		result.Dests[count] = destRes
+		count++
 	}
 	h.pathMutex.RUnlock()
 
 	return result, err
 }
 
-// ReadDestState is the API used to read the state of the destination which is loaded on thi inputhost
+// ReadDestState is the API used to read the state of the destination which is loaded on this inputhost
 func (h *InputHost) ReadDestState(ctx thrift.Context, request *admin.ReadDestinationStateRequest) (result *admin.ReadDestinationStateResult_, err error) {
 	defer atomic.AddInt32(&h.loadShutdownRef, -1)
 	sw := h.m3Client.StartTimer(metrics.ReadDestStateScope, metrics.InputhostLatencyTimer)
@@ -735,13 +737,16 @@ func (h *InputHost) ReadDestState(ctx thrift.Context, request *admin.ReadDestina
 			result.DestState = append(result.DestState, destState)
 		} else {
 			h.logger.WithField(common.TagDst, common.FmtDst(destUUID)).
-				Error("destination is not cached at all")
+				Warn("destination is not cached at all")
 			err = ErrDstNotLoaded
-			h.m3Client.IncCounter(metrics.ReadDestStateScope, metrics.InputhostFailures)
 		}
 	}
 	h.pathMutex.RUnlock()
 
+	if err != nil {
+		// update the failure metric
+		h.m3Client.IncCounter(metrics.ReadDestStateScope, metrics.InputhostFailures)
+	}
 	return result, err
 
 }

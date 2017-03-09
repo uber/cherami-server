@@ -493,11 +493,13 @@ func (pathCache *inPathCache) getState() *admin.DestinationState {
 	destState.NumFailed = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricNumFailed))
 	destState.NumThrottled = common.Int64Ptr(pathCache.dstMetrics.Get(load.DstMetricNumThrottled))
 
-	destState.DestExtents = make([]*admin.InputDestExtent, 0)
+	destState.DestExtents = make([]*admin.InputDestExtent, len(pathCache.extentCache))
+	count := 0
 	// get all extent state now
 	for _, extCache := range pathCache.extentCache {
 		extState := extCache.connection.getState()
-		destState.DestExtents = append(destState.DestExtents, extState)
+		destState.DestExtents[count] = extState
+		count++
 	}
 
 	return destState

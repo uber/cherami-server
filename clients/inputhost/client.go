@@ -31,13 +31,18 @@ import (
 	tcthrift "github.com/uber/tchannel-go/thrift"
 )
 
-// InClientImpl is a inputhost cherami tchannel client
+const (
+	// defaultThriftTimeout for all the tchannel-thrift calls
+	defaultThriftTimeout = 10 * time.Second
+)
+
+// InClientImpl is a inputhost tchannel client
 type InClientImpl struct {
 	connection *tchannel.Channel
 	client     admin.TChanInputHostAdmin
 }
 
-// NewClient returns a new instance of cherami tchannel client
+// NewClient returns a new instance of tchannel client
 func NewClient(instanceID int, hostAddr string) (*InClientImpl, error) {
 	ch, err := tchannel.NewChannel(fmt.Sprintf("inputhost-client-%v", instanceID), nil)
 	if err != nil {
@@ -62,7 +67,7 @@ func (s *InClientImpl) Close() {
 
 // UnloadDestinations unloads the destination from the inputhost
 func (s *InClientImpl) UnloadDestinations(req *admin.UnloadDestinationsRequest) error {
-	ctx, cancel := tcthrift.NewContext(2 * time.Second)
+	ctx, cancel := tcthrift.NewContext(defaultThriftTimeout)
 	defer cancel()
 
 	return s.client.UnloadDestinations(ctx, req)
@@ -70,15 +75,15 @@ func (s *InClientImpl) UnloadDestinations(req *admin.UnloadDestinationsRequest) 
 
 // ListLoadedDestinations lists all the loaded destinations from the inputhost
 func (s *InClientImpl) ListLoadedDestinations() (*admin.ListDestinationsResult_, error) {
-	ctx, cancel := tcthrift.NewContext(15 * time.Second)
+	ctx, cancel := tcthrift.NewContext(defaultThriftTimeout)
 	defer cancel()
 
 	return s.client.ListLoadedDestinations(ctx)
 }
 
-// ReadDestState
+// ReadDestState reads the given destination's state from the inputhost
 func (s *InClientImpl) ReadDestState(req *admin.ReadDestinationStateRequest) (*admin.ReadDestinationStateResult_, error) {
-	ctx, cancel := tcthrift.NewContext(15 * time.Second)
+	ctx, cancel := tcthrift.NewContext(defaultThriftTimeout)
 	defer cancel()
 
 	return s.client.ReadDestState(ctx, req)

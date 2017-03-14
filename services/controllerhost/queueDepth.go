@@ -22,6 +22,7 @@ package controllerhost
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -329,9 +330,13 @@ func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDesc
 
 	switch qdc.iter.isDLQ {
 	case true:
-		backlog = common.MaxInt64(0, storeMetadata.lastSequence-(storeMetadata.beginSequence+1))
+		if storeMetadata.lastSequence != math.MaxInt64 && storeMetadata.beginSequence != math.MaxInt64 {
+			backlog = storeMetadata.lastSequence - storeMetadata.beginSequence + 1
+		}
 	case false:
-		backlog = common.MaxInt64(0, storeMetadata.availableSequence-cgExtent.GetAckLevelSeqNo())
+		if storeMetadata.availableSequence != math.MaxInt64 {
+			backlog = storeMetadata.availableSequence - cgExtent.GetAckLevelSeqNo()
+		}
 	}
 
 	if iter.cg.isTabulationRequested {
@@ -350,6 +355,9 @@ func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDesc
 			`runningTotalAvail`: backlog + iter.cg.backlogAvailable,
 		}).Info(`Queue Depth Tabulation`)
 	}
+
+	fmt.Printf("computeBacklog: CG=%v first=%d last=%d avail=%d acklvl=%d => BACKLOG=%d\n",
+		cgDesc.GetConsumerGroupName(), storeMetadata.beginSequence, storeMetadata.lastSequence, storeMetadata.availableSequence, cgExtent.GetAckLevelSeqNo(), backlog)
 
 	return backlog
 }
@@ -544,10 +552,14 @@ func (qdc *queueDepthCalculator) handleStartFrom(
 		if qualify {
 			trace += 100
 			consumerGroupExtent.WriteTime = common.Int64Ptr(int64(now))
-			consumerGroupExtent.AckLevelSeqNo = common.Int64Ptr(common.MaxInt64(
-				storeMetadata.beginSequence, // Retention may have removed some messages
-				int64(startFromSeq),         // Otherwise, act like we had just opened this extent at startFrom, i.e. don't count messages before startFrom
-			))
+
+			// Account for retention having potentially removed some messages
+			if storeMetadata.beginSequence != math.MaxInt64 {
+				consumerGroupExtent.AckLevelSeqNo = common.Int64Ptr(common.MaxInt64(
+					storeMetadata.beginSequence-1, // Retention may have removed some messages
+					int64(startFromSeq),           // Otherwise, act like we had just opened this extent at startFrom, i.e. don't count messages before startFrom
+				))
+			}
 		}
 	}
 
@@ -561,6 +573,10 @@ done:
 			`trace`:        trace,
 		}).Info(`Queue Depth Tabulation (StartFrom)`)
 	}
+
+	fmt.Printf("handleStartFrom: CG=%v qualify=%v trace=%d start=%d first=%d avail=%d (store-metadata=%v) => AckLevelSeqNo=%d\n",
+		cgDesc.GetConsumerGroupName(), qualify, trace, startFromSeq, storeMetadata.beginSequence, storeMetadata.availableSequence, storeMetadata,
+		consumerGroupExtent.GetAckLevelSeqNo())
 	return
 }
 

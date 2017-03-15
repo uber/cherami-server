@@ -1492,14 +1492,10 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 	assert.Nil(err, "CreateDestination failed")
 
 	cgName := s.generateName("/foo.bar/consumer")
-	dlqPath, _ := common.GetDLQPathNameFromCGName(cgName)
-	dlqDst, err := createDestination(s, dlqPath, true)
-	assert.Nil(err, "CreateDestination failed")
 
 	createReq := &shared.CreateConsumerGroupRequest{
 		DestinationPath:                common.StringPtr(dstPath),
 		ConsumerGroupName:              common.StringPtr(cgName),
-		DeadLetterQueueDestinationUUID: common.StringPtr(dlqDst.GetDestinationUUID()),
 		StartFrom:                      common.Int64Ptr(30),
 		LockTimeoutSeconds:             common.Int32Ptr(10),
 		MaxDeliveryCount:               common.Int32Ptr(5),
@@ -1511,10 +1507,11 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 	assert.Nil(err, "CreateConsumerGroup failed")
 	assert.Equal(shared.ConsumerGroupStatus_ENABLED, gotCG.GetStatus(), "Wrong CG status")
 
+	dlqUUID := gotCG.GetDeadLetterQueueDestinationUUID()
 	readDstReq := &m.ReadDestinationRequest{
-		Path: common.StringPtr(dlqDst.GetDestinationUUID()),
+		Path: common.StringPtr(dlqUUID),
 	}
-	dlqDst, err = s.client.ReadDestination(nil, readDstReq)
+	dlqDst, err := s.client.ReadDestination(nil, readDstReq)
 	assert.Nil(err, "ReadDestination failed for DLQ")
 	assert.Equal(shared.DestinationStatus_ENABLED, dlqDst.GetStatus(), "Wrong dlq destination status")
 
@@ -1540,7 +1537,7 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 		`DLQ should be deleted`)
 
 	readDstReq = &m.ReadDestinationRequest{
-		DestinationUUID: common.StringPtr(createReq.GetDeadLetterQueueDestinationUUID()),
+		DestinationUUID: common.StringPtr(dlqUUID),
 	}
 	dlqDst, err = s.client.ReadDestination(nil, readDstReq)
 	assert.Nil(err, "ReadDestination failed for DLQ")

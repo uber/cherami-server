@@ -568,6 +568,32 @@ func (r *Replicator) deleteDestinationRemoteCall(zone string, logger bark.Logger
 
 // CreateConsumerGroupUUID creates consumer group at local zone, expect to be called by remote replicator
 func (r *Replicator) CreateConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) (*shared.ConsumerGroupDescription, error) {
+	r.m3Client.IncCounter(metrics.ReplicatorCreateCgUUIDScope, metrics.ReplicatorRequests)
+
+	//destDesc, err := r.metaClient.CreateDestinationUUID(ctx, createRequest)
+	//if err != nil {
+	//	r.logger.WithFields(bark.Fields{
+	//		common.TagDst:    common.FmtDst(createRequest.GetDestinationUUID()),
+	//		common.TagDstPth: common.FmtDstPth(createRequest.GetRequest().GetPath()),
+	//		common.TagErr:    err,
+	//	}).Error(`Error creating destination`)
+	//	r.m3Client.IncCounter(metrics.ReplicatorCreateDestUUIDScope, metrics.ReplicatorFailures)
+	//	return nil, err
+	//}
+	//
+	//r.logger.WithFields(bark.Fields{
+	//	common.TagDst:                 common.FmtDst(destDesc.GetDestinationUUID()),
+	//	common.TagDstPth:              common.FmtDstPth(destDesc.GetPath()),
+	//	`Type`:                        destDesc.GetType(),
+	//	`Status`:                      destDesc.GetStatus(),
+	//	`ConsumedMessagesRetention`:   destDesc.GetConsumedMessagesRetention(),
+	//	`UnconsumedMessagesRetention`: destDesc.GetUnconsumedMessagesRetention(),
+	//	`OwnerEmail`:                  destDesc.GetOwnerEmail(),
+	//	`ChecksumOption`:              destDesc.GetChecksumOption(),
+	//	`IsMultiZone`:                 destDesc.GetIsMultiZone(), // expected to be true
+	//}).Info(`Created Destination`)
+
+	//return destDesc, nil
 	return nil, nil
 }
 

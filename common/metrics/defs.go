@@ -406,6 +406,18 @@ const (
 	ReplicatorDeleteDestScope
 	// ReplicatorDeleteRmtDestScope represents replicator DeleteRemoteDestination API
 	ReplicatorDeleteRmtDestScope
+	// ReplicatorCreateCgUUIDScope represents replicator CreateConsumerGroupUUID API
+	ReplicatorCreateCgUUIDScope
+	// ReplicatorCreateRmtCgUUIDScope represents replicator CreateRemoteConsumerGroupUUID API
+	ReplicatorCreateRmtCgUUIDScope
+	// ReplicatorUpdateCgScope represents replicator UpdateConsumerGroup API
+	ReplicatorUpdateCgScope
+	// ReplicatorUpdateRmtCgScope represents replicator UpdateRemoteConsumerGroup API
+	ReplicatorUpdateRmtCgScope
+	// ReplicatorDeleteCgScope represents replicator DeleteConsumerGroup API
+	ReplicatorDeleteCgScope
+	// ReplicatorDeleteRmtCgScope represents replicator DeleteRemoteConsumerGroup API
+	ReplicatorDeleteRmtCgScope
 	// ReplicatorCreateExtentScope represents replicator CreateExtent API
 	ReplicatorCreateExtentScope
 	// ReplicatorCreateRmtExtentScope represents replicator CreateRemoteExtent API
@@ -539,6 +551,12 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		ReplicatorUpdateRmtDestScope:     {operation: "ReplicatorUpdateRemoteDestination"},
 		ReplicatorDeleteDestScope:        {operation: "ReplicatorDeleteDestination"},
 		ReplicatorDeleteRmtDestScope:     {operation: "ReplicatorDeleteRemoteDestination"},
+		ReplicatorCreateCgUUIDScope:    {operation: "ReplicatorCreateConsumerGroupUUID"},
+		ReplicatorCreateRmtCgUUIDScope: {operation: "ReplicatorCreateRemoteConsumerGroupUUID"},
+		ReplicatorUpdateCgScope:        {operation: "ReplicatorUpdateConsumerGroup"},
+		ReplicatorUpdateRmtCgScope:     {operation: "ReplicatorUpdateRemoteConsumerGroup"},
+		ReplicatorDeleteCgScope:        {operation: "ReplicatorDeleteConsumerGroup"},
+		ReplicatorDeleteRmtCgScope:     {operation: "ReplicatorDeleteRemoteConsumerGroup"},
 		ReplicatorCreateExtentScope:      {operation: "ReplicatorCreateExtent"},
 		ReplicatorCreateRmtExtentScope:   {operation: "ReplicatorCreateRemoteExtent"},
 		ReplicatorReconcileScope:         {operation: "ReplicatorReconcile"},

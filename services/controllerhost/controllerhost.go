@@ -970,7 +970,7 @@ func (mcp *Mcp) CreateConsumerGroup(ctx thrift.Context, createRequest *shared.Cr
 		return nil, err
 	}
 
-	if createRequest.IsSetIsMultiZone() && createRequest.GetIsMultiZone() {
+	if createRequest.GetIsMultiZone() {
 		// get dest uuid from local consumer group, re-use for remote consumer group
 		cgUUID := cgDesc.GetConsumerGroupUUID()
 		createCGUUIDRequest := shared.NewCreateConsumerGroupUUIDRequest()
@@ -1029,21 +1029,29 @@ func (mcp *Mcp) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shared.Up
 		return nil, err
 	}
 
-	//	updateRemoteCGs := func() {
-	//		// send to local replicator to fan out
-	//		localReplicator, err := mcp.GetClientFactory().GetReplicatorClient()
-	//		if err != nil {
-	//			lclLg.Error(err.Error())
-	//		}
+	if cgDesc.GetIsMultiZone() {
+		// send to local replicator to fan out
+		localReplicator, replicatorErr := mcp.GetClientFactory().GetReplicatorClient()
+		lclLg = lclLg.WithField(common.TagCnsm, common.FmtCnsm(cgDesc.GetConsumerGroupUUID()))
+		if replicatorErr != nil {
+			lclLg.Error(replicatorErr.Error())
+			context.m3Client.IncCounter(metrics.ControllerUpdateConsumerGroupScope, metrics.ControllerErrCallReplicatorCounter)
 
-	//		err = localReplicator.UpdateRemoteConsumerGroup(ctx, updateRequest)
-	//		if err != nil {
-	//			lclLg.Error(err.Error())
-	//		}
-	//	}
+			// errors in calling replicator doesn't fail this call
+			// a reconciliation process between replicators(slow path) will fix the inconsistency eventually
+			return cgDesc, nil
+		}
 
-	//	// best effort for fast path
-	//	go updateRemoteCGs()
+		_, replicatorErr = localReplicator.UpdateConsumerGroup(ctx, updateRequest)
+		if replicatorErr != nil {
+			lclLg.Error(replicatorErr.Error())
+			context.m3Client.IncCounter(metrics.ControllerUpdateConsumerGroupScope, metrics.ControllerErrCallReplicatorCounter)
+
+			// errors in calling replicator doesn't fail this call
+			// a reconciliation process between replicators(slow path) will fix the inconsistency eventually
+			return cgDesc, nil
+		}
+	}
 
 	return cgDesc, nil
 }
@@ -1066,29 +1074,49 @@ func (mcp *Mcp) DeleteConsumerGroup(ctx thrift.Context, deleteRequest *shared.De
 		common.TagCnsPth: common.FmtCnsPth(deleteRequest.GetConsumerGroupName()),
 	})
 
-	// delete local consumer group
-	err := mcp.mClient.DeleteConsumerGroup(ctx, deleteRequest)
+	readCGReq := &m.ReadConsumerGroupRequest{
+		DestinationPath:   deleteRequest.DestinationPath,
+		DestinationUUID:   deleteRequest.DestinationUUID,
+		ConsumerGroupName: deleteRequest.ConsumerGroupName,
+	}
+	cgDesc, err := mcp.mClient.ReadConsumerGroup(nil, readCGReq)
 	if err != nil {
 		lclLg.Error(err.Error())
 		context.m3Client.IncCounter(metrics.ControllerDeleteConsumerGroupScope, metrics.ControllerFailures)
 		return err
 	}
 
-	//	deleteRemoteCGs := func() {
-	//		// send to local replicator to fan out
-	//		localReplicator, err := mcp.GetClientFactory().GetReplicatorClient()
-	//		if err != nil {
-	//			lclLg.Error(err.Error())
-	//		}
+	// delete local consumer group
+	err = mcp.mClient.DeleteConsumerGroup(ctx, deleteRequest)
+	if err != nil {
+		lclLg.Error(err.Error())
+		context.m3Client.IncCounter(metrics.ControllerDeleteConsumerGroupScope, metrics.ControllerFailures)
+		return err
+	}
 
-	//		err = localReplicator.DeleteRemoteConsumerGroup(ctx, deleteRequest)
-	//		if err != nil {
-	//			lclLg.Error(err.Error())
-	//		}
-	//	}
+	if cgDesc.GetIsMultiZone() {
+		// send to local replicator to fan out
+		localReplicator, replicatorErr := mcp.GetClientFactory().GetReplicatorClient()
+		lclLg = lclLg.WithField(common.TagCnsm, common.FmtCnsm(cgDesc.GetConsumerGroupUUID()))
+		if replicatorErr != nil {
+			lclLg.Error(replicatorErr.Error())
+			context.m3Client.IncCounter(metrics.ControllerDeleteConsumerGroupScope, metrics.ControllerErrCallReplicatorCounter)
 
-	//	// best effort for fast path
-	//	go deleteRemoteCGs()
+			// errors in calling replicator doesn't fail this call
+			// a reconciliation process between replicators(slow path) will fix the inconsistency eventually
+			return nil
+		}
+
+		replicatorErr = localReplicator.DeleteConsumerGroup(ctx, deleteRequest)
+		if replicatorErr != nil {
+			lclLg.Error(replicatorErr.Error())
+			context.m3Client.IncCounter(metrics.ControllerDeleteConsumerGroupScope, metrics.ControllerErrCallReplicatorCounter)
+
+			// errors in calling replicator doesn't fail this call
+			// a reconciliation process between replicators(slow path) will fix the inconsistency eventually
+			return nil
+		}
+	}
 
 	return nil
 }

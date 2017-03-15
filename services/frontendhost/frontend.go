@@ -43,7 +43,6 @@ import (
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
 
-	"github.com/pborman/uuid"
 	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go/hyperbahn"
 	"github.com/uber/tchannel-go/thrift"
@@ -51,9 +50,6 @@ import (
 
 const (
 	maxSizeCacheDestinationPathForUUID = 1000
-	defaultDLQConsumedRetention        = 7 * 24 * 3600 // One Week
-	defaultDLQUnconsumedRetention      = 7 * 24 * 3600 // One Week
-	defaultDLQOwnerEmail               = "default@uber"
 )
 
 var nilRequestError = &c.BadRequestError{Message: `Request must not be nil`}
@@ -621,7 +617,6 @@ func (h *Frontend) DeleteDestination(ctx thrift.Context, deleteRequest *c.Delete
 	}
 
 	err = cClient.DeleteDestination(ctx, convertDeleteDestRequestToInternal(deleteRequest))
-
 	if err != nil {
 		lclLg.WithField(common.TagErr, err).Error(`Error deleting destination`)
 		return
@@ -1031,51 +1026,6 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 	_createRequest, err := convertCreateCGRequestToInternal(createRequest)
 	if err != nil {
 		return nil, err
-	}
-
-	// Dead Letter Queue destination creation
-
-	// Only non-UUID (non-DLQ) destinations get a DLQ for the corresponding consumer groups
-	// We may create a consumer group consume a DLQ destination and no DLQ destination creation needed in this case
-	if common.PathRegex.MatchString(createRequest.GetDestinationPath()) {
-		dlqCreateRequest := shared.NewCreateDestinationRequest()
-		dlqCreateRequest.ConsumedMessagesRetention = common.Int32Ptr(defaultDLQConsumedRetention)
-		dlqCreateRequest.UnconsumedMessagesRetention = common.Int32Ptr(defaultDLQUnconsumedRetention)
-		dlqCreateRequest.OwnerEmail = common.StringPtr(defaultDLQOwnerEmail)
-		dlqCreateRequest.Type = common.InternalDestinationTypePtr(shared.DestinationType_PLAIN)
-		dlqCreateRequest.DLQConsumerGroupUUID = common.StringPtr(uuid.New()) // This is the UUID that the new consumer group will be created with
-		dlqPath, _ := common.GetDLQPathNameFromCGName(createRequest.GetConsumerGroupName())
-		dlqCreateRequest.Path = common.StringPtr(dlqPath)
-
-		var dlqDestDesc *shared.DestinationDescription
-		dlqDestDesc, err = cClient.CreateDestination(ctx, dlqCreateRequest)
-
-		if err != nil || dlqDestDesc == nil {
-			switch err.(type) {
-			case *shared.EntityAlreadyExistsError:
-				lclLg.Info("DeadLetterQueue destination already existed")
-				mDLQReadRequest := m.ReadDestinationRequest{
-					Path: dlqCreateRequest.Path,
-				}
-
-				dlqDestDesc, err = h.metaClnt.ReadDestination(ctx, &mDLQReadRequest)
-
-				if err != nil || dlqDestDesc == nil {
-					lclLg.WithField(common.TagErr, err).Error(`Can't read existing DeadLetterQueue destination`)
-					return nil, err
-				}
-
-				// We continue to consumer group creation if err == nil and dlqDestDesc != nil after the read
-			default:
-				lclLg.WithField(common.TagErr, err).Error(`Can't create DeadLetterQueue destination`)
-				return nil, err
-			}
-		}
-
-		// Set the DLQ destination UUID in the consumer group
-		_createRequest.DeadLetterQueueDestinationUUID = common.StringPtr(dlqDestDesc.GetDestinationUUID())
-	} else {
-		lclLg.Info("DeadLetterQueue destination not being created")
 	}
 
 	// Consumer group creation

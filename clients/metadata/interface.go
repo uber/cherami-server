@@ -33,7 +33,7 @@ type (
 		ReadExtentStats(request *m.ReadExtentStatsRequest) (*m.ReadExtentStatsResult_, error)
 		ListExtentsStats(request *shared.ListExtentsStatsRequest) (*shared.ListExtentsStatsResult_, error)
 		ListStoreExtentsStats(request *m.ListStoreExtentsStatsRequest) (*m.ListStoreExtentsStatsResult_, error)
-		ReadDestination(request *m.ReadDestinationRequest) (*shared.DestinationDescription, error)
+		ReadDestination(request *shared.ReadDestinationRequest) (*shared.DestinationDescription, error)
 		ListDestinations(request *shared.ListDestinationsRequest) (*shared.ListDestinationsResult_, error)
 		ListDestinationsByUUID(request *shared.ListDestinationsByUUIDRequest) (*shared.ListDestinationsResult_, error)
 		ReadConsumerGroupExtents(request *m.ReadConsumerGroupExtentsRequest) (*m.ReadConsumerGroupExtentsResult_, error)

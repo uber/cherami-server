@@ -52,6 +52,29 @@ func (_m *MetadataService) CreateConsumerGroup(registerRequest *shared.CreateCon
 	return r0, r1
 }
 
+// CreateConsumerGroupUUID provides a mock function with given fields: registerRequest
+func (_m *MetadataService) CreateConsumerGroupUUID(registerRequest *shared.CreateConsumerGroupUUIDRequest) (*shared.ConsumerGroupDescription, error) {
+	ret := _m.Called(registerRequest)
+
+	var r0 *shared.ConsumerGroupDescription
+	if rf, ok := ret.Get(0).(func(*shared.CreateConsumerGroupUUIDRequest) *shared.ConsumerGroupDescription); ok {
+		r0 = rf(registerRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shared.ConsumerGroupDescription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*shared.CreateConsumerGroupUUIDRequest) error); ok {
+		r1 = rf(registerRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateConsumerGroupExtent provides a mock function with given fields: request
 func (_m *MetadataService) CreateConsumerGroupExtent(request *metadata.CreateConsumerGroupExtentRequest) error {
 	ret := _m.Called(request)
@@ -420,11 +443,11 @@ func (_m *MetadataService) ReadConsumerGroupExtents(request *metadata.ReadConsum
 }
 
 // ReadDestination provides a mock function with given fields: getRequest
-func (_m *MetadataService) ReadDestination(getRequest *metadata.ReadDestinationRequest) (*shared.DestinationDescription, error) {
+func (_m *MetadataService) ReadDestination(getRequest *shared.ReadDestinationRequest) (*shared.DestinationDescription, error) {
 	ret := _m.Called(getRequest)
 
 	var r0 *shared.DestinationDescription
-	if rf, ok := ret.Get(0).(func(*metadata.ReadDestinationRequest) *shared.DestinationDescription); ok {
+	if rf, ok := ret.Get(0).(func(*shared.ReadDestinationRequest) *shared.DestinationDescription); ok {
 		r0 = rf(getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -433,7 +456,7 @@ func (_m *MetadataService) ReadDestination(getRequest *metadata.ReadDestinationR
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*metadata.ReadDestinationRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(*shared.ReadDestinationRequest) error); ok {
 		r1 = rf(getRequest)
 	} else {
 		r1 = ret.Error(1)

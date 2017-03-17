@@ -116,7 +116,7 @@ func (c *clientImpl) ReadExtentStats(request *m.ReadExtentStatsRequest) (*m.Read
 	return c.client.ReadExtentStats(ctx, request)
 }
 
-func (c *clientImpl) ReadDestination(request *m.ReadDestinationRequest) (*shared.DestinationDescription, error) {
+func (c *clientImpl) ReadDestination(request *shared.ReadDestinationRequest) (*shared.DestinationDescription, error) {
 	ctx, cancel := c.createContext()
 	defer cancel()
 

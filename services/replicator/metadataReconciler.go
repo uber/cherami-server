@@ -265,6 +265,86 @@ func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescr
 	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFoundMissing, replicatorReconcileDestFoundMissingCount)
 }
 
+func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescription, remoteCgs []*shared.ConsumerGroupDescription) {
+	var replicatorReconcileCgFoundMissingCount int64
+	localCgsSet := make(map[string]*shared.ConsumerGroupDescription)
+	for _, cg := range localCgs {
+		localCgsSet[cg.GetConsumerGroupUUID()] = cg
+	}
+
+	for _, remoteCg := range remoteCgs {
+		lclLg := r.logger.WithFields(bark.Fields{
+						common.TagCnsm: common.FmtCnsm(remoteCg.GetConsumerGroupUUID()),
+						common.TagDst:  common.FmtDst(remoteCg.GetDestinationUUID()),
+					})
+		localCg, ok := localCgsSet[remoteCg.GetConsumerGroupUUID()]
+		if ok {
+			if remoteCg.GetStatus() == shared.ConsumerGroupStatus_DELETED {
+				// case #1: ConsumerGroup gets deleted in remote, but not deleted in local. Delete the ConsumerGroup locally
+				if !(localCg.GetStatus() == shared.ConsumerGroupStatus_DELETED) {
+					lclLg.Info(`Found deleted cg from remote but not deleted locally`)
+					deleteRequest := &shared.DeleteConsumerGroupRequest{
+						DestinationUUID: common.StringPtr(remoteCg.GetDestinationUUID()),
+						ConsumerGroupName: common.StringPtr(remoteCg.GetConsumerGroupName()),
+					}
+					ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
+					defer cancel()
+					err := r.replicator.DeleteConsumerGroup(ctx, deleteRequest)
+					if err != nil {
+						lclLg.Error(`Failed to delete ConsumerGroup in local zone for reconciliation`)
+						continue
+					}
+				} else {
+					lclLg.Info(`Found ConsumerGroup is deleted in both remote and local`)
+					continue
+				}
+				continue
+			}
+
+			// TODO case #2: ConsumerGroup exists in both remote and local, try to compare the property to see if anything gets updated
+		} else {
+			//// case #3: ConsumerGroup exists in remote, but not in local. Create the ConsumerGroup locally
+			//lclLg.Warn(`Found missing ConsumerGroup from remote!`)
+			//replicatorReconcileCgFoundMissingCount = replicatorReconcileCgFoundMissingCount + 1
+			//
+			//// If the missing ConsumerGroup is in deleted status, we don't need to create the ConsumerGroup locally
+			//if remoteCg.GetStatus() == shared.ConsumerGroupStatus_DELETED {
+			//	lclLg.Info(`Found missing ConsumerGroup from remote but in deleted state`)
+			//	continue
+			//}
+			//createRequest := &shared.CreateConsumerGroupUUIDRequest{
+			//	Request: &shared.CreateConsumerGroupRequest{
+			//		DestinationPath: common.StringPtr(remoteCg.GetDestinationUUID())
+			//		Path: common.StringPtr(remoteCg.GetPath()),
+			//		Type: common.InternalConsumerGroupTypePtr(remoteCg.GetType()),
+			//		ConsumedMessagesRetention:   common.Int32Ptr(remoteCg.GetConsumedMessagesRetention()),
+			//		UnconsumedMessagesRetention: common.Int32Ptr(remoteCg.GetUnconsumedMessagesRetention()),
+			//		OwnerEmail:                  common.StringPtr(remoteCg.GetOwnerEmail()),
+			//		ChecksumOption:              common.InternalChecksumOptionPtr(remoteCg.GetChecksumOption()),
+			//		IsMultiZone:                 common.BoolPtr(remoteCg.GetIsMultiZone()),
+			//		ZoneConfigs:                 remoteCg.GetZoneConfigs(),
+			//		SchemaInfo:                  remoteCg.GetSchemaInfo(),
+			//	},
+			//	ConsumerGroupUUID: common.StringPtr(remoteCg.GetConsumerGroupUUID()),
+			//}
+			//
+			//ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
+			//defer cancel()
+			//_, err := r.replicator.CreateConsumerGroupUUID(ctx, createRequest)
+			//if err != nil {
+			//	r.logger.WithFields(bark.Fields{
+			//		common.TagErr: err,
+			//		common.TagDst: common.FmtDst(remoteCg.GetConsumerGroupUUID()),
+			//	}).Error(`Failed to create ConsumerGroup in local zone for reconciliation`)
+			//	continue
+			//}
+			continue
+		}
+	}
+
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFoundMissing, replicatorReconcileCgFoundMissingCount)
+}
+
 func (r *metadataReconciler) getAllMultiZoneDestInLocalZone() ([]*shared.DestinationDescription, error) {
 	listReq := &shared.ListDestinationsByUUIDRequest{
 		MultiZoneOnly:            common.BoolPtr(true),

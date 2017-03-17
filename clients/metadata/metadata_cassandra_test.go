@@ -230,7 +230,7 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 
 		// Read
 		// By UUID
-		getDestination := &m.ReadDestinationRequest{
+		getDestination := &shared.ReadDestinationRequest{
 			DestinationUUID: common.StringPtr(destination.GetDestinationUUID()),
 		}
 		loadedDestination, err := s.client.ReadDestination(nil, getDestination)
@@ -255,7 +255,7 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 		s.Equal(destination.GetDLQMergeBefore(), loadedDestination.GetDLQMergeBefore())
 
 		// By Path
-		getDestination = &m.ReadDestinationRequest{
+		getDestination = &shared.ReadDestinationRequest{
 			Path: common.StringPtr(destination.GetPath()),
 		}
 		loadedDestination, err = s.client.ReadDestination(nil, getDestination)
@@ -296,7 +296,7 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 		s.Equal(updateDestination.GetOwnerEmail(), updatedDestination.GetOwnerEmail())
 		s.Equal(updateDestination.GetChecksumOption(), updatedDestination.GetChecksumOption())
 
-		getDestination = &m.ReadDestinationRequest{
+		getDestination = &shared.ReadDestinationRequest{
 			DestinationUUID: common.StringPtr(destination.GetDestinationUUID()),
 		}
 		loadedDestination, err = s.client.ReadDestination(nil, getDestination)
@@ -342,7 +342,7 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 				s.Equal(updateDestinationDLQCursors.GetDLQMergeBefore(), updatedDestination.GetDLQMergeBefore())
 			}
 
-			getDestination = &m.ReadDestinationRequest{
+			getDestination = &shared.ReadDestinationRequest{
 				DestinationUUID: common.StringPtr(destination.GetDestinationUUID()),
 			}
 			loadedDestination, err = s.client.ReadDestination(nil, getDestination)
@@ -387,14 +387,14 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 		err := s.client.DeleteDestination(nil, deleteDestination)
 		s.Nil(err)
 		// Read by UUID might return deleted destination with DELETED status
-		getDestination := &m.ReadDestinationRequest{
+		getDestination := &shared.ReadDestinationRequest{
 			DestinationUUID: common.StringPtr(dest.GetDestinationUUID()),
 		}
 		deletedDestination, err := s.client.ReadDestination(nil, getDestination)
 		s.Nil(err)
 		s.True(deletedDestination.GetStatus() == shared.DestinationStatus_DELETING, fmt.Sprintf("%v", deletedDestination))
 		// Read by path shouldn't return deleted destination
-		getDestination = &m.ReadDestinationRequest{
+		getDestination = &shared.ReadDestinationRequest{
 			Path: common.StringPtr(dest.GetPath()),
 		}
 		deletedDestination, err = s.client.ReadDestination(nil, getDestination)
@@ -407,7 +407,7 @@ func (s *CassandraSuite) TestDestinationCRUD() {
 		s.Nil(err)
 
 		// Read by UUID might return deleted destination with DELETED status
-		getDestination = &m.ReadDestinationRequest{
+		getDestination = &shared.ReadDestinationRequest{
 			DestinationUUID: common.StringPtr(dest.GetDestinationUUID()),
 		}
 		deletedDestination, err = s.client.ReadDestination(nil, getDestination)
@@ -1508,7 +1508,7 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 	assert.Equal(shared.ConsumerGroupStatus_ENABLED, gotCG.GetStatus(), "Wrong CG status")
 
 	dlqUUID := gotCG.GetDeadLetterQueueDestinationUUID()
-	readDstReq := &m.ReadDestinationRequest{
+	readDstReq := &shared.ReadDestinationRequest{
 		Path: common.StringPtr(dlqUUID),
 	}
 	dlqDst, err := s.client.ReadDestination(nil, readDstReq)
@@ -1536,7 +1536,7 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 		dlqDst.GetStatus() == shared.DestinationStatus_DELETED,
 		`DLQ should be deleted`)
 
-	readDstReq = &m.ReadDestinationRequest{
+	readDstReq = &shared.ReadDestinationRequest{
 		DestinationUUID: common.StringPtr(dlqUUID),
 	}
 	dlqDst, err = s.client.ReadDestination(nil, readDstReq)

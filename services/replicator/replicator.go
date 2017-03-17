@@ -570,55 +570,277 @@ func (r *Replicator) deleteDestinationRemoteCall(zone string, logger bark.Logger
 func (r *Replicator) CreateConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) (*shared.ConsumerGroupDescription, error) {
 	r.m3Client.IncCounter(metrics.ReplicatorCreateCgUUIDScope, metrics.ReplicatorRequests)
 
-	//destDesc, err := r.metaClient.CreateDestinationUUID(ctx, createRequest)
-	//if err != nil {
-	//	r.logger.WithFields(bark.Fields{
-	//		common.TagDst:    common.FmtDst(createRequest.GetDestinationUUID()),
-	//		common.TagDstPth: common.FmtDstPth(createRequest.GetRequest().GetPath()),
-	//		common.TagErr:    err,
-	//	}).Error(`Error creating destination`)
-	//	r.m3Client.IncCounter(metrics.ReplicatorCreateDestUUIDScope, metrics.ReplicatorFailures)
-	//	return nil, err
-	//}
-	//
-	//r.logger.WithFields(bark.Fields{
-	//	common.TagDst:                 common.FmtDst(destDesc.GetDestinationUUID()),
-	//	common.TagDstPth:              common.FmtDstPth(destDesc.GetPath()),
-	//	`Type`:                        destDesc.GetType(),
-	//	`Status`:                      destDesc.GetStatus(),
-	//	`ConsumedMessagesRetention`:   destDesc.GetConsumedMessagesRetention(),
-	//	`UnconsumedMessagesRetention`: destDesc.GetUnconsumedMessagesRetention(),
-	//	`OwnerEmail`:                  destDesc.GetOwnerEmail(),
-	//	`ChecksumOption`:              destDesc.GetChecksumOption(),
-	//	`IsMultiZone`:                 destDesc.GetIsMultiZone(), // expected to be true
-	//}).Info(`Created Destination`)
+	cgDesc, err := r.metaClient.CreateConsumerGroupUUID(ctx, createRequest)
+	if err != nil {
+		r.logger.WithFields(bark.Fields{
+			common.TagCnsm:   common.FmtCnsm(createRequest.GetConsumerGroupUUID()),
+			common.TagCnsPth: common.FmtCnsPth(createRequest.GetRequest().GetConsumerGroupName()),
+			common.TagDstPth: common.FmtDstPth(createRequest.GetRequest().GetDestinationPath()),
+			common.TagErr:    err,
+		}).Error(`Error creating consumer group`)
+		r.m3Client.IncCounter(metrics.ReplicatorCreateCgUUIDScope, metrics.ReplicatorFailures)
+		return nil, err
+	}
 
-	//return destDesc, nil
-	return nil, nil
+	r.logger.WithFields(bark.Fields{
+		common.TagCnsm:   common.FmtCnsm(createRequest.GetConsumerGroupUUID()),
+		common.TagCnsPth: common.FmtCnsPth(createRequest.GetRequest().GetConsumerGroupName()),
+		common.TagDstPth: common.FmtDstPth(createRequest.GetRequest().GetDestinationPath()),
+		common.TagDLQID:  common.FmtDLQID(cgDesc.GetDeadLetterQueueDestinationUUID()),
+		`IsMultiZone`:    cgDesc.GetIsMultiZone(),
+		`ActiveZone`:     cgDesc.GetActiveZone(),
+	}).Info(`Created consumer group`)
+
+	return cgDesc, nil
 }
 
 // CreateRemoteConsumerGroupUUID propagate creation to multiple remote zones, expect to be called by local zone services
 func (r *Replicator) CreateRemoteConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) error {
+	r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorRequests)
+
+	if createRequest == nil || !createRequest.IsSetRequest() || !createRequest.IsSetConsumerGroupUUID() {
+		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: `Create remote cg request has nil request or nil uuid`}
+		r.logger.WithField(common.TagErr, err).Error(`Create remote cg request verification failed`)
+		return err
+	}
+
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagCnsm:   common.FmtCnsm(createRequest.GetConsumerGroupUUID()),
+		common.TagDstPth: common.FmtDstPth(createRequest.GetRequest().GetDestinationPath()),
+		common.TagCnsPth: common.FmtCnsPth(createRequest.GetRequest().GetConsumerGroupName()),
+	})
+
+	if !createRequest.GetRequest().GetIsMultiZone() || !createRequest.GetRequest().IsSetZoneConfigs() || len(createRequest.GetRequest().GetZoneConfigs()) == 0 {
+		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: fmt.Sprintf(`Not a valid create remote cg request for IsMultiZone [%v] or ZoneConfigs not set`, createRequest.GetRequest().GetIsMultiZone())}
+		lclLg.WithField(common.TagErr, err).Error(`Create remote cg request verification failed`)
+		return err
+	}
+
+	// in case no zone configured for current tenancy
+	if _, ok := r.allZones[r.tenancy]; !ok {
+		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: fmt.Sprintf(`Unknown tenancy [%s]`, r.tenancy)}
+		lclLg.WithField(common.TagErr, err).Error(`Create remote cg failed with unknown tenancy`)
+		return err
+	}
+
+	// for all the zones of current tenancy
+	for _, zone := range r.allZones[r.tenancy] {
+		// skip local zone
+		if strings.EqualFold(zone, r.localZone) {
+			continue
+		}
+
+		// call remote replicators in a goroutine. Errors can be ignored since reconciliation will fix the inconsistency eventually
+		go r.createConsumerGroupRemoteCall(zone, lclLg, createRequest)
+	}
+
+	return nil
+}
+
+func (r *Replicator) createConsumerGroupRemoteCall(zone string, logger bark.Logger, createRequest *shared.CreateConsumerGroupUUIDRequest) error {
+	// acquire remote zone replicator thrift client
+	client, err := r.replicatorclientFactory.GetReplicatorClient(zone)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Get remote replicator client failed`)
+		return err
+	}
+
+	// send to remote zone replicator
+	ctx, cancel := thrift.NewContext(remoteReplicatorCallTimeOut)
+	defer cancel()
+	_, err = client.CreateConsumerGroupUUID(ctx, createRequest)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Create remote cg call failed`)
+		return err
+	}
+
 	return nil
 }
 
 // UpdateConsumerGroup updates consumer group at local zone, expect to be called by remote replicator
 func (r *Replicator) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shared.UpdateConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
-	return nil, nil
+	r.m3Client.IncCounter(metrics.ReplicatorUpdateCgScope, metrics.ReplicatorRequests)
+
+	cgDesc, err := r.metaClient.UpdateConsumerGroup(ctx, updateRequest)
+	if err != nil {
+		r.logger.WithFields(bark.Fields{
+			common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
+			common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
+			common.TagErr:    err,
+		}).Error(`Error updating cg`)
+		r.m3Client.IncCounter(metrics.ReplicatorUpdateCgScope, metrics.ReplicatorFailures)
+		return nil, err
+	}
+
+	r.logger.WithFields(bark.Fields{
+		common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
+		common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
+		common.TagDst:    common.FmtDstPth(cgDesc.GetDestinationUUID()),
+		common.TagDLQID:  common.FmtDLQID(cgDesc.GetDeadLetterQueueDestinationUUID()),
+		`IsMultiZone`:    cgDesc.GetIsMultiZone(),
+		`ActiveZone`:     cgDesc.GetActiveZone(),
+	}).Info(`Updated cg`)
+	return cgDesc, nil
 }
 
 // UpdateRemoteConsumerGroup propagate update to multiple remote zones, expect to be called by local zone services
 func (r *Replicator) UpdateRemoteConsumerGroup(ctx thrift.Context, updateRequest *shared.UpdateConsumerGroupRequest) error {
+	r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorRequests)
+
+	if updateRequest == nil {
+		r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: `Update remote cg request has nil request`}
+		r.logger.WithField(common.TagErr, err).Error(`Update remote cg request verification failed`)
+		return err
+	}
+
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
+		common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
+	})
+
+	// in case no zone configured for current tenancy
+	if _, ok := r.allZones[r.tenancy]; !ok {
+		r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: fmt.Sprintf(`Unknown tenancy [%s]`, r.tenancy)}
+		lclLg.WithField(common.TagErr, err).Error(`Update remote destination failed with unknown tenancy`)
+		return err
+	}
+
+	// for all the zones of current tenancy
+	for _, zone := range r.allZones[r.tenancy] {
+		// skip local zone
+		if strings.EqualFold(zone, r.localZone) {
+			continue
+		}
+
+		// call remote replicators in a goroutine. Errors can be ignored since reconciliation will fix the inconsistency eventually
+		go r.updateCgRemoteCall(zone, lclLg, updateRequest)
+	}
+
+	return nil
+}
+
+func (r *Replicator) updateCgRemoteCall(zone string, logger bark.Logger, updateRequest *shared.UpdateConsumerGroupRequest) error {
+	// acquire remote zone replicator thrift client
+	client, err := r.replicatorclientFactory.GetReplicatorClient(zone)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Get remote replicator client failed`)
+		return err
+	}
+
+	// send to remote zone replicator
+	ctx, cancel := thrift.NewContext(remoteReplicatorCallTimeOut)
+	defer cancel()
+	_, err = client.UpdateConsumerGroup(ctx, updateRequest)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Update remote cg call failed`)
+		return err
+	}
+
 	return nil
 }
 
 // DeleteConsumerGroup deletes consumer group at local zone, expect to be called by remote replicator
 func (r *Replicator) DeleteConsumerGroup(ctx thrift.Context, deleteRequest *shared.DeleteConsumerGroupRequest) error {
+	r.m3Client.IncCounter(metrics.ReplicatorDeleteCgScope, metrics.ReplicatorRequests)
+
+	err := r.metaClient.DeleteConsumerGroup(ctx, deleteRequest)
+	if err != nil {
+		r.logger.WithFields(bark.Fields{
+			common.TagCnsPth: common.FmtCnsPth(deleteRequest.GetConsumerGroupName()),
+			common.TagDstPth: common.FmtDstPth(deleteRequest.GetDestinationPath()),
+			common.TagErr:    err,
+		}).Error(`Error deleting cg`)
+		r.m3Client.IncCounter(metrics.ReplicatorDeleteCgScope, metrics.ReplicatorFailures)
+		return err
+	}
+
 	return nil
 }
 
 // DeleteRemoteConsumerGroup propagate deletion to multiple remote zones, expect to be called by local zone services
 func (r *Replicator) DeleteRemoteConsumerGroup(ctx thrift.Context, deleteRequest *shared.DeleteConsumerGroupRequest) error {
+	r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorRequests)
+
+	if deleteRequest == nil {
+		r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: `Delete remote cg request has nil request`}
+		r.logger.WithField(common.TagErr, err).Error(`Delete remote cg request verification failed`)
+		return err
+	}
+
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagCnsPth: common.FmtCnsPth(deleteRequest.GetConsumerGroupName()),
+		common.TagDstPth: common.FmtDstPth(deleteRequest.GetDestinationPath()),
+	})
+
+	// in case no zone configured for current tenancy
+	if _, ok := r.allZones[r.tenancy]; !ok {
+		r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorFailures)
+		err := &shared.BadRequestError{Message: fmt.Sprintf(`Unknown tenancy [%s]`, r.tenancy)}
+		lclLg.WithField(common.TagErr, err).Error(`Delete remote cg failed with unknown tenancy`)
+		return err
+	}
+
+	// for all the zones of current tenancy
+	for _, zone := range r.allZones[r.tenancy] {
+		// skip local zone
+		if strings.EqualFold(zone, r.localZone) {
+			continue
+		}
+
+		// call remote replicators in a goroutine. Errors can be ignored since reconciliation will fix the inconsistency eventually
+		go r.deleteCgRemoteCall(zone, lclLg, deleteRequest)
+	}
+
+	return nil
+}
+
+func (r *Replicator) deleteCgRemoteCall(zone string, logger bark.Logger, deleteRequest *shared.DeleteConsumerGroupRequest) error {
+	// acquire remote zone replicator thrift client
+	client, err := r.replicatorclientFactory.GetReplicatorClient(zone)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Get remote replicator client failed`)
+		return err
+	}
+
+	// send to remote zone replicator
+	ctx, cancel := thrift.NewContext(remoteReplicatorCallTimeOut)
+	defer cancel()
+	err = client.DeleteConsumerGroup(ctx, deleteRequest)
+	if err != nil {
+		r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorFailures)
+		logger.WithFields(bark.Fields{
+			common.TagErr:      err,
+			common.TagZoneName: common.FmtZoneName(zone),
+		}).Error(`Delete remote cg call failed`)
+		return err
+	}
+
 	return nil
 }
 
@@ -668,7 +890,7 @@ func (r *Replicator) CreateRemoteExtent(ctx thrift.Context, createRequest *share
 		common.TagZoneName: common.FmtZoneName(createRequest.GetExtent().GetOriginZone()),
 	})
 
-	readDestRequest := metadata.NewReadDestinationRequest()
+	readDestRequest := shared.NewReadDestinationRequest()
 	readDestRequest.DestinationUUID = common.StringPtr(createRequest.GetExtent().GetDestinationUUID())
 	destDesc, err := r.metaClient.ReadDestination(nil, readDestRequest)
 	if err != nil {
@@ -722,6 +944,11 @@ func (r *Replicator) ListDestinationsByUUID(ctx thrift.Context, listRequest *sha
 // ListExtentsStats returns a list of extents
 func (r *Replicator) ListExtentsStats(ctx thrift.Context, listRequest *shared.ListExtentsStatsRequest) (*shared.ListExtentsStatsResult_, error) {
 	return r.metaClient.ListExtentsStats(ctx, listRequest)
+}
+
+// ReadDestination reads a destination
+func (r *Replicator) ReadDestination(ctx thrift.Context, getRequest *shared.ReadDestinationRequest) (*shared.DestinationDescription, error) {
+	return r.metaClient.ReadDestination(ctx, getRequest)
 }
 
 func (r *Replicator) createExtentRemoteCall(zone string, logger bark.Logger, createRequest *shared.CreateExtentRequest) error {

@@ -54,6 +54,29 @@ func (_m *TChanMetadataService) CreateConsumerGroup(ctx thrift.Context, createRe
 	return r0, r1
 }
 
+// CreateConsumerGroupUUID provides a mock function with given fields: ctx, createRequest
+func (_m *TChanMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) (*shared.ConsumerGroupDescription, error) {
+	ret := _m.Called(ctx, createRequest)
+
+	var r0 *shared.ConsumerGroupDescription
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.CreateConsumerGroupUUIDRequest) *shared.ConsumerGroupDescription); ok {
+		r0 = rf(ctx, createRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shared.ConsumerGroupDescription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.CreateConsumerGroupUUIDRequest) error); ok {
+		r1 = rf(ctx, createRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateConsumerGroupExtent provides a mock function with given fields: ctx, request
 func (_m *TChanMetadataService) CreateConsumerGroupExtent(ctx thrift.Context, request *metadata.CreateConsumerGroupExtentRequest) error {
 	ret := _m.Called(ctx, request)
@@ -889,11 +912,11 @@ func (_m *TChanMetadataService) ReadConsumerGroupExtentsByExtUUID(ctx thrift.Con
 }
 
 // ReadDestination provides a mock function with given fields: ctx, getRequest
-func (_m *TChanMetadataService) ReadDestination(ctx thrift.Context, getRequest *metadata.ReadDestinationRequest) (*shared.DestinationDescription, error) {
+func (_m *TChanMetadataService) ReadDestination(ctx thrift.Context, getRequest *shared.ReadDestinationRequest) (*shared.DestinationDescription, error) {
 	ret := _m.Called(ctx, getRequest)
 
 	var r0 *shared.DestinationDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadDestinationRequest) *shared.DestinationDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadDestinationRequest) *shared.DestinationDescription); ok {
 		r0 = rf(ctx, getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -902,7 +925,7 @@ func (_m *TChanMetadataService) ReadDestination(ctx thrift.Context, getRequest *
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadDestinationRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadDestinationRequest) error); ok {
 		r1 = rf(ctx, getRequest)
 	} else {
 		r1 = ret.Error(1)

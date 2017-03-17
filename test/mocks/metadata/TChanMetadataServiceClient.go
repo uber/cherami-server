@@ -560,11 +560,11 @@ func (_m *TChanMetadataServiceClient) ReadConsumerGroupExtentsByExtUUID(ctx thri
 }
 
 // ReadDestination provides a mock function with given fields: ctx, getRequest
-func (_m *TChanMetadataServiceClient) ReadDestination(ctx thrift.Context, getRequest *metadata.ReadDestinationRequest) (*shared.DestinationDescription, error) {
+func (_m *TChanMetadataServiceClient) ReadDestination(ctx thrift.Context, getRequest *shared.ReadDestinationRequest) (*shared.DestinationDescription, error) {
 	ret := _m.Called(ctx, getRequest)
 
 	var r0 *shared.DestinationDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadDestinationRequest) *shared.DestinationDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadDestinationRequest) *shared.DestinationDescription); ok {
 		r0 = rf(ctx, getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -573,7 +573,7 @@ func (_m *TChanMetadataServiceClient) ReadDestination(ctx thrift.Context, getReq
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadDestinationRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadDestinationRequest) error); ok {
 		r1 = rf(ctx, getRequest)
 	} else {
 		r1 = ret.Error(1)

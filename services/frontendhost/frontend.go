@@ -399,7 +399,7 @@ func (h *Frontend) convertConsumerGroupFromInternal(ctx thrift.Context, _cgDesc 
 
 	if len(destPath) == 0 {
 		var destDesc *shared.DestinationDescription
-		readRequest := m.NewReadDestinationRequest()
+		readRequest := shared.NewReadDestinationRequest()
 		readRequest.DestinationUUID = common.StringPtr(_cgDesc.GetDestinationUUID())
 		destDesc, err = h.metaClnt.ReadDestination(ctx, readRequest) // TODO: -= Maybe a GetDestinationPathForUUID =-
 
@@ -451,7 +451,7 @@ const (
 // that any destination that is returned by the metadata server will be returned to the client
 // TODO: Add a cache here with time-based retention
 func (h *Frontend) getUUIDForDestination(ctx thrift.Context, path string, rejectDisabled bool) (UUID string, err error) {
-	mGetRequest := m.ReadDestinationRequest{Path: common.StringPtr(path)}
+	mGetRequest := shared.ReadDestinationRequest{Path: common.StringPtr(path)}
 	destDesc, err := h.metaClnt.ReadDestination(ctx, &mGetRequest)
 
 	if err != nil {
@@ -633,7 +633,7 @@ func (h *Frontend) ReadDestination(ctx thrift.Context, readRequest *c.ReadDestin
 	if _, err = h.prolog(ctx, readRequest); err != nil {
 		return
 	}
-	var mReadRequest m.ReadDestinationRequest
+	var mReadRequest shared.ReadDestinationRequest
 
 	if common.UUIDRegex.MatchString(readRequest.GetPath()) {
 		mReadRequest.DestinationUUID = common.StringPtr(readRequest.GetPath())
@@ -696,7 +696,7 @@ func (h *Frontend) ReadPublisherOptions(ctx thrift.Context, r *c.ReadPublisherOp
 		}
 	}
 
-	readDestRequest := m.ReadDestinationRequest{Path: common.StringPtr(r.GetPath())}
+	readDestRequest := shared.ReadDestinationRequest{Path: common.StringPtr(r.GetPath())}
 	var destDesc *shared.DestinationDescription
 	destDesc, err = h.metaClnt.ReadDestination(ctx, &readDestRequest)
 	if err != nil {
@@ -1231,7 +1231,7 @@ func (h *Frontend) dlqOperationForConsumerGroup(ctx thrift.Context, destinationP
 	}
 
 	// Read the destination to see if we should allow this request
-	mReadDestRequest := m.NewReadDestinationRequest()
+	mReadDestRequest := shared.NewReadDestinationRequest()
 	mReadDestRequest.DestinationUUID = mCGDesc.DeadLetterQueueDestinationUUID
 	destDesc, err = h.metaClnt.ReadDestination(ctx, mReadDestRequest)
 

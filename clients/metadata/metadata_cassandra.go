@@ -590,7 +590,7 @@ func unmarshalDstZoneConfigs(configsData []map[string]interface{}) []*shared.Des
 // ReadDestination implements the corresponding TChanMetadataServiceClient API
 // Either path or destinationUUID can be specified.
 // Deleted destinations are returned with DELETED status only when destinationUUID is used.
-func (s *CassandraMetadataService) ReadDestination(ctx thrift.Context, getRequest *m.ReadDestinationRequest) (result *shared.DestinationDescription, err error) {
+func (s *CassandraMetadataService) ReadDestination(ctx thrift.Context, getRequest *shared.ReadDestinationRequest) (result *shared.DestinationDescription, err error) {
 	var query *gocql.Query
 	var uuid, sql string
 	if getRequest.Path != nil {
@@ -678,7 +678,7 @@ func (s *CassandraMetadataService) UpdateDestination(ctx thrift.Context, updateR
 			Message: "UpdateDestination: Update to DELETED status is not allowed. Use DeleteDestination instead.",
 		}
 	}
-	getDestination := &m.ReadDestinationRequest{
+	getDestination := &shared.ReadDestinationRequest{
 		DestinationUUID: common.StringPtr(updateRequest.GetDestinationUUID()),
 	}
 	existing, err := s.ReadDestination(nil, getDestination)
@@ -780,7 +780,7 @@ func (s *CassandraMetadataService) UpdateDestination(ctx thrift.Context, updateR
 
 // DeleteDestination implements the corresponding TChanMetadataServiceClient API
 func (s *CassandraMetadataService) DeleteDestination(ctx thrift.Context, deleteRequest *shared.DeleteDestinationRequest) error {
-	getDestination := &m.ReadDestinationRequest{
+	getDestination := &shared.ReadDestinationRequest{
 		Path: common.StringPtr(deleteRequest.GetPath()),
 	}
 	existing, err := s.ReadDestination(nil, getDestination)
@@ -834,7 +834,7 @@ func (s *CassandraMetadataService) DeleteDestinationUUID(ctx thrift.Context, del
 		return &shared.BadRequestError{Message: "Missing UUID param"}
 	}
 
-	getDestination := &m.ReadDestinationRequest{
+	getDestination := &shared.ReadDestinationRequest{
 		DestinationUUID: common.StringPtr(deleteRequest.GetUUID()),
 	}
 	existing, err := s.ReadDestination(nil, getDestination)
@@ -1003,7 +1003,7 @@ func (s *CassandraMetadataService) ListDestinationsByUUID(ctx thrift.Context, li
 		*d.DLQMergeBefore = int64(cqlTimestampToUnixNano(*d.DLQMergeBefore))
 
 		if listRequest.GetValidateAgainstPathTable() {
-			readRequest := &m.ReadDestinationRequest{
+			readRequest := &shared.ReadDestinationRequest{
 				Path: d.Path,
 			}
 
@@ -1223,7 +1223,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 			switch err.(type) {
 			case *shared.EntityAlreadyExistsError:
 				log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination already existed")
-				mDLQReadRequest := m.ReadDestinationRequest{
+				mDLQReadRequest := shared.ReadDestinationRequest{
 					Path: dlqCreateRequest.Path,
 				}
 
@@ -1245,7 +1245,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination not being created")
 	}
 
-	dstInfo, err := s.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(createRequest.GetDestinationPath())})
+	dstInfo, err := s.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(createRequest.GetDestinationPath())})
 	if err != nil {
 		return nil, err
 	}
@@ -1406,7 +1406,7 @@ func (s *CassandraMetadataService) ReadConsumerGroup(ctx thrift.Context, request
 	var dstUUID string
 
 	if request.DestinationPath != nil {
-		dstInfo, err := s.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(request.GetDestinationPath())})
+		dstInfo, err := s.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(request.GetDestinationPath())})
 		if err != nil {
 			return nil, err
 		}
@@ -1623,12 +1623,11 @@ func (s *CassandraMetadataService) DeleteConsumerGroup(ctx thrift.Context, reque
 	// DELETED. The following code adds the DLQ destination delete
 	// to the batch operation, if there is one.
 	dlqDstID := existingCG.GetDeadLetterQueueDestinationUUID()
-	log.Info(fmt.Sprintf("dlq dst id: %v", dlqDstID))
 	// Not all CGs have a DLQ, only do this if there is a DLQ
 	if len(dlqDstID) > 0 {
 		var dlqDstDesc *shared.DestinationDescription
 		// this is the same as DeleteDestination()
-		readReq := &m.ReadDestinationRequest{
+		readReq := &shared.ReadDestinationRequest{
 			Path: common.StringPtr(dlqDstID),
 		}
 		dlqDstDesc, e = s.ReadDestination(nil, readReq)
@@ -1716,7 +1715,7 @@ func (s *CassandraMetadataService) ListConsumerGroups(ctx thrift.Context, reques
 
 	dstUUID := request.GetDestinationUUID()
 	if path := request.DestinationPath; path != nil {
-		dstInfo, err := s.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(*path)})
+		dstInfo, err := s.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(*path)})
 		if err != nil {
 			preMsg := fmt.Sprintf("ListConsumerGroups - destinationUUID lookup failed, dst=%v, cg=%v, err=", request.GetDestinationPath(), request.GetConsumerGroupName())
 			switch e := err.(type) {
@@ -4036,7 +4035,7 @@ func (s *CassandraMetadataService) ListHosts(ctx thrift.Context, listRequest *m.
 
 // UpdateDestinationDLQCursors implements the corresponding TChanMetadataServiceClient API
 func (s *CassandraMetadataService) UpdateDestinationDLQCursors(ctx thrift.Context, updateRequest *m.UpdateDestinationDLQCursorsRequest) (existing *shared.DestinationDescription, err error) {
-	getDestination := &m.ReadDestinationRequest{
+	getDestination := &shared.ReadDestinationRequest{
 		DestinationUUID: common.StringPtr(updateRequest.GetDestinationUUID()),
 	}
 	existing, err = s.ReadDestination(nil, getDestination)

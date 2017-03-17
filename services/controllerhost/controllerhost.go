@@ -898,7 +898,7 @@ func (mcp *Mcp) DeleteDestination(ctx thrift.Context, deleteRequest *shared.Dele
 	lclLg := context.log.WithField(common.TagDstPth, common.FmtDstPth(deleteRequest.GetPath()))
 
 	// first read the destination
-	readDestinationRequest := &m.ReadDestinationRequest{
+	readDestinationRequest := &shared.ReadDestinationRequest{
 		Path: common.StringPtr(deleteRequest.GetPath()),
 	}
 	destDesc, err := mcp.mClient.ReadDestination(ctx, readDestinationRequest)

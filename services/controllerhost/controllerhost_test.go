@@ -660,7 +660,7 @@ func (s *McpSuite) TestMultiZoneDestCUD() {
 	s.True(destDesc.GetIsMultiZone())
 
 	// verify local operation
-	destDesc, err = s.mClient.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
 	s.NoError(err)
 	s.NotNil(destDesc)
 	s.Equal(destUUID, destDesc.GetDestinationUUID())
@@ -691,7 +691,7 @@ func (s *McpSuite) TestMultiZoneDestCUD() {
 	s.True(destDesc.GetIsMultiZone())
 
 	// verify local operation
-	destDesc, err = s.mClient.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
 	s.NoError(err)
 	s.NotNil(destDesc)
 	s.Equal(destUUID, destDesc.GetDestinationUUID())
@@ -715,7 +715,7 @@ func (s *McpSuite) TestMultiZoneDestCUD() {
 	s.NoError(err)
 
 	// verify local operation
-	destDesc, err = s.mClient.ReadDestination(nil, &m.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
 	s.Error(err)
 	s.Nil(destDesc)
 	assert.IsType(s.T(), &shared.EntityNotExistsError{}, err)

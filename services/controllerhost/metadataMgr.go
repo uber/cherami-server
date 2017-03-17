@@ -158,7 +158,7 @@ func (mm *metadataMgrImpl) ListDestinationsPage(mReq *shared.ListDestinationsReq
 
 func (mm *metadataMgrImpl) ReadDestination(dstID string, dstPath string) (*shared.DestinationDescription, error) {
 
-	mReq := &m.ReadDestinationRequest{}
+	mReq := &shared.ReadDestinationRequest{}
 
 	if len(dstID) > 0 {
 		mReq.DestinationUUID = common.StringPtr(dstID)

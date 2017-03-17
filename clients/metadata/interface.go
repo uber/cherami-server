@@ -42,8 +42,8 @@ type (
 		ReadConsumerGroupByUUID(request *m.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error)
 		ReadConsumerGroup(request *m.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error)
 		ListHosts(request *m.ListHostsRequest) (*m.ListHostsResult_, error)
-		ListConsumerGroups(request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error)
-		ListAllConsumerGroups(request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error)
+		ListConsumerGroups(request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error)
+		ListAllConsumerGroups(request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error)
 		ReadServiceConfig(request *m.ReadServiceConfigRequest) (*m.ReadServiceConfigResult_, error)
 		UpdateServiceConfig(request *m.UpdateServiceConfigRequest) error
 		DeleteServiceConfig(request *m.DeleteServiceConfigRequest) error

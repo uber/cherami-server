@@ -1106,13 +1106,13 @@ func (h *Frontend) ListConsumerGroups(ctx thrift.Context, listRequest *c.ListCon
 		common.TagCnsPth: common.FmtCnsPth(listRequest.GetConsumerGroupName()),
 	})
 
-	mListRequest := m.NewListConsumerGroupRequest()
+	mListRequest := shared.NewListConsumerGroupRequest()
 	mListRequest.ConsumerGroupName = common.StringPtr(listRequest.GetConsumerGroupName())
 	mListRequest.DestinationPath = common.StringPtr(listRequest.GetDestinationPath())
 	mListRequest.PageToken = listRequest.PageToken
 	mListRequest.Limit = common.Int64Ptr(listRequest.GetLimit())
 
-	var listResult *m.ListConsumerGroupResult_
+	var listResult *shared.ListConsumerGroupResult_
 	listResult, err = h.metaClnt.ListConsumerGroups(ctx, mListRequest)
 
 	if err != nil {

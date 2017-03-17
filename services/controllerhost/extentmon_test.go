@@ -328,7 +328,7 @@ func (s *ExtentStateMonitorSuite) TestExtentMonitor() {
 			}
 
 			if desc.GetStatus() == shared.DestinationStatus_DELETING {
-				cg, e := s.mcp.mClient.ListConsumerGroups(nil, &m.ListConsumerGroupRequest{
+				cg, e := s.mcp.mClient.ListConsumerGroups(nil, &shared.ListConsumerGroupRequest{
 					DestinationUUID:   common.StringPtr(desc.GetDestinationUUID()),
 					ConsumerGroupName: common.StringPtr(desc.GetPath() + "/consumer"),
 				})

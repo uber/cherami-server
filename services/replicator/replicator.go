@@ -951,6 +951,11 @@ func (r *Replicator) ReadDestination(ctx thrift.Context, getRequest *shared.Read
 	return r.metaClient.ReadDestination(ctx, getRequest)
 }
 
+// ListConsumerGroups list consumer groups
+func (r *Replicator) ListConsumerGroups(ctx thrift.Context, getRequest *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
+	return r.metaClient.ListConsumerGroups(ctx, getRequest)
+}
+
 func (r *Replicator) createExtentRemoteCall(zone string, logger bark.Logger, createRequest *shared.CreateExtentRequest) error {
 	// acquire remote zone replicator thrift client
 	client, err := r.replicatorclientFactory.GetReplicatorClient(zone)

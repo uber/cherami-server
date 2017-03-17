@@ -158,7 +158,7 @@ func (c *clientImpl) ListHosts(request *m.ListHostsRequest) (*m.ListHostsResult_
 	return c.client.ListHosts(ctx, request)
 }
 
-func (c *clientImpl) ListAllConsumerGroups(request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error) {
+func (c *clientImpl) ListAllConsumerGroups(request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 	ctx, cancel := c.createContext()
 	defer cancel()
 
@@ -172,7 +172,7 @@ func (c *clientImpl) ListEntityOps(request *m.ListEntityOpsRequest) (*m.ListEnti
 	return c.client.ListEntityOps(ctx, request)
 }
 
-func (c *clientImpl) ListConsumerGroups(request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error) {
+func (c *clientImpl) ListConsumerGroups(request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 	ctx, cancel := c.createContext()
 	defer cancel()
 

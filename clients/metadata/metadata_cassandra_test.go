@@ -1772,7 +1772,7 @@ func (s *CassandraSuite) TestListConsumerGroups() {
 
 	dstUUID := dstInfo.GetDestinationUUID()
 
-	listReq := &m.ListConsumerGroupRequest{
+	listReq := &shared.ListConsumerGroupRequest{
 		DestinationPath: common.StringPtr(dstPath),
 		Limit:           common.Int64Ptr(testPageSize),
 	}
@@ -1781,7 +1781,7 @@ func (s *CassandraSuite) TestListConsumerGroups() {
 	assert.Nil(err, "ListConsumerGroups failed")
 	assert.Equal(0, len(listRes.GetConsumerGroups()), "Result should be empty when there are no matching groups")
 
-	listRes, err = s.client.ListConsumerGroups(nil, &m.ListConsumerGroupRequest{
+	listRes, err = s.client.ListConsumerGroups(nil, &shared.ListConsumerGroupRequest{
 		DestinationUUID: common.StringPtr(dstUUID),
 		Limit:           common.Int64Ptr(testPageSize),
 	})
@@ -1823,12 +1823,12 @@ func (s *CassandraSuite) TestListConsumerGroups() {
 	assert.Equal(1, len(listRes.GetConsumerGroups()), "ListConsumerGroups failed to return correct number of result")
 	assert.Equal(testName, listRes.GetConsumerGroups()[0].GetConsumerGroupName(), "Wrong consumer group returned")
 
-	inputs := make([]*m.ListConsumerGroupRequest, 0, 2)
-	inputs = append(inputs, &m.ListConsumerGroupRequest{
+	inputs := make([]*shared.ListConsumerGroupRequest, 0, 2)
+	inputs = append(inputs, &shared.ListConsumerGroupRequest{
 		DestinationPath: common.StringPtr(dstPath),
 		Limit:           common.Int64Ptr(testPageSize),
 	})
-	inputs = append(inputs, &m.ListConsumerGroupRequest{
+	inputs = append(inputs, &shared.ListConsumerGroupRequest{
 		DestinationUUID: common.StringPtr(dstUUID),
 		Limit:           common.Int64Ptr(testPageSize),
 	})
@@ -1896,7 +1896,7 @@ func (s *CassandraSuite) TestListAllConsumerGroups() {
 		}
 	}
 
-	listReq := &m.ListConsumerGroupRequest{
+	listReq := &shared.ListConsumerGroupRequest{
 		Limit: common.Int64Ptr(testPageSize),
 	}
 

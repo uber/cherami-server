@@ -199,20 +199,20 @@ func (_m *MetadataService) HostAddrToUUID(hostAddr string) (string, error) {
 }
 
 // ListConsumerGroups provides a mock function with given fields: listRequest
-func (_m *MetadataService) ListConsumerGroups(listRequest *metadata.ListConsumerGroupRequest) (*metadata.ListConsumerGroupResult_, error) {
+func (_m *MetadataService) ListConsumerGroups(listRequest *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 	ret := _m.Called(listRequest)
 
-	var r0 *metadata.ListConsumerGroupResult_
-	if rf, ok := ret.Get(0).(func(*metadata.ListConsumerGroupRequest) *metadata.ListConsumerGroupResult_); ok {
+	var r0 *shared.ListConsumerGroupResult_
+	if rf, ok := ret.Get(0).(func(*shared.ListConsumerGroupRequest) *shared.ListConsumerGroupResult_); ok {
 		r0 = rf(listRequest)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*metadata.ListConsumerGroupResult_)
+			r0 = ret.Get(0).(*shared.ListConsumerGroupResult_)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*metadata.ListConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(*shared.ListConsumerGroupRequest) error); ok {
 		r1 = rf(listRequest)
 	} else {
 		r1 = ret.Error(1)

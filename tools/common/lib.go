@@ -681,7 +681,7 @@ func ReadDestination(c *cli.Context, mClient mcli.Client) {
 	if showCG == "true" {
 		// read all the consumer group for this destination, including deleted ones
 		destUUID := desc.GetDestinationUUID()
-		req := &metadata.ListConsumerGroupRequest{
+		req := &shared.ListConsumerGroupRequest{
 			Limit: common.Int64Ptr(DefaultPageSize),
 		}
 		var cgsInfo = make([]*shared.ConsumerGroupDescription, 0)

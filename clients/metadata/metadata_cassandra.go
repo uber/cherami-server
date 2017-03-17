@@ -1705,7 +1705,7 @@ func (s *CassandraMetadataService) DeleteConsumerGroup(ctx thrift.Context, reque
 // If the ConsumerGroupName parameter is empty, this method will return all ConsumerGroups for the given
 // destination path/uuid. The returned value is an implementation of MetadataServiceListConsumerGroupsOutCall interface.
 // Callers must repeatedly invoke the Read() operation on the returned type until either an EOF or error is returned.
-func (s *CassandraMetadataService) ListConsumerGroups(ctx thrift.Context, request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error) {
+func (s *CassandraMetadataService) ListConsumerGroups(ctx thrift.Context, request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 
 	if request.DestinationPath == nil && request.DestinationUUID == nil {
 		return nil, &shared.BadRequestError{
@@ -1751,7 +1751,7 @@ func (s *CassandraMetadataService) ListConsumerGroups(ctx thrift.Context, reques
 		}
 	}
 
-	result := &m.ListConsumerGroupResult_{
+	result := &shared.ListConsumerGroupResult_{
 		ConsumerGroups: []*shared.ConsumerGroupDescription{},
 		NextPageToken:  request.PageToken,
 	}
@@ -1797,7 +1797,7 @@ func (s *CassandraMetadataService) ListConsumerGroups(ctx thrift.Context, reques
 }
 
 // ListAllConsumerGroups returns all ConsumerGroups in ConsumerGroups Table. This API is only used for debuging tool
-func (s *CassandraMetadataService) ListAllConsumerGroups(ctx thrift.Context, request *m.ListConsumerGroupRequest) (*m.ListConsumerGroupResult_, error) {
+func (s *CassandraMetadataService) ListAllConsumerGroups(ctx thrift.Context, request *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 
 	if request.GetLimit() <= 0 {
 		return nil, &shared.BadRequestError{
@@ -1813,7 +1813,7 @@ func (s *CassandraMetadataService) ListAllConsumerGroups(ctx thrift.Context, req
 		}
 	}
 
-	result := &m.ListConsumerGroupResult_{
+	result := &shared.ListConsumerGroupResult_{
 		ConsumerGroups: []*shared.ConsumerGroupDescription{},
 		NextPageToken:  request.PageToken,
 	}

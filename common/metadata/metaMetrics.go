@@ -76,7 +76,7 @@ func (m *metadataMetricsMgr) HostAddrToUUID(ctx thrift.Context, request string) 
 	return result, err
 }
 
-func (m *metadataMetricsMgr) ListAllConsumerGroups(ctx thrift.Context, request *m.ListConsumerGroupRequest) (result *m.ListConsumerGroupResult_, err error) {
+func (m *metadataMetricsMgr) ListAllConsumerGroups(ctx thrift.Context, request *shared.ListConsumerGroupRequest) (result *shared.ListConsumerGroupResult_, err error) {
 
 	m.m3.IncCounter(metrics.MetadataListAllConsumerGroupsScope, metrics.MetadataRequests)
 	sw := m.m3.StartTimer(metrics.MetadataListAllConsumerGroupsScope, metrics.MetadataLatency)
@@ -91,7 +91,7 @@ func (m *metadataMetricsMgr) ListAllConsumerGroups(ctx thrift.Context, request *
 	return result, err
 }
 
-func (m *metadataMetricsMgr) ListConsumerGroups(ctx thrift.Context, request *m.ListConsumerGroupRequest) (result *m.ListConsumerGroupResult_, err error) {
+func (m *metadataMetricsMgr) ListConsumerGroups(ctx thrift.Context, request *shared.ListConsumerGroupRequest) (result *shared.ListConsumerGroupResult_, err error) {
 
 	m.m3.IncCounter(metrics.MetadataListConsumerGroupsScope, metrics.MetadataRequests)
 	sw := m.m3.StartTimer(metrics.MetadataListConsumerGroupsScope, metrics.MetadataLatency)

@@ -219,17 +219,13 @@ func (s *McpSuite) listInputHostExtents(dstUUID string, inputHostUUID string) (*
 }
 
 func (s *McpSuite) createConsumerGroup(dstPath, cgName string) (*shared.ConsumerGroupDescription, error) {
-	return s.createConsumerGroupWithDLQ(dstPath, cgName, ``)
+	return s.createConsumerGroupWithDLQ(dstPath, cgName)
 }
 
-func (s *McpSuite) createConsumerGroupWithDLQ(dstPath, cgName, dlqUUID string) (*shared.ConsumerGroupDescription, error) {
+func (s *McpSuite) createConsumerGroupWithDLQ(dstPath, cgName string) (*shared.ConsumerGroupDescription, error) {
 	mReq := &shared.CreateConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(dstPath),
 		ConsumerGroupName: common.StringPtr(cgName),
-	}
-
-	if len(dlqUUID) != 0 {
-		mReq.DeadLetterQueueDestinationUUID = common.StringPtr(dlqUUID)
 	}
 
 	return s.mClient.CreateConsumerGroup(nil, mReq)

@@ -579,7 +579,7 @@ func (s *CassandraSuite) TestListDestinationsByUUID() {
 
 	// ListDestinationsByUUID
 	listDestinations := &shared.ListDestinationsByUUIDRequest{
-		Limit:  common.Int64Ptr(testPageSize),
+		Limit: common.Int64Ptr(testPageSize),
 		ValidateAgainstPathTable: common.BoolPtr(true),
 	}
 	var result []*shared.DestinationDescription
@@ -607,9 +607,9 @@ func (s *CassandraSuite) TestListDestinationsByUUID() {
 
 	// list multi zone only
 	listDestinations = &shared.ListDestinationsByUUIDRequest{
-		MultiZoneOnly: common.BoolPtr(true),
+		MultiZoneOnly:            common.BoolPtr(true),
 		ValidateAgainstPathTable: common.BoolPtr(true),
-		Limit:         common.Int64Ptr(testPageSize),
+		Limit: common.Int64Ptr(testPageSize),
 	}
 	result = nil
 	for {
@@ -848,24 +848,25 @@ func (s *CassandraSuite) TestMoveExtent() {
 	destinations[normal], err = createDestination(s, destPath, false)
 	assert.Nil(err, "CreateDestination failed")
 
-	dlqPath, _ := common.GetDLQPathNameFromCGName(cgPath)
-	destinations[dlq], err = createDestination(s, dlqPath, true)
-	assert.Nil(err, "CreateDestination failed")
-
 	createReq := &shared.CreateConsumerGroupRequest{
-		DestinationPath:                common.StringPtr(destPath),
-		ConsumerGroupName:              common.StringPtr(cgPath),
-		DeadLetterQueueDestinationUUID: common.StringPtr(destinations[dlq].GetDestinationUUID()),
-		StartFrom:                      common.Int64Ptr(30),
-		LockTimeoutSeconds:             common.Int32Ptr(10),
-		MaxDeliveryCount:               common.Int32Ptr(5),
-		SkipOlderMessagesSeconds:       common.Int32Ptr(60),
-		OwnerEmail:                     common.StringPtr("consumer_test@uber.com"),
+		DestinationPath:          common.StringPtr(destPath),
+		ConsumerGroupName:        common.StringPtr(cgPath),
+		StartFrom:                common.Int64Ptr(30),
+		LockTimeoutSeconds:       common.Int32Ptr(10),
+		MaxDeliveryCount:         common.Int32Ptr(5),
+		SkipOlderMessagesSeconds: common.Int32Ptr(60),
+		OwnerEmail:               common.StringPtr("consumer_test@uber.com"),
 	}
 
 	gotCG, err := s.client.CreateConsumerGroup(nil, createReq)
 	assert.Nil(err, "CreateConsumerGroup failed")
 	assert.Equal(shared.ConsumerGroupStatus_ENABLED, gotCG.GetStatus(), "Wrong CG status")
+
+	readDlqDstReq := &shared.ReadDestinationRequest{
+		Path: common.StringPtr(gotCG.GetDeadLetterQueueDestinationUUID()),
+	}
+	destinations[dlq], err = s.client.ReadDestination(nil, readDlqDstReq)
+	assert.Nil(err, "ReadDestination failed for DLQ")
 
 	cExtent := func(dest *shared.DestinationDescription) *shared.ExtentStats {
 		extentUUID := uuid.New()
@@ -1481,6 +1482,7 @@ func assertConsumerGroupsEqual(s *CassandraSuite, expected, got *shared.Consumer
 	s.Equal(expected.GetMaxDeliveryCount(), got.GetMaxDeliveryCount(), "Wrong MaxDeliveryCount")
 	s.Equal(expected.GetSkipOlderMessagesSeconds(), got.GetSkipOlderMessagesSeconds(), "Wrong SkipOlderMessagesSeconds")
 	s.Equal(expected.GetOwnerEmail(), got.GetOwnerEmail(), "Wrong OwnerEmail")
+	s.Equal(expected.GetDeadLetterQueueDestinationUUID(), got.GetDeadLetterQueueDestinationUUID(), "Wrong DeadLetterQueueDestinationUUID")
 }
 
 func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
@@ -1494,13 +1496,13 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 	cgName := s.generateName("/foo.bar/consumer")
 
 	createReq := &shared.CreateConsumerGroupRequest{
-		DestinationPath:                common.StringPtr(dstPath),
-		ConsumerGroupName:              common.StringPtr(cgName),
-		StartFrom:                      common.Int64Ptr(30),
-		LockTimeoutSeconds:             common.Int32Ptr(10),
-		MaxDeliveryCount:               common.Int32Ptr(5),
-		SkipOlderMessagesSeconds:       common.Int32Ptr(60),
-		OwnerEmail:                     common.StringPtr("consumer_test@uber.com"),
+		DestinationPath:          common.StringPtr(dstPath),
+		ConsumerGroupName:        common.StringPtr(cgName),
+		StartFrom:                common.Int64Ptr(30),
+		LockTimeoutSeconds:       common.Int32Ptr(10),
+		MaxDeliveryCount:         common.Int32Ptr(5),
+		SkipOlderMessagesSeconds: common.Int32Ptr(60),
+		OwnerEmail:               common.StringPtr("consumer_test@uber.com"),
 	}
 
 	gotCG, err := s.client.CreateConsumerGroup(nil, createReq)
@@ -1557,7 +1559,7 @@ func (s *CassandraSuite) TestConsumerGroupCRUD() {
 		Visible: common.BoolPtr(false),
 	}
 
-	cgName := s.generateName("foobar-consumer")
+	cgName := s.generateName("/foo/bar_consumer")
 
 	createReq := &shared.CreateConsumerGroupRequest{
 		DestinationPath:          common.StringPtr(dstPath),
@@ -1594,7 +1596,16 @@ func (s *CassandraSuite) TestConsumerGroupCRUD() {
 	assert.Nil(err, "CreateConsumerGroup failed")
 
 	expectedCG.ConsumerGroupUUID = common.StringPtr(gotCG.GetConsumerGroupUUID())
+	expectedCG.DeadLetterQueueDestinationUUID = common.StringPtr(gotCG.GetDeadLetterQueueDestinationUUID())
 	assertConsumerGroupsEqual(s, expectedCG, gotCG)
+
+	// make sure the DLQConsumerGroupUUID from DLQ dest is correct
+	dlqDestReq := &shared.ReadDestinationRequest{
+		Path: common.StringPtr(gotCG.GetDeadLetterQueueDestinationUUID()),
+	}
+	dlqDest, err := s.client.ReadDestination(nil, dlqDestReq)
+	assert.Nil(err, "Read Dlq destination failed")
+	assert.Equal(dlqDest.GetDLQConsumerGroupUUID(), gotCG.GetConsumerGroupUUID())
 
 	for pass := 0; pass < 3; pass++ {
 		readReq := &m.ReadConsumerGroupRequest{
@@ -1678,6 +1689,7 @@ func (s *CassandraSuite) TestConsumerGroupCRUD() {
 			assert.Nil(err, "CreateConsumerGroup failed")
 
 			expectedCGOrig.ConsumerGroupUUID = common.StringPtr(gotCG.GetConsumerGroupUUID())
+			expectedCGOrig.DeadLetterQueueDestinationUUID = common.StringPtr(gotCG.GetDeadLetterQueueDestinationUUID())
 			assertConsumerGroupsEqual(s, expectedCGOrig, gotCG)
 
 			*expectedCG = *expectedCGOrig
@@ -1796,14 +1808,13 @@ func (s *CassandraSuite) TestListConsumerGroups() {
 		var createReq *shared.CreateConsumerGroupRequest
 
 		createReq = &shared.CreateConsumerGroupRequest{
-			DestinationPath:                common.StringPtr(dstPath),
-			ConsumerGroupName:              common.StringPtr(name),
-			StartFrom:                      common.Int64Ptr(30),
-			LockTimeoutSeconds:             common.Int32Ptr(10),
-			MaxDeliveryCount:               common.Int32Ptr(5),
-			SkipOlderMessagesSeconds:       common.Int32Ptr(60),
-			DeadLetterQueueDestinationUUID: nil,
-			OwnerEmail:                     common.StringPtr("consumer_test@uber.com"),
+			DestinationPath:          common.StringPtr(dstPath),
+			ConsumerGroupName:        common.StringPtr(name),
+			StartFrom:                common.Int64Ptr(30),
+			LockTimeoutSeconds:       common.Int32Ptr(10),
+			MaxDeliveryCount:         common.Int32Ptr(5),
+			SkipOlderMessagesSeconds: common.Int32Ptr(60),
+			OwnerEmail:               common.StringPtr("consumer_test@uber.com"),
 		}
 
 		_, err = s.client.CreateConsumerGroup(nil, createReq)
@@ -1877,14 +1888,13 @@ func (s *CassandraSuite) TestListAllConsumerGroups() {
 		var createReq *shared.CreateConsumerGroupRequest
 
 		createReq = &shared.CreateConsumerGroupRequest{
-			DestinationPath:                common.StringPtr(dstPath),
-			ConsumerGroupName:              common.StringPtr(name),
-			StartFrom:                      common.Int64Ptr(30),
-			LockTimeoutSeconds:             common.Int32Ptr(10),
-			MaxDeliveryCount:               common.Int32Ptr(5),
-			SkipOlderMessagesSeconds:       common.Int32Ptr(60),
-			DeadLetterQueueDestinationUUID: nil,
-			OwnerEmail:                     common.StringPtr("consumer_test@uber.com"),
+			DestinationPath:          common.StringPtr(dstPath),
+			ConsumerGroupName:        common.StringPtr(name),
+			StartFrom:                common.Int64Ptr(30),
+			LockTimeoutSeconds:       common.Int32Ptr(10),
+			MaxDeliveryCount:         common.Int32Ptr(5),
+			SkipOlderMessagesSeconds: common.Int32Ptr(60),
+			OwnerEmail:               common.StringPtr("consumer_test@uber.com"),
 		}
 
 		_, err = s.client.CreateConsumerGroup(nil, createReq)

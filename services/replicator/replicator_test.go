@@ -984,6 +984,147 @@ func (s *ReplicatorSuite) TestDestMetadataReconcileRemoteUpdate() {
 	s.mockMeta.AssertExpectations(s.T())
 }
 
+// local zone is missing one cg compared to remote. Expect to create the missing cg
+func (s *ReplicatorSuite) TestCgMetadataReconcileLocalMissing() {
+	localZone := `zone2`
+	missingCgUUID := uuid.New()
+	cgCreated := &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(missingCgUUID),
+	}
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	// setup mock
+	s.mockMeta.On("CreateConsumerGroupUUID", mock.Anything, mock.Anything).Return(cgCreated, nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.CreateConsumerGroupUUIDRequest)
+		s.True(req.IsSetRequest())
+		s.Equal(missingCgUUID, req.GetConsumerGroupUUID())
+	})
+
+	mockReplicator := new(mockreplicator.MockTChanReplicator)
+	mockReplicator.On("ReadDestination", mock.Anything, mock.Anything).Return(&shared.DestinationDescription{Path: common.StringPtr(`dest`)}, nil)
+	s.mockReplicatorClientFactory.On("GetReplicatorClient", mock.Anything).Return(mockReplicator, nil)
+
+	var localCgs []*shared.ConsumerGroupDescription
+	var remoteCgs []*shared.ConsumerGroupDescription
+	remoteCgs = append(remoteCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(missingCgUUID),
+	})
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
+// both local and remote zone has no ConsumerGroup. Expect no creation request is generated
+func (s *ReplicatorSuite) TestCgMetadataReconcileLocalAndRemoteEmpty() {
+	localZone := `zone2`
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	var localCgs []*shared.ConsumerGroupDescription
+	var remoteCgs []*shared.ConsumerGroupDescription
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
+// local zone has more ConsumerGroup than remote zone. Expect no creation request is generated
+func (s *ReplicatorSuite) TestCgMetadataReconcileRemoteMissing() {
+	localZone := `zone2`
+	missingCgUUID := uuid.New()
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	var localCgs []*shared.ConsumerGroupDescription
+	localCgs = append(localCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(missingCgUUID),
+	})
+	var remoteCgs []*shared.ConsumerGroupDescription
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
+// local zone is missing one ConsumerGroup compared to remote, but ConsumerGroup is deleted in remote zone. Expect no creation request is generated
+func (s *ReplicatorSuite) TestCgMetadataReconcileLocalMissingRemoteDeleted() {
+	localZone := `zone2`
+	missingCgUUID := uuid.New()
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	var localCgs []*shared.ConsumerGroupDescription
+	var remoteCgs []*shared.ConsumerGroupDescription
+	remoteCgs = append(remoteCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(missingCgUUID),
+		Status:            common.InternalConsumerGroupStatusPtr(shared.ConsumerGroupStatus_DELETED),
+	})
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
+// ConsumerGroup is deleted in remote zone. Expect a delete request is generated
+func (s *ReplicatorSuite) TestCgMetadataReconcileRemoteDeleted() {
+	localZone := `zone2`
+	cgUUID := uuid.New()
+	destUUID := uuid.New()
+	cgName := `cg`
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	// setup mock
+	s.mockMeta.On("DeleteConsumerGroup", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.DeleteConsumerGroupRequest)
+		s.Equal(cgName, req.GetConsumerGroupName())
+		s.Equal(destUUID, req.GetDestinationUUID())
+	})
+
+	var localCgs []*shared.ConsumerGroupDescription
+	localCgs = append(localCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ConsumerGroupName: common.StringPtr(cgName),
+		DestinationUUID:   common.StringPtr(destUUID),
+	})
+	var remoteCgs []*shared.ConsumerGroupDescription
+	remoteCgs = append(remoteCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ConsumerGroupName: common.StringPtr(cgName),
+		DestinationUUID:   common.StringPtr(destUUID),
+		Status:            common.InternalConsumerGroupStatusPtr(shared.ConsumerGroupStatus_DELETED),
+	})
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
+// ConsumerGroup is deleted in both local and remote zones. Expect no deletion request is generated
+func (s *ReplicatorSuite) TestCgMetadataReconcileRemoteLocalDeleted() {
+	localZone := `zone2`
+	cgUUID := uuid.New()
+	destUUID := uuid.New()
+	cgName := `cg`
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	var localCgs []*shared.ConsumerGroupDescription
+	localCgs = append(localCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ConsumerGroupName: common.StringPtr(cgName),
+		DestinationUUID:   common.StringPtr(destUUID),
+		Status:            common.InternalConsumerGroupStatusPtr(shared.ConsumerGroupStatus_DELETED),
+	})
+	var remoteCgs []*shared.ConsumerGroupDescription
+	remoteCgs = append(remoteCgs, &shared.ConsumerGroupDescription{
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ConsumerGroupName: common.StringPtr(cgName),
+		DestinationUUID:   common.StringPtr(destUUID),
+		Status:            common.InternalConsumerGroupStatusPtr(shared.ConsumerGroupStatus_DELETED),
+	})
+	reconciler.reconcileCg(localCgs, remoteCgs)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
 // local zone is missing one destination extent compared to remote. Expect to create the missing destination extent
 func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissing() {
 	localZone := `zone2`

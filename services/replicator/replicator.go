@@ -677,6 +677,7 @@ func (r *Replicator) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shar
 		r.logger.WithFields(bark.Fields{
 			common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
 			common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
+			common.TagDst:    common.FmtDst(cgDesc.GetDestinationUUID()),
 			common.TagErr:    err,
 		}).Error(`Error updating cg`)
 		r.m3Client.IncCounter(metrics.ReplicatorUpdateCgScope, metrics.ReplicatorFailures)
@@ -686,7 +687,7 @@ func (r *Replicator) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shar
 	r.logger.WithFields(bark.Fields{
 		common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
 		common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
-		common.TagDst:    common.FmtDstPth(cgDesc.GetDestinationUUID()),
+		common.TagDst:    common.FmtDst(cgDesc.GetDestinationUUID()),
 		common.TagDLQID:  common.FmtDLQID(cgDesc.GetDeadLetterQueueDestinationUUID()),
 		`IsMultiZone`:    cgDesc.GetIsMultiZone(),
 		`ActiveZone`:     cgDesc.GetActiveZone(),

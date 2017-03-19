@@ -295,9 +295,9 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 
 	for _, remoteCg := range remoteCgs {
 		lclLg := r.logger.WithFields(bark.Fields{
-						common.TagCnsm: common.FmtCnsm(remoteCg.GetConsumerGroupUUID()),
-						common.TagDst:  common.FmtDst(remoteCg.GetDestinationUUID()),
-					})
+			common.TagCnsm: common.FmtCnsm(remoteCg.GetConsumerGroupUUID()),
+			common.TagDst:  common.FmtDst(remoteCg.GetDestinationUUID()),
+		})
 		localCg, ok := localCgsSet[remoteCg.GetConsumerGroupUUID()]
 		if ok {
 			if remoteCg.GetStatus() == shared.ConsumerGroupStatus_DELETED {
@@ -305,7 +305,7 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 				if !(localCg.GetStatus() == shared.ConsumerGroupStatus_DELETED) {
 					lclLg.Info(`Found deleted cg from remote but not deleted locally`)
 					deleteRequest := &shared.DeleteConsumerGroupRequest{
-						DestinationUUID: common.StringPtr(remoteCg.GetDestinationUUID()),
+						DestinationUUID:   common.StringPtr(remoteCg.GetDestinationUUID()),
 						ConsumerGroupName: common.StringPtr(remoteCg.GetConsumerGroupName()),
 					}
 					ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
@@ -344,16 +344,16 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 
 			createRequest := &shared.CreateConsumerGroupUUIDRequest{
 				Request: &shared.CreateConsumerGroupRequest{
-					DestinationPath: common.StringPtr(destDesc.GetPath()),
-					ConsumerGroupName: common.StringPtr(remoteCg.GetConsumerGroupName()),
-					StartFrom: common.Int64Ptr(remoteCg.GetStartFrom()),
-					LockTimeoutSeconds: common.Int32Ptr(remoteCg.GetLockTimeoutSeconds()),
-					MaxDeliveryCount: common.Int32Ptr(remoteCg.GetMaxDeliveryCount()),
+					DestinationPath:          common.StringPtr(destDesc.GetPath()),
+					ConsumerGroupName:        common.StringPtr(remoteCg.GetConsumerGroupName()),
+					StartFrom:                common.Int64Ptr(remoteCg.GetStartFrom()),
+					LockTimeoutSeconds:       common.Int32Ptr(remoteCg.GetLockTimeoutSeconds()),
+					MaxDeliveryCount:         common.Int32Ptr(remoteCg.GetMaxDeliveryCount()),
 					SkipOlderMessagesSeconds: common.Int32Ptr(remoteCg.GetSkipOlderMessagesSeconds()),
-					OwnerEmail: common.StringPtr(remoteCg.GetOwnerEmail()),
-					IsMultiZone: common.BoolPtr(remoteCg.GetIsMultiZone()),
-					ActiveZone: common.StringPtr(remoteCg.GetActiveZone()),
-					ZoneConfigs: remoteCg.GetZoneConfigs(),
+					OwnerEmail:               common.StringPtr(remoteCg.GetOwnerEmail()),
+					IsMultiZone:              common.BoolPtr(remoteCg.GetIsMultiZone()),
+					ActiveZone:               common.StringPtr(remoteCg.GetActiveZone()),
+					ZoneConfigs:              remoteCg.GetZoneConfigs(),
 				},
 				ConsumerGroupUUID: common.StringPtr(remoteCg.GetConsumerGroupUUID()),
 			}
@@ -364,7 +364,6 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 			if err != nil {
 				r.logger.WithFields(bark.Fields{
 					common.TagErr: err,
-					common.TagDst: common.FmtDst(remoteCg.GetConsumerGroupUUID()),
 				}).Error(`Failed to create ConsumerGroup in local zone for reconciliation`)
 				continue
 			}
@@ -372,7 +371,7 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 		}
 	}
 
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFoundMissing, replicatorReconcileCgFoundMissingCount)
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFoundMissing, replicatorReconcileCgFoundMissingCount)
 }
 
 func (r *metadataReconciler) readDestinationInAuthoritativeZone(destUUID string) (*shared.DestinationDescription, error) {
@@ -474,7 +473,7 @@ func (r *metadataReconciler) getAllMultiZoneCgInLocalZone(dests []*shared.Destin
 	for _, dest := range dests {
 		listCgReq := &shared.ListConsumerGroupRequest{
 			DestinationUUID: common.StringPtr(dest.GetDestinationUUID()),
-			Limit: common.Int64Ptr(metadataListRequestPageSize),
+			Limit:           common.Int64Ptr(metadataListRequestPageSize),
 		}
 
 		for {
@@ -484,7 +483,11 @@ func (r *metadataReconciler) getAllMultiZoneCgInLocalZone(dests []*shared.Destin
 				return nil, err
 			}
 
-			cgs = append(cgs, cgRes.GetConsumerGroups()...)
+			for _, cg := range cgRes.GetConsumerGroups() {
+				if cg.GetIsMultiZone() {
+					cgs = append(cgs, cg)
+				}
+			}
 
 			if len(cgRes.GetNextPageToken()) == 0 {
 				break
@@ -513,7 +516,7 @@ func (r *metadataReconciler) getAllMultiZoneCgInAuthoritativeZone(dests []*share
 	for _, dest := range dests {
 		listCgReq := &shared.ListConsumerGroupRequest{
 			DestinationUUID: common.StringPtr(dest.GetDestinationUUID()),
-			Limit: common.Int64Ptr(metadataListRequestPageSize),
+			Limit:           common.Int64Ptr(metadataListRequestPageSize),
 		}
 
 		for {
@@ -521,11 +524,15 @@ func (r *metadataReconciler) getAllMultiZoneCgInAuthoritativeZone(dests []*share
 			defer cancel()
 			cgRes, err := remoteReplicator.ListConsumerGroups(ctx, listCgReq)
 			if err != nil {
-				r.logger.WithField(common.TagErr, err).Error(`Metadata call ListConsumerGroups failed`)
+				r.logger.WithField(common.TagErr, err).Error(`Remote replicator call ListConsumerGroups failed`)
 				return nil, err
 			}
 
-			cgs = append(cgs, cgRes.GetConsumerGroups()...)
+			for _, cg := range cgRes.GetConsumerGroups() {
+				if cg.GetIsMultiZone() {
+					cgs = append(cgs, cg)
+				}
+			}
 
 			if len(cgRes.GetNextPageToken()) == 0 {
 				break
@@ -728,11 +735,11 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 			delete(r.suspectMissingExtents, suspectExtent)
 		} else {
 			if time.Since(suspectExtentInfo.missingSince) > extentMissingDurationThreshold {
-				localStatus, ok := localExtents[suspectExtent];
+				localStatus, ok := localExtents[suspectExtent]
 				if !ok {
 					r.logger.WithFields(bark.Fields{
-						common.TagDst:      common.FmtDst(suspectExtentInfo.destUUID),
-						common.TagExt:      common.FmtExt(suspectExtent),
+						common.TagDst: common.FmtDst(suspectExtentInfo.destUUID),
+						common.TagExt: common.FmtExt(suspectExtent),
 					}).Error(`code bug!! suspect extent should in local extent map!!`)
 					continue
 				}

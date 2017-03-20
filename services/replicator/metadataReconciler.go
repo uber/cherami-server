@@ -125,6 +125,7 @@ func (r *metadataReconciler) run() {
 		localDests, remoteDests, err := r.reconcileDestMetadata()
 		if err != nil {
 			r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFail, 1)
+			return
 		}
 
 		r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgRun, 1)
@@ -176,7 +177,7 @@ func (r *metadataReconciler) reconcileCgMetadata(localDests []*shared.Destinatio
 
 func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescription, remoteDests []*shared.DestinationDescription) {
 	var replicatorReconcileDestFoundMissingCount int64
-	localDestsSet := make(map[string]*shared.DestinationDescription)
+	localDestsSet := make(map[string]*shared.DestinationDescription, len(localDests))
 	for _, dest := range localDests {
 		localDestsSet[dest.GetDestinationUUID()] = dest
 	}
@@ -283,12 +284,15 @@ func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescr
 		}
 	}
 
+	// case 4: destination missing in remote but exists locally.
+	// We don't need to handle this because deleted destination will still be in the uuid table for 30 days, so it should be covered by case #1
+
 	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFoundMissing, replicatorReconcileDestFoundMissingCount)
 }
 
 func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescription, remoteCgs []*shared.ConsumerGroupDescription) {
 	var replicatorReconcileCgFoundMissingCount int64
-	localCgsSet := make(map[string]*shared.ConsumerGroupDescription)
+	localCgsSet := make(map[string]*shared.ConsumerGroupDescription, len(localCgs))
 	for _, cg := range localCgs {
 		localCgsSet[cg.GetConsumerGroupUUID()] = cg
 	}
@@ -301,7 +305,7 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 		localCg, ok := localCgsSet[remoteCg.GetConsumerGroupUUID()]
 		if ok {
 			if remoteCg.GetStatus() == shared.ConsumerGroupStatus_DELETED {
-				// case #1: ConsumerGroup gets deleted in remote, but not deleted in local. Delete the ConsumerGroup locally
+				// case #1: cg gets deleted in remote, but not deleted in local. Delete the cg locally
 				if !(localCg.GetStatus() == shared.ConsumerGroupStatus_DELETED) {
 					lclLg.Info(`Found deleted cg from remote but not deleted locally`)
 					deleteRequest := &shared.DeleteConsumerGroupRequest{
@@ -322,9 +326,9 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 				continue
 			}
 
-			// TODO case #2: ConsumerGroup exists in both remote and local, try to compare the property to see if anything gets updated
+			// TODO case #2: cg exists in both remote and local, try to compare the property to see if anything gets updated
 		} else {
-			// case #3: ConsumerGroup exists in remote, but not in local. Create the ConsumerGroup locally
+			// case #3: cg exists in remote, but not in local. Create the cg locally
 			lclLg.Warn(`Found missing ConsumerGroup from remote!`)
 			replicatorReconcileCgFoundMissingCount = replicatorReconcileCgFoundMissingCount + 1
 
@@ -370,6 +374,9 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 			continue
 		}
 	}
+
+	// case 4: cg missing in remote but exists locally.
+	// We don't need to handle this because deleted cg will still be in the uuid table for 30 days, so it should be covered by case #1
 
 	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFoundMissing, replicatorReconcileCgFoundMissingCount)
 }

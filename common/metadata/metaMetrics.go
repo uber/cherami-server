@@ -393,7 +393,7 @@ func (m *metadataMetricsMgr) CreateConsumerGroupUUID(ctx thrift.Context, request
 	return result, err
 }
 
-func (m *metadataMetricsMgr) CreateConsumerGroupExtent(ctx thrift.Context, request *m.CreateConsumerGroupExtentRequest) (err error) {
+func (m *metadataMetricsMgr) CreateConsumerGroupExtent(ctx thrift.Context, request *shared.CreateConsumerGroupExtentRequest) (err error) {
 
 	m.m3.IncCounter(metrics.MetadataCreateConsumerGroupExtentScope, metrics.MetadataRequests)
 	sw := m.m3.StartTimer(metrics.MetadataCreateConsumerGroupExtentScope, metrics.MetadataLatency)

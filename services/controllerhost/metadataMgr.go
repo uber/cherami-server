@@ -501,7 +501,7 @@ func (mm *metadataMgrImpl) createExtentInternal(dstID string, extentID string, i
 
 func (mm *metadataMgrImpl) AddExtentToConsumerGroup(dstID string, cgID string, extentID string, outHostID string, storeIDs []string) error {
 
-	mReq := &m.CreateConsumerGroupExtentRequest{
+	mReq := &shared.CreateConsumerGroupExtentRequest{
 		DestinationUUID:   common.StringPtr(dstID),
 		ExtentUUID:        common.StringPtr(extentID),
 		ConsumerGroupUUID: common.StringPtr(cgID),

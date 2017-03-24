@@ -3576,7 +3576,7 @@ func (s *CassandraMetadataService) SetAckOffset(ctx thrift.Context, request *m.S
 
 // CreateConsumerGroupExtent creates a [ConsumerGroup, Extent, OutputHost] mapping
 // If the mapping already exist, this method will overwrite the existing mapping
-func (s *CassandraMetadataService) CreateConsumerGroupExtent(ctx thrift.Context, request *m.CreateConsumerGroupExtentRequest) error {
+func (s *CassandraMetadataService) CreateConsumerGroupExtent(ctx thrift.Context, request *shared.CreateConsumerGroupExtentRequest) error {
 
 	query := s.session.Query(sqlCGPutExtent,
 		request.GetConsumerGroupUUID(),

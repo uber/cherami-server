@@ -55,11 +55,11 @@ func (_m *TChanMetadataServiceServer) CreateConsumerGroup(ctx thrift.Context, re
 }
 
 // CreateConsumerGroupExtent provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataServiceServer) CreateConsumerGroupExtent(ctx thrift.Context, request *metadata.CreateConsumerGroupExtentRequest) error {
+func (_m *TChanMetadataServiceServer) CreateConsumerGroupExtent(ctx thrift.Context, request *shared.CreateConsumerGroupExtentRequest) error {
 	ret := _m.Called(ctx, request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.CreateConsumerGroupExtentRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.CreateConsumerGroupExtentRequest) error); ok {
 		r0 = rf(ctx, request)
 	} else {
 		r0 = ret.Error(0)

@@ -932,6 +932,16 @@ func (r *Replicator) CreateRemoteExtent(ctx thrift.Context, createRequest *share
 	return nil
 }
 
+// CreateConsumerGroupExtent create cg extent at local zone, expect to be called by remote replicator
+func (r *Replicator) CreateConsumerGroupExtent(ctx thrift.Context, createRequest *shared.CreateConsumerGroupExtentRequest) error {
+	return nil
+}
+
+// CreateRemoteConsumerGroupExtent propagate creation request to multiple remote zones, expect to be called by local zone services
+func (r *Replicator) CreateRemoteConsumerGroupExtent(ctx thrift.Context, createRequest *shared.CreateConsumerGroupExtentRequest) error {
+	return nil
+}
+
 // ListDestinations returns a list of destinations
 func (r *Replicator) ListDestinations(ctx thrift.Context, listRequest *shared.ListDestinationsRequest) (*shared.ListDestinationsResult_, error) {
 	return r.metaClient.ListDestinations(ctx, listRequest)

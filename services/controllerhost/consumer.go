@@ -29,6 +29,7 @@ import (
 	a "github.com/uber/cherami-thrift/.generated/go/admin"
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
+	"github.com/uber/tchannel-go/thrift"
 )
 
 const failBackoffInterval = int64(time.Millisecond * 100)
@@ -248,7 +249,7 @@ func repairExtentsAndUpdateOutputHosts(
 	return nRepaired
 }
 
-func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, newExtents []*m.DestinationExtent, outputHosts map[string]*common.HostInfo, m3Scope int) int {
+func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, isMultiZoneCg bool, newExtents []*m.DestinationExtent, outputHosts map[string]*common.HostInfo, m3Scope int) int {
 	nAdded := 0
 
 	for _, ext := range newExtents {
@@ -269,6 +270,10 @@ func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, 
 			continue
 		}
 
+		if isMultiZoneCg {
+			createRemoteCGExtent(context, dstUUID, cgUUID, ext.GetExtentUUID())
+		}
+
 		nAdded++
 		outputHosts[outhost.UUID] = outhost
 
@@ -286,6 +291,39 @@ func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, 
 	}
 
 	return nAdded
+}
+
+func createRemoteCGExtent(context *Context, dstUUID, cgUUID, extUUID string) {
+	req := &shared.CreateConsumerGroupExtentRequest{
+		DestinationUUID: common.StringPtr(dstUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ExtentUUID: common.StringPtr(extUUID),
+	}
+
+	// send to local replicator to fan out
+	localReplicator, err := context.clientFactory.GetReplicatorClient()
+	if err != nil {
+		context.log.WithFields(bark.Fields{
+			common.TagExt: common.FmtExt(extUUID),
+			common.TagErr: err,
+		}).Warn("Failed to get replicator client")
+		return
+	}
+
+	ctx, cancel := thrift.NewContext(replicatorCallTimeout)
+	defer cancel()
+	err = localReplicator.CreateRemoteConsumerGroupExtent(ctx, req)
+	if err != nil {
+		context.log.WithFields(bark.Fields{
+			common.TagExt: common.FmtExt(extUUID),
+			common.TagErr: err,
+		}).Warn("Failed to get call CreateRemoteConsumerGroupExtent")
+		return
+	}
+
+	context.log.WithFields(bark.Fields{
+		common.TagExt: common.FmtExt(extUUID),
+	}).Info("Called replicator to Create CG Extent")
 }
 
 func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string, m3Scope int) (
@@ -529,7 +567,7 @@ func refreshCGExtents(context *Context,
 		}
 	}
 
-	return addExtentsToConsumerGroup(context, dstID, cgID, newExtents, outputHosts, m3Scope), nil
+	return addExtentsToConsumerGroup(context, dstID, cgID, cgDesc.GetIsMultiZone(), newExtents, outputHosts, m3Scope), nil
 }
 
 // refreshOutputHostsForConsGroup refreshes the output hosts for the given consumer group

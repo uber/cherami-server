@@ -76,11 +76,11 @@ func (_m *MetadataService) CreateConsumerGroupUUID(registerRequest *shared.Creat
 }
 
 // CreateConsumerGroupExtent provides a mock function with given fields: request
-func (_m *MetadataService) CreateConsumerGroupExtent(request *metadata.CreateConsumerGroupExtentRequest) error {
+func (_m *MetadataService) CreateConsumerGroupExtent(request *shared.CreateConsumerGroupExtentRequest) error {
 	ret := _m.Called(request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*metadata.CreateConsumerGroupExtentRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(*shared.CreateConsumerGroupExtentRequest) error); ok {
 		r0 = rf(request)
 	} else {
 		r0 = ret.Error(0)

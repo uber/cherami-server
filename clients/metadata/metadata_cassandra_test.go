@@ -2153,7 +2153,7 @@ func (s *CassandraSuite) TestSetOutputHost() {
 
 		// test updating outputhost works
 		// Now create the cge and retry the update
-		createReq := &m.CreateConsumerGroupExtentRequest{
+		createReq := &shared.CreateConsumerGroupExtentRequest{
 			DestinationUUID:   common.StringPtr(req.GetDestinationUUID()),
 			ExtentUUID:        common.StringPtr(req.GetExtentUUID()),
 			ConsumerGroupUUID: common.StringPtr(req.GetConsumerGroupUUID()),
@@ -2207,7 +2207,7 @@ func (s *CassandraSuite) TestReadConsumerGroupExtentsByExtUUID() {
 		extUUID := uuid.New()
 		cgUUID := uuid.New()
 		outputUUID := uuid.New()
-		createReq := &m.CreateConsumerGroupExtentRequest{
+		createReq := &shared.CreateConsumerGroupExtentRequest{
 			DestinationUUID:   common.StringPtr(destUUID),
 			ExtentUUID:        common.StringPtr(extUUID),
 			ConsumerGroupUUID: common.StringPtr(cgUUID),
@@ -2286,7 +2286,7 @@ func (s *CassandraSuite) TestSetAckOffset() {
 	for pass := 0; pass < 2; pass++ {
 		log.Debugf(`pass %d`, pass)
 		// Now create the cge and retry the update
-		createReq := &m.CreateConsumerGroupExtentRequest{
+		createReq := &shared.CreateConsumerGroupExtentRequest{
 			DestinationUUID:   common.StringPtr(uuid.New()),
 			ExtentUUID:        common.StringPtr(req.GetExtentUUID()),
 			ConsumerGroupUUID: common.StringPtr(req.GetConsumerGroupUUID()),
@@ -2361,7 +2361,7 @@ func (s *CassandraSuite) TestGetConsumerGroupExtents() {
 
 	assert := s.Require()
 
-	req := &m.CreateConsumerGroupExtentRequest{
+	req := &shared.CreateConsumerGroupExtentRequest{
 		DestinationUUID:   common.StringPtr(uuid.New()),
 		ConsumerGroupUUID: common.StringPtr(uuid.New()),
 	}
@@ -2506,7 +2506,7 @@ func (s *CassandraSuite) TestUpdateConsumerGroupExtentStatus() {
 
 	assert := s.Require()
 
-	cReq := m.NewCreateConsumerGroupExtentRequest()
+	cReq := shared.NewCreateConsumerGroupExtentRequest()
 	cReq.DestinationUUID = common.StringPtr(uuid.New())
 	cReq.ExtentUUID = common.StringPtr(uuid.New())
 	cReq.ConsumerGroupUUID = common.StringPtr(uuid.New())

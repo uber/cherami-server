@@ -903,7 +903,7 @@ func (mcp *Mcp) DeleteDestination(ctx thrift.Context, deleteRequest *shared.Dele
 	}
 	destDesc, err := mcp.mClient.ReadDestination(ctx, readDestinationRequest)
 	if err != nil {
-		lclLg.WithField(common.TagErr, err).Error("DeleteDestinationRequest: ReadDestination failed")
+		lclLg.WithField(common.TagErr, err).Error("DeleteDestination: ReadDestination failed")
 		context.m3Client.IncCounter(metrics.ControllerDeleteDestinationScope, metrics.ControllerFailures)
 		return err
 	}

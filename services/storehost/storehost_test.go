@@ -34,9 +34,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/pborman/uuid"
+	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-thrift/.generated/go/cherami"
 	"github.com/uber/cherami-thrift/.generated/go/store"
-	"github.com/uber/cherami-server/common"
 )
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
@@ -234,7 +234,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 				log.Debugf("%v: waiting for OpenReadStream to complete", extent[i])
 
-				timedOut := !common.AwaitWaitGroup(&wgReader, 25 * time.Second)
+				timedOut := !common.AwaitWaitGroup(&wgReader, 25*time.Second)
 				if timedOut {
 					atomic.AddInt32(&readerTimeout, 1)
 					fmt.Printf("WgReader wait timeout for extent %d, iter %d\n", i, iter)
@@ -442,7 +442,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 					out.sendC <- newControlFlow(numMessages)
 
 					log.Debugf("%v: waiting for OpenReadStream to complete", extent[i])
-					timedOut := !common.AwaitWaitGroup(&wgReader, 25 * time.Second)
+					timedOut := !common.AwaitWaitGroup(&wgReader, 25*time.Second)
 					if timedOut {
 						atomic.AddInt32(&readerTimeout, 1)
 						fmt.Printf("WgReader wait timeout for extent %d, iter %d\n", i, iter)
@@ -1708,7 +1708,7 @@ func (s *StoreHostSuite) TestStoreHostManyManyExtents() {
 	}
 }
 
-func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
+func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024

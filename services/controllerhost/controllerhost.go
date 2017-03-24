@@ -778,6 +778,15 @@ func (mcp *Mcp) RemoveCapacities(ctx thrift.Context, removeCapacitiesRequest *c.
 
 // CreateDestination creates local and remote destination
 func (mcp *Mcp) CreateDestination(ctx thrift.Context, createRequest *shared.CreateDestinationRequest) (*shared.DestinationDescription, error) {
+	containsEmpty := func(a []string) bool {
+		for _, s := range a {
+			if s == `` {
+				return true
+			}
+		}
+		return false
+	}
+
 	if !mcp.isStarted() {
 		// this can happen because we listen on the tchannel
 		// endpoint before the context gets completely built
@@ -790,6 +799,18 @@ func (mcp *Mcp) CreateDestination(ctx thrift.Context, createRequest *shared.Crea
 	defer sw.Stop()
 
 	lclLg := context.log.WithField(common.TagDstPth, common.FmtDstPth(createRequest.GetPath()))
+
+	// Verify that Kafka configuration is valid
+	if createRequest.GetType() == shared.DestinationType_KAFKA &&
+		(createRequest.GetKafkaCluster() == `` ||
+			len(createRequest.GetKafkaTopics()) == 0 ||
+			containsEmpty(createRequest.GetKafkaTopics()) ||
+			createRequest.GetIsMultiZone()) {
+		return nil, &shared.BadRequestError{Message: `Kafka destination must set kafka cluster and topic, and may not be multi-zone`}
+	} else if createRequest.GetKafkaCluster() != `` ||
+		len(createRequest.GetKafkaTopics()) != 0 {
+		return nil, &shared.BadRequestError{Message: `Non-Kafka destination must not set kafka cluster and topic`}
+	}
 
 	// create local destination
 	destDesc, err := mcp.mClient.CreateDestination(ctx, createRequest)

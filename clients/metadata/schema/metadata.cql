@@ -82,9 +82,7 @@ CREATE TYPE destination (
     checksum_option int,
     is_multi_zone boolean,
     zone_configs list<frozen<destination_zone_config>>,
-    schema_version int,
-    kafka_cluster text,
-    kafka_topics set<text>
+    schema_version int
 );
 
 CREATE TABLE destinations (
@@ -95,7 +93,9 @@ CREATE TABLE destinations (
     -- DLQ Destination metadata; N.B.: DLQ destinations don't exist in the destinations_by_path table --
     dlq_purge_before timestamp, -- Indicates that retention should delete messages before this timestamp in this destination; consumer groups should not read before this
     dlq_merge_before timestamp, -- Indicates that extent controller should merge messages/extents created before this timestamp to the consumer group. consumer groups should not read before this
-    dlq_consumer_group uuid     -- If this is a DLQ destination, the consumer group uuid that corresponds to this DLQ destination
+    dlq_consumer_group uuid,    -- If this is a DLQ destination, the consumer group uuid that corresponds to this DLQ destination
+    kafka_cluster text,
+    kafka_topics set<text>
 );
 
 CREATE INDEX ON destinations (is_multi_zone);
@@ -105,6 +105,8 @@ CREATE TABLE destinations_by_path (
     path text,
     is_multi_zone boolean,
     destination frozen<destination>,
+    kafka_cluster text,
+    kafka_topics set<text>,
     PRIMARY KEY (directory_uuid, path)
 );
 

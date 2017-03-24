@@ -1733,7 +1733,7 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 	// sleep until the ringpop on the second store refreshes and finds the
 	// first one; we do this because we were seeing 'error resolving uuid'
 	// when ReplicateExtent tries to resolve/connect to the source replica
-	time.Sleep(time.Second)
+	time.Sleep(1500 * time.Millisecond)
 
 	extent := uuid.NewRandom() // random extent
 
@@ -1747,14 +1747,14 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 
 	// == 3. initiate replication of extent from first replica to the second ==
 
+	// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
+	os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
+
 	repl0ResC := make(chan error)
 	go func() {
 
 		// replicate extent from store0 to store1
 		log.Debugf("[%v].ReplicateExtent(extent=%v, mode=%v, source=%v", store1.hostID, extent, mode, store0.hostID)
-
-		// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
-		os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
 
 		repl0ResC <- store1.ReplicateExtent(extent, mode, store0.hostID)
 
@@ -1767,9 +1767,6 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 
 		// replicate extent from store0 to store1
 		log.Debugf("[%v].ReplicateExtent(extent=%v, mode=%v, source=%v", store1.hostID, extent, mode, store0.hostID)
-
-		// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
-		os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
 
 		repl1ResC <- store1.ReplicateExtent(extent, mode, store0.hostID)
 
@@ -1893,8 +1890,6 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 }
 
 func (s *StoreHostSuite) TestStoreHostReplicateExtentResume() {
-
-	// TODO: test resumption of ReplicateExtent
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024

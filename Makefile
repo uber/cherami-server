@@ -7,7 +7,7 @@ INTEG_TEST_ROOT=./test
 TOOLS_ROOT=./tools
 export GO15VENDOREXPERIMENT=1
 NOVENDOR = $(shell GO15VENDOREXPERIMENT=1 glide novendor)
-TEST_ARG ?= -race -v -timeout 5m
+TEST_ARG ?= -race -v -timeout 5m -testify.m TestStoreHostReplicateExtent
 TEST_NO_RACE_ARG ?= -timeout 5m
 BUILD := ./build
 PWD = $(shell pwd)
@@ -34,7 +34,8 @@ ALL_SRC := $(shell find . -name "*.go" | grep -v -e Godeps -e vendor \
 	-e ".*/mocks.*")
 
 # all directories with *_test.go files in them
-ALL_TEST_DIRS := $(sort $(dir $(filter %_test.go,$(ALL_SRC))))
+# ALL_TEST_DIRS := $(sort $(dir $(filter %_test.go,$(ALL_SRC))))
+ALL_TEST_DIRS := ./services/storehost
 # all tests other than integration test fall into the pkg_test category
 PKG_TEST_DIRS := $(filter-out $(INTEG_TEST_ROOT)%,$(ALL_TEST_DIRS))
 PKG_TEST_DIRS := $(filter-out $(TOOLS_ROOT)%,$(PKG_TEST_DIRS))
@@ -117,6 +118,9 @@ cover: cover_profile
 
 cover_ci: cover_profile
 	goveralls -coverprofile=$(BUILD)/cover.out -service=travis-ci || echo -e "\x1b[31mCoveralls failed\x1b[m"
+
+repltest: bins
+	go test $(EMBED) "./services/storehost" -testify.m TestStoreHostReplicateExtent || exit 1;
 
 clean:
 	rm -f cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool

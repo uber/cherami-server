@@ -82,7 +82,9 @@ CREATE TYPE destination (
     checksum_option int,
     is_multi_zone boolean,
     zone_configs list<frozen<destination_zone_config>>,
-    schema_version int
+    schema_version int,
+    kafkaCluster text,
+    kafkaTopics set<text>
 );
 
 CREATE TABLE destinations (

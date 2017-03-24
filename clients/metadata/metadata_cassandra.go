@@ -47,7 +47,6 @@ const (
 	defaultSessionTimeout         = 10 * time.Second
 	defaultDLQConsumedRetention   = 7 * 24 * 3600 // One Week
 	defaultDLQUnconsumedRetention = 7 * 24 * 3600 // One Week
-	defaultDLQOwnerEmail          = "default@uber"
 )
 
 const (
@@ -1207,37 +1206,9 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 	// We may create a consumer group consume a DLQ destination and no DLQ destination creation needed in this case
 	var dlqUUID *string
 	if common.PathRegex.MatchString(createRequest.GetDestinationPath()) {
-		dlqCreateRequest := shared.NewCreateDestinationRequest()
-		dlqCreateRequest.ConsumedMessagesRetention = common.Int32Ptr(defaultDLQConsumedRetention)
-		dlqCreateRequest.UnconsumedMessagesRetention = common.Int32Ptr(defaultDLQUnconsumedRetention)
-		dlqCreateRequest.OwnerEmail = common.StringPtr(defaultDLQOwnerEmail)
-		dlqCreateRequest.Type = common.InternalDestinationTypePtr(shared.DestinationType_PLAIN)
-		dlqCreateRequest.DLQConsumerGroupUUID = common.StringPtr(cgUUID)
-		dlqPath, _ := common.GetDLQPathNameFromCGName(createRequest.GetConsumerGroupName())
-		dlqCreateRequest.Path = common.StringPtr(dlqPath)
-
-		var dlqDestDesc *shared.DestinationDescription
-		dlqDestDesc, err := s.CreateDestination(nil, dlqCreateRequest)
-
-		if err != nil || dlqDestDesc == nil {
-			switch err.(type) {
-			case *shared.EntityAlreadyExistsError:
-				log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination already existed")
-				mDLQReadRequest := shared.ReadDestinationRequest{
-					Path: dlqCreateRequest.Path,
-				}
-
-				dlqDestDesc, err = s.ReadDestination(nil, &mDLQReadRequest)
-				if err != nil || dlqDestDesc == nil {
-					log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Error(`Can't read existing DeadLetterQueue destination`)
-					return nil, err
-				}
-
-				// We continue to consumer group creation if err == nil and dlqDestDesc != nil after the read
-			default:
-				log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Error(`Can't create DeadLetterQueue destination`)
-				return nil, err
-			}
+		dlqDestDesc, err := s.createDlqDestination(cgUUID, createRequest.GetConsumerGroupName(), createRequest.GetOwnerEmail())
+		if err != nil {
+			return nil, err
 		}
 
 		dlqUUID = common.StringPtr(dlqDestDesc.GetDestinationUUID())
@@ -1352,6 +1323,41 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		ActiveZone:                     common.StringPtr(createRequest.GetActiveZone()),
 		ZoneConfigs:                    createRequest.GetZoneConfigs(),
 	}, nil
+}
+
+func (s *CassandraMetadataService) createDlqDestination(cgUUID string, cgName string, ownerEmail string) (*shared.DestinationDescription, error) {
+	dlqCreateRequest := shared.NewCreateDestinationRequest()
+	dlqCreateRequest.ConsumedMessagesRetention = common.Int32Ptr(defaultDLQConsumedRetention)
+	dlqCreateRequest.UnconsumedMessagesRetention = common.Int32Ptr(defaultDLQUnconsumedRetention)
+	dlqCreateRequest.OwnerEmail = common.StringPtr(ownerEmail)
+	dlqCreateRequest.Type = common.InternalDestinationTypePtr(shared.DestinationType_PLAIN)
+	dlqCreateRequest.DLQConsumerGroupUUID = common.StringPtr(cgUUID)
+	dlqPath, _ := common.GetDLQPathNameFromCGName(cgName)
+	dlqCreateRequest.Path = common.StringPtr(dlqPath)
+
+	var dlqDestDesc *shared.DestinationDescription
+	dlqDestDesc, err := s.CreateDestination(nil, dlqCreateRequest)
+
+	if err != nil || dlqDestDesc == nil {
+		switch err.(type) {
+		case *shared.EntityAlreadyExistsError:
+			log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination already existed")
+			mDLQReadRequest := shared.ReadDestinationRequest{
+				Path: dlqCreateRequest.Path,
+			}
+
+			dlqDestDesc, err = s.ReadDestination(nil, &mDLQReadRequest)
+			if err != nil || dlqDestDesc == nil {
+				log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Error(`Can't read existing DeadLetterQueue destination`)
+				return nil, err
+			}
+			return dlqDestDesc, nil
+		default:
+			log.WithFields(log.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Error(`Can't create DeadLetterQueue destination`)
+			return nil, err
+		}
+	}
+	return dlqDestDesc, err
 }
 
 func (s *CassandraMetadataService) readConsumerGroupByDstUUID(dstUUID string, cgName string) (*shared.ConsumerGroupDescription, error) {

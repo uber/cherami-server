@@ -342,7 +342,7 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 			if err != nil {
 				lclLg.WithFields(bark.Fields{
 					common.TagErr: err,
-				}).Error(`Failed to create ConsumerGroup in local zone because read destination failed`)
+				}).Error(`Failed to create ConsumerGroup in local zone because read destination failed in remote zone`)
 				continue
 			}
 

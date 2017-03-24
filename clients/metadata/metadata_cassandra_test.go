@@ -1736,6 +1736,13 @@ func (s *CassandraSuite) TestConsumerGroupCRUD() {
 	dlqDest, err := s.client.ReadDestination(nil, dlqDestReq)
 	assert.Nil(err, "Read Dlq destination failed")
 	assert.Equal(dlqDest.GetDLQConsumerGroupUUID(), gotCG.GetConsumerGroupUUID())
+	assert.Equal(dlqDest.GetConsumedMessagesRetention(), int32(defaultDLQConsumedRetention))
+	assert.Equal(dlqDest.GetUnconsumedMessagesRetention(), int32(defaultDLQUnconsumedRetention))
+	assert.Equal(dlqDest.GetIsMultiZone(), false)
+	assert.Equal(dlqDest.GetOwnerEmail(), createReq.GetOwnerEmail())
+	dlqName, err := common.GetDLQPathNameFromCGName(createReq.GetConsumerGroupName())
+	assert.Nil(err, "GetDLQPathNameFromCGName failed")
+	assert.Equal(dlqDest.GetPath(), dlqName)
 
 	for pass := 0; pass < 3; pass++ {
 		readReq := &m.ReadConsumerGroupRequest{

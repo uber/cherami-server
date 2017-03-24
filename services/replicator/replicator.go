@@ -289,7 +289,7 @@ func (r *Replicator) OpenReplicationRemoteReadStreamHandler(w http.ResponseWrite
 	return
 }
 
-// CreateDestinationUUID creates destination at local zone, expect to be called by remote replicator
+// CreateDestinationUUID creates destination at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) CreateDestinationUUID(ctx thrift.Context, createRequest *shared.CreateDestinationUUIDRequest) (*shared.DestinationDescription, error) {
 	r.m3Client.IncCounter(metrics.ReplicatorCreateDestUUIDScope, metrics.ReplicatorRequests)
 
@@ -319,7 +319,7 @@ func (r *Replicator) CreateDestinationUUID(ctx thrift.Context, createRequest *sh
 	return destDesc, nil
 }
 
-// CreateRemoteDestinationUUID propagates creation to multiple remote zones, expect to be called by local zone services
+// CreateRemoteDestinationUUID propagates creation to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) CreateRemoteDestinationUUID(ctx thrift.Context, createRequest *shared.CreateDestinationUUIDRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorCreateRmtDestUUIDScope, metrics.ReplicatorRequests)
 
@@ -392,7 +392,7 @@ func (r *Replicator) createDestinationRemoteCall(zone string, logger bark.Logger
 	return nil
 }
 
-// UpdateDestination updates destination at local zone, expect to be called by remote replicator
+// UpdateDestination updates destination at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) UpdateDestination(ctx thrift.Context, updateRequest *shared.UpdateDestinationRequest) (*shared.DestinationDescription, error) {
 	r.m3Client.IncCounter(metrics.ReplicatorUpdateDestScope, metrics.ReplicatorRequests)
 
@@ -419,7 +419,7 @@ func (r *Replicator) UpdateDestination(ctx thrift.Context, updateRequest *shared
 	return destDesc, nil
 }
 
-// UpdateRemoteDestination propagates update to multiple remote zones, expect to be called by local zone services
+// UpdateRemoteDestination propagates update to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) UpdateRemoteDestination(ctx thrift.Context, updateRequest *shared.UpdateDestinationRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtDestScope, metrics.ReplicatorRequests)
 
@@ -484,7 +484,7 @@ func (r *Replicator) updateDestinationRemoteCall(zone string, logger bark.Logger
 	return nil
 }
 
-// DeleteDestination deletes destination at local zone, expect to be called by remote replicator
+// DeleteDestination deletes destination at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) DeleteDestination(ctx thrift.Context, deleteRequest *shared.DeleteDestinationRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorDeleteDestScope, metrics.ReplicatorRequests)
 
@@ -501,7 +501,7 @@ func (r *Replicator) DeleteDestination(ctx thrift.Context, deleteRequest *shared
 	return nil
 }
 
-// DeleteRemoteDestination propagate deletion to multiple remote zones, expect to be called by local zone services
+// DeleteRemoteDestination propagate deletion to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) DeleteRemoteDestination(ctx thrift.Context, deleteRequest *shared.DeleteDestinationRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtDestScope, metrics.ReplicatorRequests)
 
@@ -566,7 +566,7 @@ func (r *Replicator) deleteDestinationRemoteCall(zone string, logger bark.Logger
 	return nil
 }
 
-// CreateConsumerGroupUUID creates consumer group at local zone, expect to be called by remote replicator
+// CreateConsumerGroupUUID creates consumer group at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) CreateConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) (*shared.ConsumerGroupDescription, error) {
 	r.m3Client.IncCounter(metrics.ReplicatorCreateCgUUIDScope, metrics.ReplicatorRequests)
 
@@ -594,7 +594,7 @@ func (r *Replicator) CreateConsumerGroupUUID(ctx thrift.Context, createRequest *
 	return cgDesc, nil
 }
 
-// CreateRemoteConsumerGroupUUID propagate creation to multiple remote zones, expect to be called by local zone services
+// CreateRemoteConsumerGroupUUID propagate creation to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) CreateRemoteConsumerGroupUUID(ctx thrift.Context, createRequest *shared.CreateConsumerGroupUUIDRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgUUIDScope, metrics.ReplicatorRequests)
 
@@ -668,7 +668,7 @@ func (r *Replicator) createConsumerGroupRemoteCall(zone string, logger bark.Logg
 	return nil
 }
 
-// UpdateConsumerGroup updates consumer group at local zone, expect to be called by remote replicator
+// UpdateConsumerGroup updates consumer group at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shared.UpdateConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	r.m3Client.IncCounter(metrics.ReplicatorUpdateCgScope, metrics.ReplicatorRequests)
 
@@ -695,7 +695,7 @@ func (r *Replicator) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shar
 	return cgDesc, nil
 }
 
-// UpdateRemoteConsumerGroup propagate update to multiple remote zones, expect to be called by local zone services
+// UpdateRemoteConsumerGroup propagate update to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) UpdateRemoteConsumerGroup(ctx thrift.Context, updateRequest *shared.UpdateConsumerGroupRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorUpdateRmtCgScope, metrics.ReplicatorRequests)
 
@@ -761,7 +761,7 @@ func (r *Replicator) updateCgRemoteCall(zone string, logger bark.Logger, updateR
 	return nil
 }
 
-// DeleteConsumerGroup deletes consumer group at local zone, expect to be called by remote replicator
+// DeleteConsumerGroup deletes consumer group at local zone, expect to be called by replicator from authoritative zone
 func (r *Replicator) DeleteConsumerGroup(ctx thrift.Context, deleteRequest *shared.DeleteConsumerGroupRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorDeleteCgScope, metrics.ReplicatorRequests)
 
@@ -779,7 +779,7 @@ func (r *Replicator) DeleteConsumerGroup(ctx thrift.Context, deleteRequest *shar
 	return nil
 }
 
-// DeleteRemoteConsumerGroup propagate deletion to multiple remote zones, expect to be called by local zone services
+// DeleteRemoteConsumerGroup propagate deletion to multiple remote zones, expect to be called only in authoritative zone
 func (r *Replicator) DeleteRemoteConsumerGroup(ctx thrift.Context, deleteRequest *shared.DeleteConsumerGroupRequest) error {
 	r.m3Client.IncCounter(metrics.ReplicatorDeleteRmtCgScope, metrics.ReplicatorRequests)
 

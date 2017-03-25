@@ -784,7 +784,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateConsumerGroup() {
 // TestFrontendHostCreateConsumerGroupStartFrom tests whether CreateConsumerGroup is able to
 // detect and appropriately convert various startFrom units.
 func (s *FrontendHostSuite) TestFrontendHostCreateConsumerGroupStartFrom() {
-
+	defer s.resetMocks()
 	testPath := uuid.New()
 	testCG := s.generateKey("/bar/CGName")
 	frontendHost, ctx := s.utilGetContextAndFrontend()
@@ -807,16 +807,15 @@ func (s *FrontendHostSuite) TestFrontendHostCreateConsumerGroupStartFrom() {
 			DestinationUUID: common.StringPtr(uuid.New()),
 		}
 
-		if !willError {
-			// create destination is needed because of dlq destination been created at time of consumer group creation
-			s.mockController.On("CreateDestination", mock.Anything, mock.Anything).Return(destDesc, nil).Run(func(args mock.Arguments) {
-				s.Equal(dlqPath, args.Get(1).(*shared.CreateDestinationRequest).GetPath())
-			})
+		s.resetMocks()
+		// create destination is needed because of dlq destination been created at time of consumer group creation
+		s.mockController.On("CreateDestination", mock.Anything, mock.Anything).Return(destDesc, nil).Run(func(args mock.Arguments) {
+			s.Equal(dlqPath, args.Get(1).(*shared.CreateDestinationRequest).GetPath())
+		})
 
-			s.mockController.On("CreateConsumerGroup", mock.Anything, mock.Anything).Once().Return(cgDesc, nil).Run(func(args mock.Arguments) {
-				startFromReturn = args.Get(1).(*shared.CreateConsumerGroupRequest).GetStartFrom()
-			})
-		}
+		s.mockController.On("CreateConsumerGroup", mock.Anything, mock.Anything).Once().Return(cgDesc, nil).Run(func(args mock.Arguments) {
+			startFromReturn = args.Get(1).(*shared.CreateConsumerGroupRequest).GetStartFrom()
+		})
 
 		// set startFrom to the test value (of varying units)
 		req.StartFrom = common.Int64Ptr(startFrom)

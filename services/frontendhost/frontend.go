@@ -276,7 +276,7 @@ func convertDestinationFromInternal(internalDestDesc *shared.DestinationDescript
 	destDesc.IsMultiZone = common.BoolPtr(internalDestDesc.GetIsMultiZone())
 	destDesc.KafkaCluster = common.StringPtr(internalDestDesc.GetKafkaCluster())
 	destDesc.KafkaTopics = internalDestDesc.KafkaTopics
-	
+
 	if internalDestDesc.IsSetZoneConfigs() {
 		destDesc.ZoneConfigs = c.NewDestinationZoneConfigs()
 		destDesc.ZoneConfigs.Configs = make([]*c.DestinationZoneConfig, 0, len(internalDestDesc.GetZoneConfigs()))
@@ -566,6 +566,19 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 	}
 
 	lclLg := h.logger.WithField(common.TagDstPth, common.FmtDstPth(createRequest.GetPath()))
+
+	// Verify that Kafka configuration is valid
+	if createRequest.GetType() == c.DestinationType_KAFKA {
+		if createRequest.GetKafkaCluster() == `` ||
+			len(createRequest.GetKafkaTopics()) == 0 ||
+			common.ContainsEmpty(createRequest.GetKafkaTopics()) ||
+			createRequest.GetIsMultiZone() {
+			return nil, &shared.BadRequestError{Message: `Kafka destination must set kafka cluster and topic, and may not be multi-zone`}
+		}
+	} else if createRequest.GetKafkaCluster() != `` ||
+		len(createRequest.GetKafkaTopics()) != 0 {
+		return nil, &shared.BadRequestError{Message: `Non-Kafka destination must not set kafka cluster and topic`}
+	}
 
 	// Request to controller
 	cClient, err := h.getControllerClient()

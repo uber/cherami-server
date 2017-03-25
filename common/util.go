@@ -725,3 +725,36 @@ func FindNearestInt(target int64, nums ...int64) (nearest int64) {
 
 	return
 }
+
+// ContainsEmpty scans a string slice for empty strings, returning true if one is found
+func ContainsEmpty(a []string) bool {
+	for _, s := range a {
+		if s == `` {
+			return true
+		}
+	}
+	return false
+}
+
+// UnorderedEqual checks for set equality (i.e. non-ordered) for two string slices
+// DEVNOTE: This is O(N^2), so don't use it with large N
+func UnorderedEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for _, A := range a {
+		match := false
+	inner:
+		for _, B := range b {
+			if A == B {
+				match = true
+				break inner
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	return true
+}

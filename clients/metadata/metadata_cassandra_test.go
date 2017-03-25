@@ -1230,10 +1230,12 @@ func (s *CassandraSuite) assertReplicaStatsArrayEqual(a, b []*shared.ExtentRepli
 
 	for _, A := range a {
 		match := false
+	inner:
 		for _, B := range b {
 			if A.GetStoreUUID() == B.GetStoreUUID() {
 				match = true
 				s.assertReplicaStatsEqual(A, B, msgAndArgs)
+				break inner
 			}
 		}
 		s.True(match, msgAndArgs)

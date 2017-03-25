@@ -34,9 +34,9 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/pborman/uuid"
+	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-thrift/.generated/go/cherami"
 	"github.com/uber/cherami-thrift/.generated/go/store"
-	"github.com/uber/cherami-server/common"
 )
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
@@ -234,7 +234,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 				log.Debugf("%v: waiting for OpenReadStream to complete", extent[i])
 
-				timedOut := !common.AwaitWaitGroup(&wgReader, 25 * time.Second)
+				timedOut := !common.AwaitWaitGroup(&wgReader, 25*time.Second)
 				if timedOut {
 					atomic.AddInt32(&readerTimeout, 1)
 					fmt.Printf("WgReader wait timeout for extent %d, iter %d\n", i, iter)
@@ -442,7 +442,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 					out.sendC <- newControlFlow(numMessages)
 
 					log.Debugf("%v: waiting for OpenReadStream to complete", extent[i])
-					timedOut := !common.AwaitWaitGroup(&wgReader, 25 * time.Second)
+					timedOut := !common.AwaitWaitGroup(&wgReader, 25*time.Second)
 					if timedOut {
 						atomic.AddInt32(&readerTimeout, 1)
 						fmt.Printf("WgReader wait timeout for extent %d, iter %d\n", i, iter)
@@ -1708,7 +1708,7 @@ func (s *StoreHostSuite) TestStoreHostManyManyExtents() {
 	}
 }
 
-func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
+func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024
@@ -1733,7 +1733,7 @@ func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
 	// sleep until the ringpop on the second store refreshes and finds the
 	// first one; we do this because we were seeing 'error resolving uuid'
 	// when ReplicateExtent tries to resolve/connect to the source replica
-	time.Sleep(time.Second)
+	time.Sleep(1500 * time.Millisecond)
 
 	extent := uuid.NewRandom() // random extent
 
@@ -1747,14 +1747,14 @@ func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
 
 	// == 3. initiate replication of extent from first replica to the second ==
 
+	// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
+	os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
+
 	repl0ResC := make(chan error)
 	go func() {
 
 		// replicate extent from store0 to store1
 		log.Debugf("[%v].ReplicateExtent(extent=%v, mode=%v, source=%v", store1.hostID, extent, mode, store0.hostID)
-
-		// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
-		os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
 
 		repl0ResC <- store1.ReplicateExtent(extent, mode, store0.hostID)
 
@@ -1767,9 +1767,6 @@ func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
 
 		// replicate extent from store0 to store1
 		log.Debugf("[%v].ReplicateExtent(extent=%v, mode=%v, source=%v", store1.hostID, extent, mode, store0.hostID)
-
-		// HACK: set $(CHERAMI_STOREHOST_WS_PORT) to the websocket port of source replica
-		os.Setenv("CHERAMI_STOREHOST_WS_PORT", strconv.FormatInt(int64(store0.wsPort), 10))
 
 		repl1ResC <- store1.ReplicateExtent(extent, mode, store0.hostID)
 
@@ -1893,8 +1890,6 @@ func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
 }
 
 func (s *StoreHostSuite) TestStoreHostReplicateExtentResume() {
-
-	// TODO: test resumption of ReplicateExtent
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024

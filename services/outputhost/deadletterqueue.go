@@ -108,7 +108,11 @@ func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.Con
 	lg := dlq.lclLg
 
 	// Create the cheramiClient
-	cheramiClient := client.NewClientWithFE(thisOutputHost.frontendClient, nil)
+	cheramiClient, err := client.NewClientWithFEClient(thisOutputHost.frontendClient, nil)
+	if err != nil {
+		lg.WithField(common.TagErr, err).Error("Unable to create DLQ publisher client")
+		return nil, err
+	}
 
 	cPublisherReq := &client.CreatePublisherRequest{
 		Path: cgDesc.GetDeadLetterQueueDestinationUUID(),
@@ -118,7 +122,7 @@ func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.Con
 
 	if dlq.publisher == nil {
 		errMsg := `Couldn't create DLQ publisher`
-		lg.Error(errMsg)
+		lg.WithField(common.TagErr, err).Error("newDeadLetterQueue: CreatePublisher error")
 		return nil, &cherami.InternalServiceError{Message: errMsg}
 	}
 
@@ -126,7 +130,7 @@ func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.Con
 	err = dlq.publisher.Open()
 	if err != nil {
 		errMsg := fmt.Sprintf("Couldn't open DLQ publisher: Err:%#q", err)
-		lg.Error(errMsg)
+		lg.WithField(common.TagErr, err).Error("newDeadLetterQueue: publisher Open error")
 		return nil, &cherami.InternalServiceError{Message: errMsg}
 	}
 

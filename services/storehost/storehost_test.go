@@ -76,7 +76,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 	mode := TimerQueue // mode to open extents in
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	var wgAll sync.WaitGroup
 
@@ -291,7 +291,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 
 	mode := TimerQueue // mode to open extents in
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	var wgAll sync.WaitGroup
 
@@ -496,7 +496,7 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteWithRead() {
 
 	mode := AppendOnly // mode to open extents in
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	var wgAll sync.WaitGroup
 
@@ -666,7 +666,7 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenRead() {
 
 	mode := AppendOnly // mode to open extents in
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	var wgAll sync.WaitGroup
 
@@ -834,7 +834,7 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenDoReadMessages() {
 
 	mode := AppendOnly // mode to open extents in
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	var wgAll sync.WaitGroup
 
@@ -986,7 +986,7 @@ func (s *StoreHostSuite) TestStoreHostSealExtent() {
 	dataSize := 1024
 
 	// setup test
-	t := s.storehost
+	t := s.storehost0
 
 	{
 		extent := uuid.NewRandom()
@@ -1207,7 +1207,7 @@ func (s *StoreHostSuite) TestStoreHostSealExtentThrottling() {
 
 	totalRequests := 1000
 
-	t := s.storehost
+	t := s.storehost0
 
 	{
 		extent := uuid.NewRandom()
@@ -1255,7 +1255,7 @@ func (s *StoreHostSuite) TestStoreHostPurgeMessages() {
 	dataSize := 1024
 
 	// setup test
-	t := s.storehost
+	t := s.storehost0
 
 	extent := uuid.NewRandom()
 
@@ -1429,8 +1429,8 @@ func (s *StoreHostSuite) TestStoreHostConcurrency() {
 	numParallel := 3
 
 	// setup test
-	t := s.storehost
-	// t := s.storehost
+	t := s.storehost0
+	// t := s.storehost0
 
 	extents := make([]uuid.UUID, numExtents)
 
@@ -1597,7 +1597,7 @@ func (s *StoreHostSuite) TestStoreHostMaxSeqNum() {
 	dataSize := 1024
 
 	// setup test
-	t := s.storehost
+	t := s.storehost0
 
 	extent := uuid.NewRandom()
 
@@ -1636,7 +1636,7 @@ func (s *StoreHostSuite) TestStoreHostManyManyExtents() {
 		debug.SetMaxThreads(9 * numExtents)
 	}
 
-	storehost := s.storehost
+	storehost := s.storehost0
 
 	extent := make([]uuid.UUID, numExtents)
 	mode := make([]Mode, numExtents)
@@ -1724,8 +1724,7 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 	}
 
 	// start up two new stores
-	store0 := s.testBase.newTestStoreHost(testStore)
-	store1 := s.testBase.newTestStoreHost(testStore)
+	store0, store1 := s.storehost0, s.storehost1
 
 	log.Debugf("TestStoreHostReplicateExtent storehost0: uuid=%v hostPort=%v wsPort=%d", store0.hostID, store0.hostPort, store0.wsPort)
 	log.Debugf("TestStoreHostReplicateExtent storehost1: uuid=%v hostPort=%v wsPort=%d", store1.hostID, store1.hostPort, store1.wsPort)
@@ -1908,8 +1907,7 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtentResume() {
 	var resumeSeqNum = numMessages / 2
 
 	// start up two stores
-	store0 := s.testBase.newTestStoreHost(testStore)
-	store1 := s.testBase.newTestStoreHost(testStore)
+	store0, store1 := s.storehost0, s.storehost1
 
 	log.Debugf("TestStoreHostReplicateExtentResume storehost0: uuid=%v hostPort=%v wsPort=%d", store0.hostID, store0.hostPort, store0.wsPort)
 	log.Debugf("TestStoreHostReplicateExtentResume storehost1: uuid=%v hostPort=%v wsPort=%d", store1.hostID, store1.hostPort, store1.wsPort)

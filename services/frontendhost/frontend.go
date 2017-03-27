@@ -52,7 +52,9 @@ const (
 	maxSizeCacheDestinationPathForUUID = 1000
 )
 
-var nilRequestError = &c.BadRequestError{Message: `Request must not be nil`}
+var nilRequestError = &c.BadRequestError{Message: `request must not be nil`}
+var badRequestKafkaConfigError = &c.BadRequestError{Message: `kafka destination must set kafka cluster and topic, and may not be multi-zone`}
+var badRequestNonKafkaConfigError = &c.BadRequestError{Message: `non-Kafka destination must not set kafka cluster and topic`}
 
 // destinationUUID is the UUID as a string for a destination
 type destinationUUID string
@@ -573,11 +575,11 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 			len(createRequest.GetKafkaTopics()) == 0 ||
 			common.ContainsEmpty(createRequest.GetKafkaTopics()) ||
 			createRequest.GetIsMultiZone() {
-			return nil, &shared.BadRequestError{Message: `Kafka destination must set kafka cluster and topic, and may not be multi-zone`}
+			return nil, badRequestKafkaConfigError
 		}
 	} else if createRequest.GetKafkaCluster() != `` ||
 		len(createRequest.GetKafkaTopics()) != 0 {
-		return nil, &shared.BadRequestError{Message: `Non-Kafka destination must not set kafka cluster and topic`}
+		return nil, badRequestNonKafkaConfigError
 	}
 
 	// Request to controller

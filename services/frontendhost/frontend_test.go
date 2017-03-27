@@ -259,7 +259,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateDestination() {
 		s.Equal(len(createReq.GetZoneConfigs()), len(req.GetZoneConfigs().GetConfigs()))
 		s.Equal(createReq.GetZoneConfigs()[0].GetRemoteExtentReplicaNum(), req.GetZoneConfigs().GetConfigs()[0].GetRemoteExtentReplicaNum())
 		s.Equal(createReq.GetKafkaCluster(), req.GetKafkaCluster())
-		s.True(common.UnorderedEqual(createReq.GetKafkaTopics(), req.GetKafkaTopics()))
+		s.True(common.StringSetEqual(createReq.GetKafkaTopics(), req.GetKafkaTopics()))
 	})
 
 	dst, err := frontendHost.CreateDestination(ctx, req)
@@ -276,7 +276,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateDestination() {
 		s.Equal(len(dst.ZoneConfigs.GetConfigs()), len(req.ZoneConfigs.GetConfigs()))
 		s.Equal(dst.ZoneConfigs.GetConfigs()[0].GetRemoteExtentReplicaNum(), req.ZoneConfigs.GetConfigs()[0].GetRemoteExtentReplicaNum())
 		s.Equal(dst.GetKafkaCluster(), req.GetKafkaCluster())
-		s.True(common.UnorderedEqual(dst.GetKafkaTopics(), req.GetKafkaTopics()))
+		s.True(common.StringSetEqual(dst.GetKafkaTopics(), req.GetKafkaTopics()))
 	}
 }
 
@@ -366,7 +366,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateKafkaDestination() {
 			s.Equal(createReq.GetOwnerEmail(), req.GetOwnerEmail(), testMsg)
 			s.Equal(createReq.GetIsMultiZone(), req.GetIsMultiZone(), testMsg)
 			s.Equal(createReq.GetKafkaCluster(), req.GetKafkaCluster(), testMsg)
-			s.True(common.UnorderedEqual(createReq.GetKafkaTopics(), req.GetKafkaTopics()), testMsg)
+			s.True(common.StringSetEqual(createReq.GetKafkaTopics(), req.GetKafkaTopics()), testMsg)
 		})
 
 		dst, err := frontendHost.CreateDestination(ctx, req)
@@ -386,7 +386,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateKafkaDestination() {
 			s.Equal(dst.GetOwnerEmail(), req.GetOwnerEmail(), testMsg)
 			s.Equal(dst.GetIsMultiZone(), req.GetIsMultiZone(), testMsg)
 			s.Equal(dst.GetKafkaCluster(), req.GetKafkaCluster(), testMsg)
-			s.True(common.UnorderedEqual(dst.GetKafkaTopics(), req.GetKafkaTopics()), testMsg)
+			s.True(common.StringSetEqual(dst.GetKafkaTopics(), req.GetKafkaTopics()), testMsg)
 		}
 
 	}

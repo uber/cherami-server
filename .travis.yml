@@ -80,3 +80,4 @@ after_success:
         travis_wait 20 docker build -f docker/server/Dockerfile -t $REPO:$COMMIT -t $REPO:$TAG -t $REPO:travis-$TRAVIS_BUILD_NUMBER docker/server/;
         docker push $REPO;
     fi'
+

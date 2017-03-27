@@ -1729,11 +1729,6 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 	log.Debugf("TestStoreHostReplicateExtent storehost0: uuid=%v hostPort=%v wsPort=%d", store0.hostID, store0.hostPort, store0.wsPort)
 	log.Debugf("TestStoreHostReplicateExtent storehost1: uuid=%v hostPort=%v wsPort=%d", store1.hostID, store1.hostPort, store1.wsPort)
 
-	// sleep until the ringpop on the second store refreshes and finds the
-	// first one; we do this because we were seeing 'error resolving uuid'
-	// when ReplicateExtent tries to resolve/connect to the source replica
-	time.Sleep(1500 * time.Millisecond)
-
 	extent := uuid.NewRandom() // random extent
 
 	// == 1. start a consumer on the second store for the extent ==
@@ -1911,11 +1906,6 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtentResume() {
 
 	log.Debugf("TestStoreHostReplicateExtentResume storehost0: uuid=%v hostPort=%v wsPort=%d", store0.hostID, store0.hostPort, store0.wsPort)
 	log.Debugf("TestStoreHostReplicateExtentResume storehost1: uuid=%v hostPort=%v wsPort=%d", store1.hostID, store1.hostPort, store1.wsPort)
-
-	// sleep until the ringpop on the second store refreshes and finds the
-	// first one; we do this because we were seeing 'error resolving uuid'
-	// when ReplicateExtent tries to resolve/connect to the source replica
-	time.Sleep(time.Second)
 
 	extent := uuid.NewRandom() // random extent
 

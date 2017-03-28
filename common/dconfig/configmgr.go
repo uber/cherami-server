@@ -511,13 +511,15 @@ func newKVTreeNode() *kvTreeNode {
 
 func addToKVTree(root *kvTreeNode, version, sku, host, cfgKey, cfgValue string) {
 
-	var maxDepth = 1 // max depth of tree to traverse
+	var maxDepth int // max depth of tree to traverse
 
-	if sku != wildcardToken || host != wildcardToken {
-		maxDepth++
-		if host != wildcardToken {
-			maxDepth++
-		}
+	switch {
+	case host != wildcardToken:
+		maxDepth = 3
+	case sku != wildcardToken:
+		maxDepth = 2
+	default:
+		maxDepth = 1
 	}
 
 	curr := root

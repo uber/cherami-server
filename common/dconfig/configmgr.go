@@ -438,7 +438,6 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 	return root
 }
 
-
 // mkConfig constructs a config object of given type using the
 // values from the given set of key,value strings. If the given
 // map of (k,v) is missing a config key, then this method will

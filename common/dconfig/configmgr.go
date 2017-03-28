@@ -351,8 +351,8 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 
 	allSkus := make(map[string]struct{})
 	allVersions := make(map[string]struct{})
-	wildcardVersionItems := make([]*m.ServiceConfigItem, 0, len(items)) // items with version as wildcard
-	wildcardVersionSkuItems := make([]*m.ServiceConfigItem, 0, len(items)) // items with version as wildcard and sku not a wildcard
+	wildcardVersionItems := make([]*m.ServiceConfigItem, 0, len(items))              // items with version as wildcard
+	wildcardVersionSkuItems := make([]*m.ServiceConfigItem, 0, len(items))           // items with version as wildcard and sku not a wildcard
 	versionToWildcardSkuItems := make(map[string][]*m.ServiceConfigItem, len(items)) // items with sku as wildcard
 
 	for i, item := range items {
@@ -370,10 +370,13 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 		}
 
 		if sku != wildcardToken && host != wildcardToken {
-			key := strings.Join([]string{service,version, sku, host,cfgKey}, ".")
+			key := strings.Join([]string{service, version, sku, host, cfgKey}, ".")
 			sku = wildcardToken
 			items[i].Sku = common.StringPtr(wildcardToken)
-			cfgMgr.logger.WithField(key, cfgValue).Warn("Forcing sku=*;host specific items MUST be sku agnostic")
+			cfgMgr.logger.WithFields(bark.Fields{
+				"key":   key,
+				"value": cfgValue,
+			}).Warn("Forcing sku=*;host specific items MUST be sku agnostic")
 		}
 
 		allSkus[sku] = struct{}{}
@@ -427,7 +430,7 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 
 	// apply svc.*. items as default for every svc.ver.*
 	for _, item := range wildcardVersionItems {
- 		for ver := range allVersions {
+		for ver := range allVersions {
 			for sku := range allSkus {
 				addToKVTree(root, ver, sku, item.GetHostname(), item.GetConfigKey(), item.GetConfigValue())
 			}
@@ -436,7 +439,6 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 
 	return root
 }
-
 
 // mkConfig constructs a config object of given type using the
 // values from the given set of key,value strings. If the given
@@ -512,13 +514,15 @@ func newKVTreeNode() *kvTreeNode {
 
 func addToKVTree(root *kvTreeNode, version, sku, host, cfgKey, cfgValue string) {
 
-	var maxDepth = 1 // max depth of tree to traverse
+	var maxDepth int // max depth of tree to traverse
 
-	if sku != wildcardToken || host != wildcardToken {
-		maxDepth++
-		if host != wildcardToken {
-			maxDepth++
-		}
+	switch {
+	case host != wildcardToken:
+		maxDepth = 3
+	case sku != wildcardToken:
+		maxDepth = 2
+	default:
+		maxDepth = 1
 	}
 
 	curr := root

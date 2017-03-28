@@ -123,8 +123,8 @@ func (s *ConfigManagerTestSuite) TestConfigOverrides() {
 	}
 
 	type testOutputConfig1 struct {
-		CacheSizeBytes int64 	`name:"cache-size-bytes" default:"1024"`
-		AdminStatus    string   `name:"admin-status" default:"enabled"`
+		CacheSizeBytes int64  `name:"cache-size-bytes" default:"1024"`
+		AdminStatus    string `name:"admin-status" default:"enabled"`
 	}
 
 	cfgItems := []m.ServiceConfigItem{
@@ -196,20 +196,20 @@ func (s *ConfigManagerTestSuite) TestConfigOverrides() {
 	}
 
 	outputTestCases := []outputTestCase1{
-		{configGetterTestInput{svc: "output"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", sku: "haswell"}, testOutputConfig1{CacheSizeBytes:20000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v2"}, testOutputConfig1{CacheSizeBytes:15000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v2", sku: "haswell"}, testOutputConfig1{CacheSizeBytes:15000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v2", sku: "skylake"}, testOutputConfig1{CacheSizeBytes:12000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v2", sku: "ivy"}, testOutputConfig1{CacheSizeBytes:15000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v1", sku: "haswell"}, testOutputConfig1{CacheSizeBytes:20000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v1", sku: "ivy"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", host: "cherami22"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "disabled"}},
-		{configGetterTestInput{svc: "output", host: "cherami44"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "enabled"}},
-		{configGetterTestInput{svc: "output", vers: "v2", sku: "haswell", host: "cherami22"}, testOutputConfig1{CacheSizeBytes:15000, AdminStatus: "disabled"}},
-		{configGetterTestInput{svc: "output", vers: "v1", sku: "ivy", host: "cherami22"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "disabled"}},
-		{configGetterTestInput{svc: "output", sku: "haswell", host: "cherami22"}, testOutputConfig1{CacheSizeBytes:20000, AdminStatus: "disabled"}},
-		{configGetterTestInput{svc: "output", host: "cherami22"}, testOutputConfig1{CacheSizeBytes:10000, AdminStatus: "disabled"}},
+		{configGetterTestInput{svc: "output"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", sku: "haswell"}, testOutputConfig1{CacheSizeBytes: 20000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v2"}, testOutputConfig1{CacheSizeBytes: 15000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v2", sku: "haswell"}, testOutputConfig1{CacheSizeBytes: 15000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v2", sku: "skylake"}, testOutputConfig1{CacheSizeBytes: 12000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v2", sku: "ivy"}, testOutputConfig1{CacheSizeBytes: 15000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v1", sku: "haswell"}, testOutputConfig1{CacheSizeBytes: 20000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v1", sku: "ivy"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", host: "cherami22"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "disabled"}},
+		{configGetterTestInput{svc: "output", host: "cherami44"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "enabled"}},
+		{configGetterTestInput{svc: "output", vers: "v2", sku: "haswell", host: "cherami22"}, testOutputConfig1{CacheSizeBytes: 15000, AdminStatus: "disabled"}},
+		{configGetterTestInput{svc: "output", vers: "v1", sku: "ivy", host: "cherami22"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "disabled"}},
+		{configGetterTestInput{svc: "output", sku: "haswell", host: "cherami22"}, testOutputConfig1{CacheSizeBytes: 20000, AdminStatus: "disabled"}},
+		{configGetterTestInput{svc: "output", host: "cherami22"}, testOutputConfig1{CacheSizeBytes: 10000, AdminStatus: "disabled"}},
 	}
 
 	configTypes := make(map[string]interface{})

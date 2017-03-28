@@ -351,6 +351,7 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 
 	allSkus := make(map[string]struct{})
 	allVersions := make(map[string]struct{})
+
 	wildcardVersionItems := make([]*m.ServiceConfigItem, 0, len(items))              // items with version as wildcard
 	wildcardVersionSkuItems := make([]*m.ServiceConfigItem, 0, len(items))           // items with version as wildcard and sku not a wildcard
 	versionToWildcardSkuItems := make(map[string][]*m.ServiceConfigItem, len(items)) // items with sku as wildcard
@@ -436,6 +437,7 @@ func (cfgMgr *CassandraConfigManager) mkKVTreeForSvc(service string, items []*m.
 
 	return root
 }
+
 
 // mkConfig constructs a config object of given type using the
 // values from the given set of key,value strings. If the given

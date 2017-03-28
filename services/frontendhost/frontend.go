@@ -889,7 +889,7 @@ func (h *Frontend) ReadConsumerGroup(ctx thrift.Context, readRequest *c.ReadCons
 	})
 
 	// Build a metadata version of the consumer group request
-	mReadRequest := m.NewReadConsumerGroupRequest()
+	mReadRequest := shared.NewReadConsumerGroupRequest()
 	mReadRequest.DestinationPath = common.StringPtr(readRequest.GetDestinationPath())
 	mReadRequest.ConsumerGroupName = common.StringPtr(readRequest.GetConsumerGroupName())
 
@@ -924,7 +924,7 @@ func (h *Frontend) ReadConsumerGroupHosts(ctx thrift.Context, readRequest *c.Rea
 	})
 
 	// Build a metadata version of the consumer group request
-	mReadRequest := m.NewReadConsumerGroupRequest()
+	mReadRequest := shared.NewReadConsumerGroupRequest()
 	mReadRequest.DestinationPath = common.StringPtr(readRequest.GetDestinationPath())
 	mReadRequest.ConsumerGroupName = common.StringPtr(readRequest.GetConsumerGroupName())
 
@@ -1194,7 +1194,7 @@ func (h *Frontend) dlqOperationForConsumerGroup(ctx thrift.Context, destinationP
 	var lclLg bark.Logger
 	var mCGDesc *shared.ConsumerGroupDescription
 	var destDesc *shared.DestinationDescription
-	mReadRequest := m.NewReadConsumerGroupRequest()
+	mReadRequest := shared.NewReadConsumerGroupRequest()
 
 	if purge {
 		lclLg = h.logger.WithField(`operation`, `purge`)

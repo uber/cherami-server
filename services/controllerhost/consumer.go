@@ -183,7 +183,7 @@ func reassignOutHost(context *Context, dstUUID string, cgUUID string, extent *m.
 func notifyOutputHostsForConsumerGroup(context *Context, dstUUID, cgUUID, reason, reasonContext string, m3Scope int) (err error) {
 	outputHosts := make(map[string]struct{})
 
-	filterBy := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_OPEN}
+	filterBy := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_OPEN}
 	openCGExtents, err := listConsumerGroupExtents(context, dstUUID, cgUUID, m3Scope, filterBy)
 	if err != nil {
 		return
@@ -271,7 +271,7 @@ func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, 
 		}
 
 		if isMultiZoneCg {
-			createRemoteCGExtent(context, dstUUID, cgUUID, ext.GetExtentUUID())
+			createCGExtentInRemote(context, dstUUID, cgUUID, ext.GetExtentUUID())
 		}
 
 		nAdded++
@@ -293,7 +293,7 @@ func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, 
 	return nAdded
 }
 
-func createRemoteCGExtent(context *Context, dstUUID, cgUUID, extUUID string) {
+func createCGExtentInRemote(context *Context, dstUUID, cgUUID, extUUID string) {
 	req := &shared.CreateConsumerGroupExtentRequest{
 		DestinationUUID: common.StringPtr(dstUUID),
 		ConsumerGroupUUID: common.StringPtr(cgUUID),
@@ -334,7 +334,7 @@ func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string,
 
 	cgExtents = newCGExtentsByCategory()
 	outputHosts = make(map[string]*common.HostInfo)
-	filterBy := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_OPEN}
+	filterBy := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_OPEN}
 	openCGExtentsList, err := listConsumerGroupExtents(context, dstUUID, cgUUID, m3Scope, filterBy)
 	if err != nil {
 		return
@@ -527,7 +527,7 @@ func refreshCGExtents(context *Context,
 	cgID := cgDesc.GetConsumerGroupUUID()
 
 	// generate map of consumed CG Extents
-	filterBy := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_CONSUMED}
+	filterBy := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_CONSUMED}
 	consumedCGExtentsList, err := listConsumerGroupExtents(context, dstID, cgID, m3Scope, filterBy)
 	if err != nil {
 		return 0, err

@@ -335,7 +335,7 @@ func (cgCache *consumerGroupCache) loadExtentCache(ctx thrift.Context, destType 
 			extCache.initialCredits = cgCache.getMessageCacheSize(cfg, defaultNumOutstandingMsgs)
 		}
 		// TODO: create a newAckManagerRequestArgs struct here
-		extCache.ackMgr = newAckManager(cgCache, cgCache.ackIDGen.GetNextAckID(), cgCache.outputHostUUID, cgCache.cachedCGDesc.GetConsumerGroupUUID(), extCache.extUUID, &extCache.connectedStoreUUID, extCache.waitConsumedCh, cge, cgCache.metaClient, extCache.logger)
+		extCache.ackMgr = newAckManager(cgCache, cgCache.ackIDGen.GetNextAckID(), cgCache.outputHostUUID, cgCache.cachedCGDesc.GetConsumerGroupUUID(), cgCache.cachedCGDesc.GetIsMultiZone(), extCache.extUUID, &extCache.connectedStoreUUID, extCache.waitConsumedCh, cge, cgCache.metaClient, cgCache.tClients, extCache.logger)
 		extCache.loadReporter = cgCache.loadReporterFactory.CreateReporter(extentLoadReportingInterval, extCache, extCache.logger)
 
 		// make sure we prevent shutdown from racing
@@ -497,7 +497,7 @@ func (cgCache *consumerGroupCache) refreshCgCache(ctx thrift.Context) error {
 		return ErrCgUnloaded
 	}
 
-	readReq := &metadata.ReadConsumerGroupRequest{
+	readReq := &shared.ReadConsumerGroupRequest{
 		DestinationUUID:   common.StringPtr(cgCache.cachedCGDesc.GetDestinationUUID()),
 		ConsumerGroupName: common.StringPtr(cgCache.cachedCGDesc.GetConsumerGroupName()),
 	}
@@ -525,7 +525,7 @@ func (cgCache *consumerGroupCache) refreshCgCache(ctx thrift.Context) error {
 		DestinationUUID:   common.StringPtr(cgCache.cachedCGDesc.GetDestinationUUID()),
 		ConsumerGroupUUID: common.StringPtr(cgCache.cachedCGDesc.GetConsumerGroupUUID()),
 		OutputHostUUID:    common.StringPtr(cgCache.outputHostUUID),
-		Status:            common.MetadataConsumerGroupExtentStatusPtr(metadata.ConsumerGroupExtentStatus_OPEN),
+		Status:            common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 		MaxResults:        common.Int32Ptr(defaultMaxResults),
 	}
 

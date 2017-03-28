@@ -328,6 +328,8 @@ const (
 	ControllerDeleteConsumerGroupScope
 	// ControllerCreateRemoteZoneExtentScope represents controller CreateRemoteZoneExtent API
 	ControllerCreateRemoteZoneExtentScope
+	// ControllerCreateRemoteZoneCgExtentScope represents controller CreateRemoteZoneConsumerGroupExtent API
+	ControllerCreateRemoteZoneCgExtentScope
 	// QueueDepthBacklogCGScope represents metrics within queuedepth per consumer group
 	QueueDepthBacklogCGScope
 
@@ -434,6 +436,14 @@ const (
 	ReplicatorCreateExtentScope
 	// ReplicatorCreateRmtExtentScope represents replicator CreateRemoteExtent API
 	ReplicatorCreateRmtExtentScope
+	// ReplicatorCreateCgExtentScope represents replicator CreateConsumerGroupExtent API
+	ReplicatorCreateCgExtentScope
+	// ReplicatorCreateRmtCgExtentScope represents replicator CreateRemoteConsumerGroupExtent API
+	ReplicatorCreateRmtCgExtentScope
+	// ReplicatorSetAckOffsetScope represents replicator SetAckOffset API
+	ReplicatorSetAckOffsetScope
+	// ReplicatorSetAckOffsetInRemoteScope represents replicator SetAckOffsetInRemote API
+	ReplicatorSetAckOffsetInRemoteScope
 	// ReplicatorReconcileScope represents replicator's reconcile process
 	ReplicatorReconcileScope
 )
@@ -572,6 +582,10 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		ReplicatorDeleteRmtCgScope:     {operation: "ReplicatorDeleteRemoteConsumerGroup"},
 		ReplicatorCreateExtentScope:      {operation: "ReplicatorCreateExtent"},
 		ReplicatorCreateRmtExtentScope:   {operation: "ReplicatorCreateRemoteExtent"},
+		ReplicatorCreateCgExtentScope:      {operation: "ReplicatorCreateConsumerGroupExtent"},
+		ReplicatorCreateRmtCgExtentScope:   {operation: "ReplicatorCreateRemoteConsumerGroupExtent"},
+		ReplicatorSetAckOffsetScope:      {operation: "SetAckOffset"},
+		ReplicatorSetAckOffsetInRemoteScope:      {operation: "SetAckOffsetInRemote"},
 		ReplicatorReconcileScope:         {operation: "ReplicatorReconcile"},
 	},
 
@@ -609,6 +623,7 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		ControllerUpdateConsumerGroupScope:       {operation: "UpdateConsumerGroup"},
 		ControllerDeleteConsumerGroupScope:       {operation: "DeleteConsumerGroup"},
 		ControllerCreateRemoteZoneExtentScope:    {operation: "CreateRemoteZoneExtent"},
+		ControllerCreateRemoteZoneCgExtentScope:  {operation: "CreateRemoteZoneConsumerGroupExtent"},
 	},
 }
 

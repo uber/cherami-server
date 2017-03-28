@@ -365,11 +365,11 @@ func (_m *TChanMetadataService) SealExtent(ctx thrift.Context, request *metadata
 }
 
 // SetAckOffset provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataService) SetAckOffset(ctx thrift.Context, request *metadata.SetAckOffsetRequest) error {
+func (_m *TChanMetadataService) SetAckOffset(ctx thrift.Context, request *shared.SetAckOffsetRequest) error {
 	ret := _m.Called(ctx, request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.SetAckOffsetRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.SetAckOffsetRequest) error); ok {
 		r0 = rf(ctx, request)
 	} else {
 		r0 = ret.Error(0)
@@ -416,11 +416,11 @@ func (_m *TChanMetadataService) UpdateConsumerGroup(ctx thrift.Context, updateRe
 }
 
 // UpdateConsumerGroupExtentStatus provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataService) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *metadata.UpdateConsumerGroupExtentStatusRequest) error {
+func (_m *TChanMetadataService) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
 	ret := _m.Called(ctx, request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.UpdateConsumerGroupExtentStatusRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.UpdateConsumerGroupExtentStatusRequest) error); ok {
 		r0 = rf(ctx, request)
 	} else {
 		r0 = ret.Error(0)
@@ -797,11 +797,11 @@ func (_m *TChanMetadataService) ListStoreExtentsStats(ctx thrift.Context, reques
 }
 
 // ReadConsumerGroup provides a mock function with given fields: ctx, getRequest
-func (_m *TChanMetadataService) ReadConsumerGroup(ctx thrift.Context, getRequest *metadata.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (_m *TChanMetadataService) ReadConsumerGroup(ctx thrift.Context, getRequest *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	ret := _m.Called(ctx, getRequest)
 
 	var r0 *shared.ConsumerGroupDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
 		r0 = rf(ctx, getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -810,7 +810,7 @@ func (_m *TChanMetadataService) ReadConsumerGroup(ctx thrift.Context, getRequest
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadConsumerGroupRequest) error); ok {
 		r1 = rf(ctx, getRequest)
 	} else {
 		r1 = ret.Error(1)
@@ -820,11 +820,11 @@ func (_m *TChanMetadataService) ReadConsumerGroup(ctx thrift.Context, getRequest
 }
 
 // ReadConsumerGroupByUUID provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataService) ReadConsumerGroupByUUID(ctx thrift.Context, request *metadata.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (_m *TChanMetadataService) ReadConsumerGroupByUUID(ctx thrift.Context, request *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	ret := _m.Called(ctx, request)
 
 	var r0 *shared.ConsumerGroupDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
 		r0 = rf(ctx, request)
 	} else {
 		if ret.Get(0) != nil {
@@ -833,7 +833,7 @@ func (_m *TChanMetadataService) ReadConsumerGroupByUUID(ctx thrift.Context, requ
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadConsumerGroupRequest) error); ok {
 		r1 = rf(ctx, request)
 	} else {
 		r1 = ret.Error(1)

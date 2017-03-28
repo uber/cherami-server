@@ -1654,7 +1654,7 @@ func (s *CassandraSuite) TestDeleteConsumerGroupDeletesDLQ() {
 	err = s.client.DeleteConsumerGroup(nil, deleteReq)
 	assert.Nil(err, "DeleteConsumerGroup failed")
 
-	readCGReq := &m.ReadConsumerGroupRequest{
+	readCGReq := &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(dst.GetPath()),
 		ConsumerGroupName: common.StringPtr(gotCG.GetConsumerGroupName()),
 	}
@@ -1745,7 +1745,7 @@ func (s *CassandraSuite) TestConsumerGroupCRUD() {
 	assert.Equal(dlqDest.GetPath(), dlqName)
 
 	for pass := 0; pass < 3; pass++ {
-		readReq := &m.ReadConsumerGroupRequest{
+		readReq := &shared.ReadConsumerGroupRequest{
 			DestinationPath:   common.StringPtr(createReq.GetDestinationPath()),
 			ConsumerGroupName: common.StringPtr(createReq.GetConsumerGroupName()),
 		}
@@ -1866,7 +1866,7 @@ func (s *CassandraSuite) TestCGCRUDOnPhantomDestination() {
 	_, err = s.client.UpdateConsumerGroup(nil, updateReq)
 	assert.NotNil(err, "UpdateConsumerGroup succeeded on non-existent destination")
 
-	readReq := &m.ReadConsumerGroupRequest{
+	readReq := &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(createReq.GetDestinationPath()),
 		ConsumerGroupName: common.StringPtr(createReq.GetConsumerGroupName()),
 	}
@@ -2172,7 +2172,7 @@ func (s *CassandraSuite) TestSetOutputHost() {
 			ConsumerGroupUUID: common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:        common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:    common.StringPtr(req.GetOutputHostUUID()),
-			Status:            common.MetadataConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_OPEN),
+			Status:            common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 			StoreUUIDs:        createReq.StoreUUIDs,
 		}
 
@@ -2235,7 +2235,7 @@ func (s *CassandraSuite) TestReadConsumerGroupExtentsByExtUUID() {
 			ConsumerGroupUUID: common.StringPtr(cgUUID),
 			ExtentUUID:        common.StringPtr(extUUID),
 			OutputHostUUID:    common.StringPtr(outputUUID),
-			Status:            common.MetadataConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_OPEN),
+			Status:            common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 			StoreUUIDs:        createReq.StoreUUIDs,
 		}
 		assert.Equal(expected.GetConsumerGroupUUID(), got.GetConsumerGroupUUID(), "Wrong consumer group uuid")
@@ -2256,12 +2256,12 @@ func (s *CassandraSuite) TestSetAckOffset() {
 
 	assert := s.Require()
 
-	req := &m.SetAckOffsetRequest{
+	req := &shared.SetAckOffsetRequest{
 		ExtentUUID:         common.StringPtr(uuid.New()),
 		ConsumerGroupUUID:  common.StringPtr(uuid.New()),
 		OutputHostUUID:     common.StringPtr(uuid.New()),
 		ConnectedStoreUUID: common.StringPtr(uuid.New()),
-		Status:             common.CheramiConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_OPEN),
+		Status:             common.CheramiConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 		AckLevelAddress:    common.Int64Ptr(1234),
 		AckLevelSeqNo:      common.Int64Ptr(2345),
 		AckLevelSeqNoRate:  common.Float64Ptr(34.56),
@@ -2305,7 +2305,7 @@ func (s *CassandraSuite) TestSetAckOffset() {
 			ConsumerGroupUUID:  common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:     common.StringPtr(req.GetOutputHostUUID()),
-			Status:             common.MetadataConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_OPEN),
+			Status:             common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 			StoreUUIDs:         createReq.StoreUUIDs,
 			ConnectedStoreUUID: common.StringPtr(req.GetConnectedStoreUUID()),
 			AckLevelOffset:     common.Int64Ptr(req.GetAckLevelAddress()),
@@ -2332,7 +2332,7 @@ func (s *CassandraSuite) TestSetAckOffset() {
 			ConsumerGroupUUID:  common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:     common.StringPtr(req.GetOutputHostUUID()),
-			Status:             common.MetadataConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_OPEN),
+			Status:             common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
 			StoreUUIDs:         createReq.StoreUUIDs,
 			ConnectedStoreUUID: common.StringPtr(req.GetConnectedStoreUUID()),
 			AckLevelOffset:     common.Int64Ptr(req.GetAckLevelAddress()),
@@ -2522,7 +2522,7 @@ func (s *CassandraSuite) TestUpdateConsumerGroupExtentStatus() {
 		err := s.client.CreateConsumerGroupExtent(nil, cReq)
 		assert.Nil(err, "Failed to create consumer group extent")
 
-		setReq := &m.SetAckOffsetRequest{
+		setReq := &shared.SetAckOffsetRequest{
 			ConsumerGroupUUID:  common.StringPtr(cReq.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(cReq.GetExtentUUID()),
 			OutputHostUUID:     common.StringPtr(cReq.GetOutputHostUUID()),
@@ -2539,13 +2539,13 @@ func (s *CassandraSuite) TestUpdateConsumerGroupExtentStatus() {
 
 		cge, err := s.client.ReadConsumerGroupExtent(nil, getReq)
 		assert.Nil(err, "Failed to read consumer group extent")
-		assert.Equal(m.ConsumerGroupExtentStatus_OPEN, cge.GetExtent().GetStatus(), "Wrong consumer group extent status")
+		assert.Equal(shared.ConsumerGroupExtentStatus_OPEN, cge.GetExtent().GetStatus(), "Wrong consumer group extent status")
 
-		updateReq := m.NewUpdateConsumerGroupExtentStatusRequest()
+		updateReq := shared.NewUpdateConsumerGroupExtentStatusRequest()
 		updateReq.ConsumerGroupUUID = cReq.ConsumerGroupUUID
 		updateReq.ExtentUUID = cReq.ExtentUUID
 
-		statusChanges := []m.ConsumerGroupExtentStatus{m.ConsumerGroupExtentStatus_CONSUMED, m.ConsumerGroupExtentStatus_DELETED}
+		statusChanges := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_CONSUMED, shared.ConsumerGroupExtentStatus_DELETED}
 
 		for _, status := range statusChanges {
 			updateReq.Status = common.MetadataConsumerGroupExtentStatusPtr(status)

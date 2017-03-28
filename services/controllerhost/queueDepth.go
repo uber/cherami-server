@@ -233,7 +233,7 @@ func (qdc *queueDepthCalculator) handleConsumerGroupExtent(dstDesc *shared.Desti
 	iter := &qdc.iter
 	logger := qdc.makeCGExtentLogger(dstDesc, cgDesc, cgExtent)
 
-	if cgExtent.GetStatus() == metadata.ConsumerGroupExtentStatus_OPEN {
+	if cgExtent.GetStatus() == shared.ConsumerGroupExtentStatus_OPEN {
 		qdc.iter.cg.nOpenExtents++
 		if qdc.isCGExtentStalled(cgExtent) {
 			qdc.iter.cg.nStalledExtents++
@@ -274,7 +274,7 @@ func (qdc *queueDepthCalculator) addExtentBacklog(
 
 	iter := &qdc.iter
 
-	if cgExtent.GetStatus() != metadata.ConsumerGroupExtentStatus_OPEN {
+	if cgExtent.GetStatus() != shared.ConsumerGroupExtentStatus_OPEN {
 		if iter.cg.isTabulationRequested {
 			logger.WithFields(bark.Fields{
 				common.TagStor:     string(connectedStoreID),

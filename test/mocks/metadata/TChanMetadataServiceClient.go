@@ -55,11 +55,11 @@ func (_m *TChanMetadataServiceClient) CreateConsumerGroup(ctx thrift.Context, re
 }
 
 // ReadConsumerGroupByUUID provides a mock function with given fields: ctx, getRequest
-func (_m *TChanMetadataServiceClient) ReadConsumerGroupByUUID(ctx thrift.Context, getRequest *metadata.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (_m *TChanMetadataServiceClient) ReadConsumerGroupByUUID(ctx thrift.Context, getRequest *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	ret := _m.Called(ctx, getRequest)
 
 	var r0 *shared.ConsumerGroupDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
 		r0 = rf(ctx, getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -68,7 +68,7 @@ func (_m *TChanMetadataServiceClient) ReadConsumerGroupByUUID(ctx thrift.Context
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadConsumerGroupRequest) error); ok {
 		r1 = rf(ctx, getRequest)
 	} else {
 		r1 = ret.Error(1)
@@ -468,11 +468,11 @@ func (_m *TChanMetadataServiceClient) ReadConsumerGroupExtentsLite(ctx thrift.Co
 }
 
 // ReadConsumerGroup provides a mock function with given fields: ctx, getRequest
-func (_m *TChanMetadataServiceClient) ReadConsumerGroup(ctx thrift.Context, getRequest *metadata.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (_m *TChanMetadataServiceClient) ReadConsumerGroup(ctx thrift.Context, getRequest *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	ret := _m.Called(ctx, getRequest)
 
 	var r0 *shared.ConsumerGroupDescription
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
 		r0 = rf(ctx, getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -481,7 +481,7 @@ func (_m *TChanMetadataServiceClient) ReadConsumerGroup(ctx thrift.Context, getR
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(thrift.Context, *metadata.ReadConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadConsumerGroupRequest) error); ok {
 		r1 = rf(ctx, getRequest)
 	} else {
 		r1 = ret.Error(1)
@@ -657,11 +657,11 @@ func (_m *TChanMetadataServiceClient) SealExtent(ctx thrift.Context, request *me
 }
 
 // SetAckOffset provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataServiceClient) SetAckOffset(ctx thrift.Context, request *metadata.SetAckOffsetRequest) error {
+func (_m *TChanMetadataServiceClient) SetAckOffset(ctx thrift.Context, request *shared.SetAckOffsetRequest) error {
 	ret := _m.Called(ctx, request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.SetAckOffsetRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.SetAckOffsetRequest) error); ok {
 		r0 = rf(ctx, request)
 	} else {
 		r0 = ret.Error(0)
@@ -729,11 +729,11 @@ func (_m *TChanMetadataServiceClient) UpdateConsumerGroup(ctx thrift.Context, up
 }
 
 // UpdateConsumerGroupExtentStatus provides a mock function with given fields: ctx, request
-func (_m *TChanMetadataServiceClient) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *metadata.UpdateConsumerGroupExtentStatusRequest) error {
+func (_m *TChanMetadataServiceClient) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
 	ret := _m.Called(ctx, request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *metadata.UpdateConsumerGroupExtentStatusRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.UpdateConsumerGroupExtentStatusRequest) error); ok {
 		r0 = rf(ctx, request)
 	} else {
 		r0 = ret.Error(0)

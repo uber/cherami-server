@@ -1396,7 +1396,7 @@ func (s *CassandraMetadataService) readConsumerGroupByDstUUID(dstUUID string, cg
 // When destination path is specified as input, this method only returns result, if the
 // destination has not been DELETED. When destination UUID is specified as input, this
 // method will always return result, if the consumer group exist.
-func (s *CassandraMetadataService) ReadConsumerGroup(ctx thrift.Context, request *m.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (s *CassandraMetadataService) ReadConsumerGroup(ctx thrift.Context, request *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 
 	if request.ConsumerGroupName == nil {
 		if request.ConsumerGroupUUID != nil {
@@ -1425,7 +1425,7 @@ func (s *CassandraMetadataService) ReadConsumerGroup(ctx thrift.Context, request
 }
 
 // ReadConsumerGroupByUUID returns the ConsumerGroupDescription for the [consumerGroupUUID].
-func (s *CassandraMetadataService) ReadConsumerGroupByUUID(ctx thrift.Context, request *m.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (s *CassandraMetadataService) ReadConsumerGroupByUUID(ctx thrift.Context, request *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 
 	if request.ConsumerGroupUUID == nil {
 		return nil, &shared.BadRequestError{Message: "ConsumerGroupUUID cannot be nil"}
@@ -1497,7 +1497,7 @@ func updateCGDescIfChanged(req *shared.UpdateConsumerGroupRequest, cgDesc *share
 // This method can only be called for an existing consumer group
 func (s *CassandraMetadataService) UpdateConsumerGroup(ctx thrift.Context, request *shared.UpdateConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 
-	readCGReq := &m.ReadConsumerGroupRequest{
+	readCGReq := &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(request.GetDestinationPath()),
 		ConsumerGroupName: common.StringPtr(request.GetConsumerGroupName()),
 	}
@@ -1602,7 +1602,7 @@ func (s *CassandraMetadataService) DeleteConsumerGroup(ctx thrift.Context, reque
 	var existingCG *shared.ConsumerGroupDescription
 
 	if request.DestinationPath != nil {
-		readCGReq := &m.ReadConsumerGroupRequest{
+		readCGReq := &shared.ReadConsumerGroupRequest{
 			DestinationPath:   common.StringPtr(request.GetDestinationPath()),
 			ConsumerGroupName: common.StringPtr(request.GetConsumerGroupName()),
 		}
@@ -3474,7 +3474,7 @@ func (s *CassandraMetadataService) deleteConsumerGroupExtent(cgUUID string, exte
 		cge.GetConsumerGroupUUID(),
 		cge.GetExtentUUID(),
 		cge.GetOutputHostUUID(),
-		m.ConsumerGroupExtentStatus_DELETED,
+		shared.ConsumerGroupExtentStatus_DELETED,
 		cge.GetAckLevelOffset(),
 		cge.GetAckLevelSeqNo(),
 		cge.GetAckLevelSeqNoRate(),
@@ -3497,14 +3497,14 @@ func (s *CassandraMetadataService) deleteConsumerGroupExtent(cgUUID string, exte
 }
 
 // UpdateConsumerGroupExtentStatus updates the consumer group extent status
-func (s *CassandraMetadataService) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *m.UpdateConsumerGroupExtentStatusRequest) error {
+func (s *CassandraMetadataService) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
 	if request.Status == nil {
 		return &shared.BadRequestError{
 			Message: "Empty status",
 		}
 	}
 
-	if request.GetStatus() == m.ConsumerGroupExtentStatus_DELETED {
+	if request.GetStatus() == shared.ConsumerGroupExtentStatus_DELETED {
 		return s.deleteConsumerGroupExtent(request.GetConsumerGroupUUID(), request.GetExtentUUID())
 	}
 	query := s.session.Query(sqlCGUpdateStatus, request.GetStatus(), request.GetConsumerGroupUUID(), request.GetExtentUUID())
@@ -3521,7 +3521,7 @@ func (s *CassandraMetadataService) UpdateConsumerGroupExtentStatus(ctx thrift.Co
 // SetAckOffset updates the ack offset for the given [ConsumerGroup, Exent]
 // If there is no existing record for a [ConsumerGroup, Extent], this method
 // will automatically create a record with the given offset
-func (s *CassandraMetadataService) SetAckOffset(ctx thrift.Context, request *m.SetAckOffsetRequest) error {
+func (s *CassandraMetadataService) SetAckOffset(ctx thrift.Context, request *shared.SetAckOffsetRequest) error {
 
 	var err error
 	var connectedStore interface{}
@@ -3529,7 +3529,7 @@ func (s *CassandraMetadataService) SetAckOffset(ctx thrift.Context, request *m.S
 		connectedStore = request.GetConnectedStoreUUID()
 	}
 
-	if request.Status != nil && request.GetStatus() == m.ConsumerGroupExtentStatus_CONSUMED {
+	if request.Status != nil && request.GetStatus() == shared.ConsumerGroupExtentStatus_CONSUMED {
 		query := s.session.Query(
 			sqlCGUpdateAckOffsetConsumed,
 			request.GetStatus(),
@@ -3582,7 +3582,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupExtent(ctx thrift.Context,
 		request.GetConsumerGroupUUID(),
 		request.GetExtentUUID(),
 		request.GetOutputHostUUID(),
-		m.ConsumerGroupExtentStatus_OPEN,
+		shared.ConsumerGroupExtentStatus_OPEN,
 		request.GetStoreUUIDs())
 
 	query.Consistency(s.midConsLevel)
@@ -3740,7 +3740,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, 
 	// entries that map to a single index value
 	// are a lot (> 10). So, only use secondary
 	// index for filtering by OPEN status
-	if request.IsSetStatus() && request.GetStatus() != m.ConsumerGroupExtentStatus_OPEN {
+	if request.IsSetStatus() && request.GetStatus() != shared.ConsumerGroupExtentStatus_OPEN {
 		filterLocally = true
 	}
 
@@ -3754,7 +3754,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, 
 		NextPageToken: request.PageToken,
 	}
 
-	var status m.ConsumerGroupExtentStatus
+	var status shared.ConsumerGroupExtentStatus
 	var ackLevelOffset, ackLevelSeq, readLevelOffset, readLevelSeq, writeTime int64
 	var extentUUID, outputHostUUID, connectedStore string
 	var alsr, rlsr float64
@@ -3853,7 +3853,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtentsLite(ctx thrift.Conte
 	}
 
 	filterLocally := false
-	if request.IsSetStatus() && request.GetStatus() != m.ConsumerGroupExtentStatus_OPEN {
+	if request.IsSetStatus() && request.GetStatus() != shared.ConsumerGroupExtentStatus_OPEN {
 		filterLocally = true
 	}
 

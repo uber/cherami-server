@@ -374,11 +374,11 @@ func (_m *MetadataService) MoveExtent(request *metadata.MoveExtentRequest) error
 }
 
 // ReadConsumerGroup provides a mock function with given fields: getRequest
-func (_m *MetadataService) ReadConsumerGroup(getRequest *metadata.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
+func (_m *MetadataService) ReadConsumerGroup(getRequest *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	ret := _m.Called(getRequest)
 
 	var r0 *shared.ConsumerGroupDescription
-	if rf, ok := ret.Get(0).(func(*metadata.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
+	if rf, ok := ret.Get(0).(func(*shared.ReadConsumerGroupRequest) *shared.ConsumerGroupDescription); ok {
 		r0 = rf(getRequest)
 	} else {
 		if ret.Get(0) != nil {
@@ -387,7 +387,7 @@ func (_m *MetadataService) ReadConsumerGroup(getRequest *metadata.ReadConsumerGr
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*metadata.ReadConsumerGroupRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(*shared.ReadConsumerGroupRequest) error); ok {
 		r1 = rf(getRequest)
 	} else {
 		r1 = ret.Error(1)
@@ -540,11 +540,11 @@ func (_m *MetadataService) SealExtent(request *metadata.SealExtentRequest) error
 }
 
 // SetAckOffset provides a mock function with given fields: request
-func (_m *MetadataService) SetAckOffset(request *metadata.SetAckOffsetRequest) error {
+func (_m *MetadataService) SetAckOffset(request *shared.SetAckOffsetRequest) error {
 	ret := _m.Called(request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*metadata.SetAckOffsetRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(*shared.SetAckOffsetRequest) error); ok {
 		r0 = rf(request)
 	} else {
 		r0 = ret.Error(0)
@@ -612,11 +612,11 @@ func (_m *MetadataService) UpdateConsumerGroup(updateRequest *shared.UpdateConsu
 }
 
 // UpdateConsumerGroupExtentStatus provides a mock function with given fields: request
-func (_m *MetadataService) UpdateConsumerGroupExtentStatus(request *metadata.UpdateConsumerGroupExtentStatusRequest) error {
+func (_m *MetadataService) UpdateConsumerGroupExtentStatus(request *shared.UpdateConsumerGroupExtentStatusRequest) error {
 	ret := _m.Called(request)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*metadata.UpdateConsumerGroupExtentStatusRequest) error); ok {
+	if rf, ok := ret.Get(0).(func(*shared.UpdateConsumerGroupExtentStatusRequest) error); ok {
 		r0 = rf(request)
 	} else {
 		r0 = ret.Error(0)

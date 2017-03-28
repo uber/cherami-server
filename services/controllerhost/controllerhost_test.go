@@ -529,11 +529,11 @@ func (s *McpSuite) TestGetOutputHosts() {
 
 	// mark the cge as consumed and make sure a new extent
 	// gets created
-	mReq := &m.SetAckOffsetRequest{
+	mReq := &shared.SetAckOffsetRequest{
 		ConsumerGroupUUID:  common.StringPtr(cgUUID),
 		ExtentUUID:         common.StringPtr(extentUUID),
 		OutputHostUUID:     common.StringPtr(outputHost.UUID),
-		Status:             common.MetadataConsumerGroupExtentStatusPtr(m.ConsumerGroupExtentStatus_CONSUMED),
+		Status:             common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_CONSUMED),
 		ConnectedStoreUUID: common.StringPtr(uuid.New()),
 	}
 	err = s.mClient.SetAckOffset(nil, mReq)
@@ -605,7 +605,7 @@ func (s *McpSuite) TestGetOutputHosts() {
 		_, ok := extents[e.GetExtentUUID()]
 		s.True(ok, "Unknown extent for consumer group")
 		ok = false
-		if e.GetStatus() != m.ConsumerGroupExtentStatus_OPEN {
+		if e.GetStatus() != shared.ConsumerGroupExtentStatus_OPEN {
 			continue
 		}
 		for _, h := range resp.GetOutputHostIds() {
@@ -744,7 +744,7 @@ func (s *McpSuite) TestCreateConsumerGroup() {
 	s.NotNil(cgDesc)
 
 	// verify local operation
-	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &m.ReadConsumerGroupRequest{
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(destPath),
 		ConsumerGroupName: common.StringPtr(cgName),
 	})
@@ -782,7 +782,7 @@ func (s *McpSuite) TestUpdateConsumerGroup() {
 	s.NotNil(cgDesc)
 
 	// verify local operation
-	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &m.ReadConsumerGroupRequest{
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(destPath),
 		ConsumerGroupName: common.StringPtr(cgName),
 	})
@@ -816,7 +816,7 @@ func (s *McpSuite) TestDeleteConsumerGroup() {
 	s.NoError(err)
 
 	// verify local operation
-	cgDesc, err := s.mClient.ReadConsumerGroup(nil, &m.ReadConsumerGroupRequest{
+	cgDesc, err := s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(destPath),
 		ConsumerGroupName: common.StringPtr(cgName),
 	})

@@ -329,7 +329,7 @@ func printCgExtent(cgExtent *metadata.ConsumerGroupExtent, mClient mcli.Client) 
 		outputHostAddr = cgExtent.GetOutputHostUUID() + toolscommon.UnknownUUID
 	}
 	cgDesc, err1 :=
-		mClient.ReadConsumerGroupByUUID(&metadata.ReadConsumerGroupRequest{
+		mClient.ReadConsumerGroupByUUID(&shared.ReadConsumerGroupRequest{
 			ConsumerGroupUUID: common.StringPtr(cgExtent.GetConsumerGroupUUID())})
 	toolscommon.ExitIfError(err1)
 
@@ -440,15 +440,15 @@ func ReadExtent(c *cli.Context) {
 	}
 }
 
-func matchExtentStatus(status string, wantStatus metadata.ConsumerGroupExtentStatus) bool {
+func matchExtentStatus(status string, wantStatus shared.ConsumerGroupExtentStatus) bool {
 
 	switch status {
 	case "open":
-		return wantStatus == metadata.ConsumerGroupExtentStatus_OPEN
+		return wantStatus == shared.ConsumerGroupExtentStatus_OPEN
 	case "consumed":
-		return wantStatus == metadata.ConsumerGroupExtentStatus_CONSUMED
+		return wantStatus == shared.ConsumerGroupExtentStatus_CONSUMED
 	case "deleted":
-		return wantStatus == metadata.ConsumerGroupExtentStatus_DELETED
+		return wantStatus == shared.ConsumerGroupExtentStatus_DELETED
 	default:
 		toolscommon.ExitIfError(errors.New("please use right status: open | consumed | deleted"))
 	}
@@ -735,7 +735,7 @@ type cgExtentJSONOutputFields struct {
 	CGDlq              string                             `json:"dlq_uuid"`
 	OutputHostAddr     string                             `json:"outputhost_addr"`
 	OutputHostUUID     string                             `json:"outputhost_uuid"`
-	Status             metadata.ConsumerGroupExtentStatus `json:"status"`
+	Status             shared.ConsumerGroupExtentStatus `json:"status"`
 	AckLevelOffset     int64                              `json:"ack_level_offset"`
 	AckLevelSeqNo      int64                              `json:"ack_level_seq_no"`
 	AckLeverSeqNoRate  float64                            `json:"ack_level_seq_no_rate"`

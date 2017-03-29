@@ -42,7 +42,7 @@ type (
 		destinationPath     string
 		stream              serverStream.BInOpenPublisherStreamInCall
 		logger              bark.Logger
-		reconfigureClientCh chan string
+		reconfigureClientCh chan *reconfigInfo
 		putMsgCh            chan *inPutMessage
 		cacheTimeout        time.Duration
 		ackChannel          chan *cherami.PutMessageAck
@@ -93,6 +93,11 @@ type (
 		ackSentTime time.Time
 	}
 
+	reconfigInfo struct {
+		updateUUID string
+		cmdType    cherami.InputHostCommandType
+	}
+
 	pubConnectionClosedCb func(connectionID)
 )
 
@@ -120,7 +125,7 @@ func newPubConnection(destinationPath string, stream serverStream.BInOpenPublish
 		cacheTimeout: timeout,
 		//perConnTokenBucket:  common.NewTokenBucket(perConnMsgsLimitPerSecond, common.NewRealTimeSource()),
 		replyCh:             make(chan response, defaultBufferSize),
-		reconfigureClientCh: make(chan string, reconfigClientChSize),
+		reconfigureClientCh: make(chan *reconfigInfo, reconfigClientChSize),
 		ackChannel:          make(chan *cherami.PutMessageAck, defaultBufferSize),
 		closeChannel:        make(chan struct{}),
 		notifyCloseCh:       pathCache.notifyConnsCloseCh,
@@ -331,10 +336,10 @@ func (conn *pubConnection) writeAcksStream() {
 					} else {
 						inflightMessages[resCh.ackID] = resCh
 					}
-				case updateUUID := <-conn.reconfigureClientCh:
+				case rInfo := <-conn.reconfigureClientCh:
 					// record the counter metric
 					conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostReconfClientRequests)
-					cmd := createReconfigureCmd(updateUUID)
+					cmd := createReconfigureCmd(rInfo)
 					if err := conn.writeCmdToClient(cmd); err != nil {
 						// trigger a close of the connection
 						go conn.close()
@@ -392,10 +397,10 @@ func (conn *pubConnection) writeAcksStream() {
 					} else {
 						return
 					}
-				case updateUUID := <-conn.reconfigureClientCh:
+				case rInfo := <-conn.reconfigureClientCh:
 					// record the counter metric
 					conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostReconfClientRequests)
-					cmd := createReconfigureCmd(updateUUID)
+					cmd := createReconfigureCmd(rInfo)
 					if err := conn.writeCmdToClient(cmd); err != nil {
 						// trigger a close of the connection
 						go conn.close()
@@ -506,9 +511,38 @@ func (conn *pubConnection) flushCmdToClient(unflushedWrites int) (err error) {
 func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand) (err error) {
 	if err = conn.stream.Write(cmd); err != nil {
 		conn.logger.WithFields(bark.Fields{`cmd`: cmd, common.TagErr: err}).Info(`inputhost: Unable to Write cmd back to client`)
+	} else {
+		if cmd.GetType() == cherami.InputHostCommandType_DRAIN {
+			// if this is a DRAIN command wait for some timeout period and then
+			// just close the connection
+			// We do this to make sure the connection object doesn't hang around
+			go conn.waitForDrain()
+		}
 	}
 
 	return
+}
+
+// waitForDrain is a safety routine to make sure we don't hold onto the connection object
+// In a normal scenario, when all the extents hosted on this inputhost for the destination is
+// drained properly, it will automatically trigger a connection close, which will clean up the
+// connection object.
+// But if another extent gets assigned to this inputhost before the drain of an older extent
+// completes, then the pathCache will not unload which means this object won't be closed, while the
+// client would have already stopped writing on this connection. In that case, we will hit the
+// timeout and close the object anyway.
+func (conn *pubConnection) waitForDrain() {
+	drainTimer := common.NewTimer(time.Minute)
+	defer drainTimer.Stop()
+	// just wait for a minute, for all the inflight messages to drain
+	select {
+	case <-conn.closeChannel:
+		// if it is closed already, just return
+		return
+	case <-drainTimer.C:
+		conn.logger.Warn("timed out waiting for drain to finish. just closing the connection")
+		go conn.close()
+	}
 }
 
 func (conn *pubConnection) writeAckToClient(inflightMessages map[string]response, ack *cherami.PutMessageAck, ackReceiveTime time.Time) (exists bool, err error) {
@@ -593,10 +627,10 @@ func (conn *pubConnection) updateEarlyReplyAcks(resCh response, earlyReplyAcks m
 	// conn.logger.WithField(common.TagInPutAckID, common.FmtInPutAckID(resCh.ackID)).Info("Found ack for this response in earlyReplyAcks map. Not adding it to the inflight map")
 }
 
-func createReconfigureCmd(updateUUID string) *cherami.InputHostCommand {
+func createReconfigureCmd(rInfo *reconfigInfo) *cherami.InputHostCommand {
 	cmd := cherami.NewInputHostCommand()
-	cmd.Reconfigure = &cherami.ReconfigureInfo{UpdateUUID: common.StringPtr(updateUUID)}
-	cmd.Type = common.CheramiInputHostCommandTypePtr(cherami.InputHostCommandType_RECONFIGURE)
+	cmd.Reconfigure = &cherami.ReconfigureInfo{UpdateUUID: common.StringPtr(rInfo.updateUUID)}
+	cmd.Type = common.CheramiInputHostCommandTypePtr(rInfo.cmdType)
 
 	return cmd
 }

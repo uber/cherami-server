@@ -282,6 +282,10 @@ func (conn *extHost) close() {
 
 	conn.closed = true
 
+	// make sure the number of writable extents is updated just once
+	if conn.state == extHostActive {
+		conn.dstMetrics.Decrement(load.DstMetricNumWritableExtents)
+	}
 	// Shutdown order:
 	// 1. stop the write pump to replicas and wait for the pump to close
 	// 2. close the replica streams
@@ -900,14 +904,27 @@ func (conn *extHost) isDrained(replySeqNo int64) bool {
 	return ret
 }
 
+// prepDrain just decrements the number of writable extents for this destination
+func (conn *extHost) prepDrain() bool {
+	conn.lk.Lock()
+	if conn.state != extHostActive {
+		conn.lk.Unlock()
+		return false
+	}
+	conn.dstMetrics.Decrement(load.DstMetricNumWritableExtents)
+	conn.lk.Unlock()
+	return true
+}
+
 // drain simply stops the write pump and marks the state as such
 func (conn *extHost) drain() error {
 	conn.lk.Lock()
-	defer conn.lk.Unlock()
 	if conn.state != extHostActive {
+		conn.lk.Unlock()
 		// already drained and is not active
 		return nil
 	}
 	conn.stopWritePump()
+	conn.lk.Unlock()
 	return nil
 }

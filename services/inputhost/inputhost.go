@@ -784,7 +784,7 @@ func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsR
 			// check if it is active or not
 			extentUUID := req.GetExtentUUID()
 			if pathCache.isActiveNoLock() {
-				intErr = pathCache.drainExtent(extentUUID)
+				intErr = pathCache.drainExtent(extentUUID, updateUUID)
 			} else {
 				intErr = errPathCacheUnloading
 			}

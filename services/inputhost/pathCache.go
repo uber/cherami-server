@@ -318,6 +318,31 @@ func (pathCache *inPathCache) extCacheClosed(extUUID string) {
 	pathCache.Unlock()
 }
 
+// drainConnections is the routine that decides if we need to notify the
+// clients to DRAIN the connection
+func (pathCache *inPathCache) drainConnections(updateUUID string) {
+	// initiate sending DRAIN command to the clients to let them drain their pumps and potentially
+	// retry on some other extent
+	notified := 0
+	dropped := 0
+	if pathCache.isActive() && pathCache.dstMetrics.Get(load.DstMetricNumWritableExtents) <= 0 {
+		for _, conn := range pathCache.connections {
+			select {
+			case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_DRAIN}:
+				notified++
+			default:
+				dropped++
+			}
+
+		}
+	}
+	pathCache.logger.WithFields(bark.Fields{
+		common.TagUpdateUUID: updateUUID,
+		`notified`:           notified,
+		`dropped`:            dropped,
+	}).Info(`drainConnections: notified clients`)
+}
+
 // extCacheUnloaded is the routine that is called to completely
 // remove the extent from this pathCache
 func (pathCache *inPathCache) extCacheUnloaded(extUUID string) {
@@ -338,7 +363,7 @@ func (pathCache *inPathCache) reconfigureClients(updateUUID string) {
 	pathCache.RLock()
 	for _, conn := range pathCache.connections {
 		select {
-		case conn.reconfigureClientCh <- updateUUID:
+		case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_RECONFIGURE}:
 			notified++
 		default:
 			dropped++
@@ -450,6 +475,7 @@ func (pathCache *inPathCache) checkAndLoadExtent(destUUID string, extUUID extent
 
 		// make sure the number of loaded extents is incremented
 		pathCache.dstMetrics.Increment(load.DstMetricNumOpenExtents)
+		pathCache.dstMetrics.Increment(load.DstMetricNumWritableExtents)
 		pathCache.hostMetrics.Increment(load.HostMetricNumOpenExtents)
 	}
 	return
@@ -509,7 +535,7 @@ func (pathCache *inPathCache) getState() *admin.DestinationState {
 	return destState
 }
 
-func (pathCache *inPathCache) drainExtent(extUUID string) error {
+func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string) error {
 	pathCache.RLock()
 	defer pathCache.RUnlock()
 
@@ -518,6 +544,11 @@ func (pathCache *inPathCache) drainExtent(extUUID string) error {
 		return &cherami.EntityNotExistsError{}
 	}
 
-	go extCache.connection.drain()
+	if extCache.connection.prepDrain() {
+		// first send DRAIN command to all connections
+		// then start draining extents
+		pathCache.drainConnections(updateUUID)
+		go extCache.connection.drain()
+	}
 	return nil
 }

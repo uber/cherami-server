@@ -125,9 +125,22 @@ func (conn *replicaConnection) writeMessagesPump() {
 		defer conn.cancel()
 	}
 
-	unflushedWrites := 0
+	var unflushedWrites, unflushedSize int
 	flushTicker := time.NewTicker(common.FlushTimeout) // start ticker to flush websocket  stream
 	defer flushTicker.Stop()
+
+	flushMsgs := func() {
+
+		if err := conn.call.Flush(); err != nil {
+			conn.logger.WithFields(bark.Fields{common.TagErr: err, `unflushedWrites`: unflushedWrites, `putMessagesChLength`: len(conn.putMessagesCh), `replyChLength`: len(conn.replyCh)}).Error(`inputhost: error flushing messages to replica stream`)
+			// since flush failed, trigger a close of the connection which will fail inflight messages
+			go conn.close()
+			return
+		}
+
+		conn.destM3Client.AddCounter(metrics.ReplicaConnectionScope, metrics.InputhostDestMessageSentBytes, int64(unflushedSize))
+		unflushedWrites, unflushedSize = 0, 0
+	}
 
 	for {
 		select {
@@ -146,32 +159,22 @@ func (conn *replicaConnection) writeMessagesPump() {
 
 			conn.sentMsgs++
 
-			conn.destM3Client.AddCounter(metrics.ReplicaConnectionScope, metrics.InputhostDestMessageSentBytes, int64(len(msg.appendMsg.Payload.Data)))
-
 			unflushedWrites++
-			if unflushedWrites >= common.FlushThreshold {
-				if err := conn.call.Flush(); err != nil {
-					conn.logger.WithFields(bark.Fields{common.TagErr: err, `unflushedWrites`: unflushedWrites, `putMessagesChLength`: len(conn.putMessagesCh), `replyChLength`: len(conn.replyCh)}).Error(`inputhost: error flushing messages to replica stream`)
-					// since flush failed, trigger a close of the connection which will fail inflight messages
-					go conn.close()
-					return
-				}
-				unflushedWrites = 0
-			}
 
 			if msg.appendMsg.Payload != nil { // no inflight info for watermarks
 				// prepare inflight map
 				conn.replyCh <- prepAck{msg.appendMsg.GetSequenceNumber(), msg.appendMsgAckCh}
+				unflushedSize += len(msg.appendMsg.Payload.Data)
 			}
+
+			if unflushedWrites >= common.FlushThreshold {
+				flushMsgs()
+			}
+
 		case <-flushTicker.C:
+
 			if unflushedWrites > 0 {
-				if err := conn.call.Flush(); err != nil {
-					conn.logger.WithFields(bark.Fields{common.TagErr: err, `unflushedWrites`: unflushedWrites, `putMessagesChLength`: len(conn.putMessagesCh), `replyChLength`: len(conn.replyCh)}).Error(`inputhost: error flushing messages to replica stream`)
-					// since flush failed, trigger a close of the connection which will fail inflight messages
-					go conn.close()
-					return
-				}
-				unflushedWrites = 0
+				flushMsgs()
 			}
 
 		case <-conn.closeChannel:

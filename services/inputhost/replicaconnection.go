@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/uber/cherami-server/common"
+	"github.com/uber/cherami-server/common/metrics"
 	storeStream "github.com/uber/cherami-server/stream"
 	"github.com/uber/cherami-thrift/.generated/go/cherami"
 	"github.com/uber/cherami-thrift/.generated/go/store"
@@ -36,6 +37,7 @@ import (
 type (
 	replicaConnection struct {
 		call          storeStream.BStoreOpenAppendStreamOutCall
+		destM3Client  metrics.Client
 		logger        bark.Logger
 		replyCh       chan prepAck
 		cancel        context.CancelFunc
@@ -69,10 +71,11 @@ type (
 	}
 )
 
-func newReplicaConnection(stream storeStream.BStoreOpenAppendStreamOutCall, cancel context.CancelFunc, logger bark.Logger) *replicaConnection {
+func newReplicaConnection(stream storeStream.BStoreOpenAppendStreamOutCall, cancel context.CancelFunc, destM3Client metrics.Client, logger bark.Logger) *replicaConnection {
 	conn := &replicaConnection{
 		call:          stream,
 		cancel:        cancel,
+		destM3Client:  destM3Client,
 		logger:        logger.WithField(common.TagModule, `replConn`),
 		replyCh:       make(chan prepAck, defaultBufferSize),
 		closeChannel:  make(chan struct{}),
@@ -142,6 +145,8 @@ func (conn *replicaConnection) writeMessagesPump() {
 			}
 
 			conn.sentMsgs++
+
+			conn.destM3Client.AddCounter(metrics.ReplicaConnectionScope, metrics.InputhostDestMessageSentBytes, int64(len(msg.appendMsg.Payload.Data)))
 
 			unflushedWrites++
 			if unflushedWrites >= common.FlushThreshold {

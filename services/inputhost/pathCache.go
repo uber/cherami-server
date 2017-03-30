@@ -535,20 +535,22 @@ func (pathCache *inPathCache) getState() *admin.DestinationState {
 	return destState
 }
 
-func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string) error {
+func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, drainWG *sync.WaitGroup) {
+	defer drainWG.Done()
 	pathCache.RLock()
 	defer pathCache.RUnlock()
 
 	extCache, ok := pathCache.extentCache[extentUUID(extUUID)]
 	if !ok {
-		return &cherami.EntityNotExistsError{}
+		// draining called for extent which is not present
+		// just return
+		return
 	}
 
 	if extCache.connection.prepDrain() {
 		// first send DRAIN command to all connections
 		// then start draining extents
 		pathCache.drainConnections(updateUUID)
-		go extCache.connection.drain()
+		extCache.connection.drain()
 	}
-	return nil
 }

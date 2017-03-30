@@ -67,6 +67,9 @@ const (
 	// range (currently, betweetn 10 million and 20 million) and will seal at this
 	// sequence number proactively so that we don't have a very large extent.
 	extentRolloverSeqnumMin, extentRolloverSeqnumMax = 10000000, 20000000
+
+	// the default drain timeout
+	defaultDrainTimeout = 1 * time.Minute
 )
 
 var (
@@ -132,6 +135,9 @@ var ErrThrottled = &cherami.InternalServiceError{Message: "InputHost throttling 
 
 // ErrDstNotLoaded is returned when this input host doesn't own any extents for the destination
 var ErrDstNotLoaded = &cherami.InternalServiceError{Message: "Destination no longer served by this input host"}
+
+// ErrDrainTimedout is returned when the draining of extents times out
+var ErrDrainTimedout = &cherami.InternalServiceError{Message: "Draining of Extents timedout"}
 
 func (h *InputHost) isDestinationWritable(destDesc *shared.DestinationDescription) bool {
 	status := destDesc.GetStatus()
@@ -757,6 +763,18 @@ func (h *InputHost) ReadDestState(ctx thrift.Context, request *admin.ReadDestina
 
 }
 
+// determine how long we need to wait for the wait group
+// if the thrift context timeout is set and is smaller than the default timeout, we
+// should use that.
+func getDrainTimeout(ctx thrift.Context) time.Duration {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return defaultDrainTimeout
+	}
+
+	return deadline.Sub(time.Now())
+}
+
 // DrainExtents is the implementation of the thrift handler for the inputhost
 func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsRequest) (err error) {
 	defer atomic.AddInt32(&h.loadShutdownRef, -1)
@@ -774,6 +792,9 @@ func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsR
 	updateUUID := request.GetUpdateUUID()
 	h.logger.WithField(common.TagReconfigureID, common.FmtReconfigureID(updateUUID)).
 		Debug("inputhost: DrainExtent: processing drain")
+	timeoutTime := getDrainTimeout(ctx)
+	var drainWG sync.WaitGroup
+	var extentUUID string
 	// Find all the extents we have and do the right thing
 	for _, req := range request.Extents {
 		// get the destUUID and see if it is in the inputhost cache
@@ -782,9 +803,10 @@ func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsR
 		if ok {
 			// We have a path cache loaded
 			// check if it is active or not
-			extentUUID := req.GetExtentUUID()
+			extentUUID = req.GetExtentUUID()
 			if pathCache.isActiveNoLock() {
-				intErr = pathCache.drainExtent(extentUUID, updateUUID)
+				drainWG.Add(1)
+				go pathCache.drainExtent(extentUUID, updateUUID, &drainWG)
 			} else {
 				intErr = errPathCacheUnloading
 			}
@@ -798,6 +820,7 @@ func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsR
 			h.m3Client.IncCounter(metrics.DrainExtentsScope, metrics.InputhostFailures)
 			h.logger.WithFields(bark.Fields{
 				common.TagDst:           common.FmtDst(destUUID),
+				common.TagExt:           common.FmtDst(extentUUID),
 				common.TagReconfigureID: common.FmtReconfigureID(updateUUID),
 				common.TagErr:           intErr,
 			}).Error("inputhost: DrainExtent: dropping reconfiguration")
@@ -806,6 +829,14 @@ func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsR
 
 	h.logger.WithField(common.TagReconfigureID, common.FmtReconfigureID(updateUUID)).
 		Debug("inputhost: DrainExtent: finished reconfiguration")
+	if ok := common.AwaitWaitGroup(&drainWG, timeoutTime); !ok {
+		err = ErrDrainTimedout
+		h.m3Client.IncCounter(metrics.DrainExtentsScope, metrics.InputhostFailures)
+		h.logger.WithFields(bark.Fields{
+			common.TagReconfigureID: common.FmtReconfigureID(updateUUID),
+			common.TagErr:           err,
+		}).Error("inputhost: DrainExtent: timed out")
+	}
 
 	return
 }

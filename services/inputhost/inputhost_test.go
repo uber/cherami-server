@@ -30,6 +30,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pborman/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
@@ -44,13 +50,6 @@ import (
 	"github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
 	"github.com/uber/cherami-thrift/.generated/go/store"
-
-	"github.com/pborman/uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
-	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go"
 	"github.com/uber/tchannel-go/thrift"
 	"golang.org/x/net/context"
@@ -1285,7 +1284,7 @@ func (s *InputHostSuite) TestInputExtHostDrain() {
 
 	msg := cherami.NewPutMessage()
 	msg.ID = common.StringPtr(strconv.Itoa(1))
-	msg.Data = []byte(fmt.Sprintf("hello"))
+	msg.Data = []byte("hello")
 
 	wCh := make(chan time.Time)
 
@@ -1305,7 +1304,10 @@ func (s *InputHostSuite) TestInputExtHostDrain() {
 		inputHost.OpenPublisherStream(ctx, s.mockPub)
 	}()
 
-	time.Sleep(1 * time.Second)
+	// wait for the extent to be loaded
+	common.SpinWaitOnCondition(func() bool {
+		return inputHost.hostMetrics.Get(load.HostMetricNumOpenExtents) == 1
+	}, time.Second)
 
 	// 3. Make sure we just have one extent
 	var connection *extHost

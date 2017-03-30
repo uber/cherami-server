@@ -142,9 +142,10 @@ type (
 )
 
 const (
-	extHostActive extHostState = iota
-	extHostDraining
-	extHostInactive
+	extHostActive       extHostState = iota
+	extHostDrainPrepped              // used by the pathcache to determine if the connections need to be torn down or not
+	extHostDraining                  // used when the actual drain is happening
+	extHostInactive                  // used when the extent is closed
 )
 
 const (
@@ -870,10 +871,10 @@ func (conn *extHost) getState() *admin.InputDestExtent {
 	return ext
 }
 
-// stopWritePump is used to stop the write pump if the extent is active and
-// mark the extHost as "Draining"
+// stopWritePump is used to stop the write pump if the extent is active or has
+// been prepped for drain and  mark the extHost as "Draining"
 func (conn *extHost) stopWritePump() {
-	if conn.state == extHostActive {
+	if conn.state <= extHostDrainPrepped {
 		close(conn.closeChannel)
 		conn.state = extHostDraining
 		// wait for the write pump to drain for some timeout period
@@ -911,6 +912,7 @@ func (conn *extHost) prepDrain() bool {
 		conn.lk.Unlock()
 		return false
 	}
+	conn.state = extHostDrainPrepped
 	conn.dstMetrics.Decrement(load.DstMetricNumWritableExtents)
 	conn.lk.Unlock()
 	return true
@@ -919,11 +921,6 @@ func (conn *extHost) prepDrain() bool {
 // drain simply stops the write pump and marks the state as such
 func (conn *extHost) drain() error {
 	conn.lk.Lock()
-	if conn.state != extHostActive {
-		conn.lk.Unlock()
-		// already drained and is not active
-		return nil
-	}
 	conn.stopWritePump()
 	conn.lk.Unlock()
 	return nil

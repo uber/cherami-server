@@ -234,6 +234,8 @@ const (
 	PutMessageBatchInputHostScope
 	//PubConnectionScope  represents Streaming Message received by inputhost
 	PubConnectionScope
+	//ReplicaConnectionScope represents inputhost's replica connection stream
+	ReplicaConnectionScope
 	//PutMessageBatchInputHostDestScope represent API PutMessageBatch for per destination
 	PutMessageBatchInputHostDestScope
 	// UnloadDestinationsScope represents UnloadDestinations API
@@ -621,6 +623,7 @@ var dynamicScopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 	Inputhost: {
 		PubConnectionScope:                {operation: "PubConnection"},
 		PutMessageBatchInputHostDestScope: {operation: "PutMessageBatchInputHost"},
+		ReplicaConnectionScope:            {operation: "ReplicaConnection"},
 	},
 
 	// Outputhost Scope Names
@@ -711,6 +714,10 @@ const (
 	InputhostDestWriteMessageBeforeAckLatency
 	// InputhostDestPubConnection is the gauge of active connections per destination
 	InputhostDestPubConnection
+	// InputhostMessageReceivedBytes tracks the total incoming messages in bytes
+	InputhostDestMessageReceivedBytes
+	// InputhostMessageSentBytes tracks the total outgoing messages (to replica) in bytes
+	InputhostDestMessageSentBytes
 
 	// -- Outputhost metrics -- //
 
@@ -1205,6 +1212,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 	// definitions for Inputhost metrics
 	Inputhost: {
 		InputhostDestMessageReceived:              {Counter, "inputhost.message.received.dest"},
+		InputhostDestMessageReceivedBytes:         {Counter, "inputhost.message.received.bytes.dest"},
+		InputhostDestMessageSentBytes:             {Counter, "inputhost.message.sent.bytes.dest"},
 		InputhostDestMessageFailures:              {Counter, "inputhost.message.errors.dest"},
 		InputhostDestMessageLimitThrottled:        {Counter, "inputhost.message.limit.throttled.dest"},
 		InputhostDestMessageChannelFullThrottled:  {Counter, "inputhost.message.channel.throttled.dest"},

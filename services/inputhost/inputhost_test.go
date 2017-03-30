@@ -1347,7 +1347,6 @@ func (s *InputHostSuite) TestInputExtHostDrain() {
 
 	s.Equal(true, drained)
 	close(wCh)
-	close(connection.forceUnloadCh)
 	connection.close()
 	inputHost.Shutdown()
 }

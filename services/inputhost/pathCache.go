@@ -320,17 +320,19 @@ func (pathCache *inPathCache) extCacheClosed(extUUID string) {
 
 // drainConnections is the routine that decides if we need to notify the
 // clients to DRAIN the connection
-func (pathCache *inPathCache) drainConnections(updateUUID string) {
+func (pathCache *inPathCache) drainConnections(updateUUID string, connDrainWG *sync.WaitGroup) {
 	// initiate sending DRAIN command to the clients to let them drain their pumps and potentially
 	// retry on some other extent
 	notified := 0
 	dropped := 0
 	if pathCache.isActive() && pathCache.dstMetrics.Get(load.DstMetricNumWritableExtents) <= 0 {
 		for _, conn := range pathCache.connections {
+			connDrainWG.Add(1)
 			select {
-			case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_DRAIN}:
+			case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_DRAIN, connDrainWG}:
 				notified++
 			default:
+				connDrainWG.Done()
 				dropped++
 			}
 
@@ -363,7 +365,7 @@ func (pathCache *inPathCache) reconfigureClients(updateUUID string) {
 	pathCache.RLock()
 	for _, conn := range pathCache.connections {
 		select {
-		case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_RECONFIGURE}:
+		case conn.reconfigureClientCh <- &reconfigInfo{updateUUID, cherami.InputHostCommandType_RECONFIGURE, nil}:
 			notified++
 		default:
 			dropped++
@@ -548,9 +550,12 @@ func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, dra
 	}
 
 	if extCache.connection.prepDrain() {
+		var connDrainWG sync.WaitGroup
 		// first send DRAIN command to all connections
 		// then start draining extents
-		pathCache.drainConnections(updateUUID)
+		pathCache.drainConnections(updateUUID, &connDrainWG)
+		// do best effort waiting to notify all connections here
+		common.AwaitWaitGroup(&connDrainWG, connWGTimeout)
 		extCache.connection.drain()
 	}
 }

@@ -70,6 +70,10 @@ const (
 
 	// the default drain timeout
 	defaultDrainTimeout = 1 * time.Minute
+
+	// connWGTimeout is the timeout to wait after we send the drain command and
+	// before we start the drain
+	connWGTimeout = 3 * time.Second
 )
 
 var (

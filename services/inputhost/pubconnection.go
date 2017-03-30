@@ -96,6 +96,7 @@ type (
 	reconfigInfo struct {
 		updateUUID string
 		cmdType    cherami.InputHostCommandType
+		drainWG    *sync.WaitGroup
 	}
 
 	pubConnectionClosedCb func(connectionID)
@@ -341,7 +342,7 @@ func (conn *pubConnection) writeAcksStream() {
 					// record the counter metric
 					conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostReconfClientRequests)
 					cmd := createReconfigureCmd(rInfo)
-					if err := conn.writeCmdToClient(cmd); err != nil {
+					if err := conn.writeCmdToClient(cmd, rInfo.drainWG); err != nil {
 						// trigger a close of the connection
 						go conn.close()
 						return
@@ -402,7 +403,7 @@ func (conn *pubConnection) writeAcksStream() {
 					// record the counter metric
 					conn.pathCache.m3Client.IncCounter(metrics.PubConnectionStreamScope, metrics.InputhostReconfClientRequests)
 					cmd := createReconfigureCmd(rInfo)
-					if err := conn.writeCmdToClient(cmd); err != nil {
+					if err := conn.writeCmdToClient(cmd, rInfo.drainWG); err != nil {
 						// trigger a close of the connection
 						go conn.close()
 						return
@@ -509,7 +510,7 @@ func (conn *pubConnection) flushCmdToClient(unflushedWrites int) (err error) {
 	return
 }
 
-func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand) (err error) {
+func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand, drainWG *sync.WaitGroup) (err error) {
 	if err = conn.stream.Write(cmd); err != nil {
 		conn.logger.WithFields(bark.Fields{`cmd`: cmd, common.TagErr: err}).Info(`inputhost: Unable to Write cmd back to client`)
 	} else {
@@ -517,7 +518,9 @@ func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand) (err 
 			// if this is a DRAIN command wait for some timeout period and then
 			// just close the connection
 			// We do this to make sure the connection object doesn't hang around
-			go conn.waitForDrain()
+			// at this point we have sent the DRAIN command to the client
+			// XXX:  assert non-nil WG
+			go conn.waitForDrain(drainWG)
 		}
 	}
 
@@ -532,8 +535,21 @@ func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand) (err 
 // completes, then the pathCache will not unload which means this object won't be closed, while the
 // client would have already stopped writing on this connection. In that case, we will hit the
 // timeout and close the object anyway.
-func (conn *pubConnection) waitForDrain() {
-	drainTimer := common.NewTimer(time.Minute)
+func (conn *pubConnection) waitForDrain(drainWG *sync.WaitGroup) {
+	// wait for some time to set the WG to be done.
+	connWGTimer := common.NewTimer(connWGTimeout)
+	defer connWGTimer.Stop()
+	select {
+	case <-conn.closeChannel:
+		drainWG.Done()
+		return
+	case <-connWGTimer.C:
+		drainWG.Done()
+	}
+
+	// now the WG is *unblocked*; wait for the actual drain
+	// from the exthost layer to finish for a timeout period
+	drainTimer := common.NewTimer(defaultDrainTimeout)
 	defer drainTimer.Stop()
 	// just wait for a minute, for all the inflight messages to drain
 	select {
@@ -548,7 +564,7 @@ func (conn *pubConnection) waitForDrain() {
 
 func (conn *pubConnection) writeAckToClient(inflightMessages map[string]response, ack *cherami.PutMessageAck, ackReceiveTime time.Time) (exists bool, err error) {
 	cmd := createAckCmd(ack)
-	err = conn.writeCmdToClient(cmd)
+	err = conn.writeCmdToClient(cmd, nil)
 	if err != nil {
 		conn.logger.
 			WithField(common.TagInPutAckID, common.FmtInPutAckID(ack.GetID())).

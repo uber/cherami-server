@@ -876,11 +876,11 @@ func (conn *extHost) getState() *admin.InputDestExtent {
 func (conn *extHost) stopWritePump() {
 	if conn.state <= extHostDrainPrepped {
 		close(conn.closeChannel)
-		conn.state = extHostDraining
 		// wait for the write pump to drain for some timeout period
 		if ret := common.AwaitWaitGroup(&conn.waitWriteWG, defaultWGTimeout); !ret {
 			conn.logger.Fatalf("unable to stop write pump; wait group timeout")
 		}
+		conn.state = extHostDraining
 	}
 }
 

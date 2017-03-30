@@ -429,7 +429,7 @@ ReadLoop:
 func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
 	destPath := "/dest/testWriteDrain"
 	cgPath := "/cg/testWriteDrain"
-	testMsgCount := 100
+	testMsgCount := 1000
 	log := common.GetDefaultLogger()
 
 	// Create the client
@@ -506,7 +506,8 @@ func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
 	drainReq.ExtentUUID = common.StringPtr(receiptParts[0])
 	dReq.Extents = append(dReq.Extents, drainReq)
 
-	err = ih.DrainExtent(nil, dReq)
+	ctx, _ := thrift.NewContext(2 * time.Minute)
+	err = ih.DrainExtent(ctx, dReq)
 	s.Nil(err)
 
 	// Now try to get all the other messages

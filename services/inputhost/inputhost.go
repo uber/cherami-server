@@ -767,12 +767,12 @@ func (h *InputHost) ReadDestState(ctx thrift.Context, request *admin.ReadDestina
 // if the thrift context timeout is set and is smaller than the default timeout, we
 // should use that.
 func getDrainTimeout(ctx thrift.Context) time.Duration {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		return defaultDrainTimeout
+	if ctx != nil {
+		if deadline, ok := ctx.Deadline(); ok {
+			return deadline.Sub(time.Now())
+		}
 	}
-
-	return deadline.Sub(time.Now())
+	return defaultDrainTimeout
 }
 
 // DrainExtents is the implementation of the thrift handler for the inputhost

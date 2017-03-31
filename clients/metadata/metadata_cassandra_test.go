@@ -2107,7 +2107,7 @@ func (s *CassandraSuite) TestSameCGNameOnDifferentDestinations() {
 	assert.Nil(err, "Creation of same ConsumerGroup on multiple destinations failed")
 }
 
-func assertConsumerGroupExtentEqual(s *CassandraSuite, expected, got *m.ConsumerGroupExtent) {
+func assertConsumerGroupExtentEqual(s *CassandraSuite, expected, got *shared.ConsumerGroupExtent) {
 	s.Equal(expected.GetConsumerGroupUUID(), got.GetConsumerGroupUUID(), "Wrong consumer group uuid")
 	s.Equal(expected.GetExtentUUID(), got.GetExtentUUID(), "Wrong extent uuid")
 	s.Equal(expected.GetOutputHostUUID(), got.GetOutputHostUUID(), "Wrong out host uuid")
@@ -2168,7 +2168,7 @@ func (s *CassandraSuite) TestSetOutputHost() {
 		err = s.client.CreateConsumerGroupExtent(nil, createReq)
 		assert.Nil(err, "CreateConsumerGroupExtent() call failed")
 
-		expected := &m.ConsumerGroupExtent{
+		expected := &shared.ConsumerGroupExtent{
 			ConsumerGroupUUID: common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:        common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:    common.StringPtr(req.GetOutputHostUUID()),
@@ -2231,7 +2231,7 @@ func (s *CassandraSuite) TestReadConsumerGroupExtentsByExtUUID() {
 		assert.Nil(err1, "ReadConsumerGroupExtentsByExtUUID call failed")
 		assert.Equal(1, len(mResp.GetCgExtents()), "ReadConsumerGroupExtentsByExtUUID return wrong size")
 		got := mResp.GetCgExtents()[0]
-		expected := &m.ConsumerGroupExtent{
+		expected := &shared.ConsumerGroupExtent{
 			ConsumerGroupUUID: common.StringPtr(cgUUID),
 			ExtentUUID:        common.StringPtr(extUUID),
 			OutputHostUUID:    common.StringPtr(outputUUID),
@@ -2301,7 +2301,7 @@ func (s *CassandraSuite) TestSetAckOffset() {
 		err = s.client.CreateConsumerGroupExtent(nil, createReq)
 		assert.Nil(err, "CreateConsumerGroupExtent() call failed")
 
-		expected := &m.ConsumerGroupExtent{
+		expected := &shared.ConsumerGroupExtent{
 			ConsumerGroupUUID:  common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:     common.StringPtr(req.GetOutputHostUUID()),
@@ -2328,7 +2328,7 @@ func (s *CassandraSuite) TestSetAckOffset() {
 		*req.ReadLevelSeqNo = 5555
 		*req.ReadLevelSeqNoRate = 66.66
 
-		expected = &m.ConsumerGroupExtent{
+		expected = &shared.ConsumerGroupExtent{
 			ConsumerGroupUUID:  common.StringPtr(req.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(req.GetExtentUUID()),
 			OutputHostUUID:     common.StringPtr(req.GetOutputHostUUID()),
@@ -2397,7 +2397,7 @@ func (s *CassandraSuite) TestGetConsumerGroupExtents() {
 
 	readCGExts := func() {
 
-		readReq := &m.ReadConsumerGroupExtentsRequest{
+		readReq := &shared.ReadConsumerGroupExtentsRequest{
 			DestinationUUID:   common.StringPtr(req.GetDestinationUUID()),
 			ConsumerGroupUUID: common.StringPtr(req.GetConsumerGroupUUID()),
 			MaxResults:        common.Int32Ptr(nExtentsPerOutputHost),
@@ -2412,7 +2412,7 @@ func (s *CassandraSuite) TestGetConsumerGroupExtents() {
 			readReq.OutputHostUUID = common.StringPtr(outputhosts[i])
 			readReq.PageToken = nil
 
-			var cgExtents []*m.ConsumerGroupExtent
+			var cgExtents []*shared.ConsumerGroupExtent
 			for {
 				ans, err := s.client.ReadConsumerGroupExtents(nil, readReq)
 				assert.Nil(err, "ReadConsumerGroupExtents failed")

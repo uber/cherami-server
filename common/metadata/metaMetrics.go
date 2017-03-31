@@ -256,7 +256,7 @@ func (m *metadataMetricsMgr) ReadConsumerGroupExtent(ctx thrift.Context, request
 	return result, err
 }
 
-func (m *metadataMetricsMgr) ReadConsumerGroupExtents(ctx thrift.Context, request *m.ReadConsumerGroupExtentsRequest) (result *m.ReadConsumerGroupExtentsResult_, err error) {
+func (m *metadataMetricsMgr) ReadConsumerGroupExtents(ctx thrift.Context, request *shared.ReadConsumerGroupExtentsRequest) (result *shared.ReadConsumerGroupExtentsResult_, err error) {
 
 	m.m3.IncCounter(metrics.MetadataReadConsumerGroupExtentsScope, metrics.MetadataRequests)
 	sw := m.m3.StartTimer(metrics.MetadataReadConsumerGroupExtentsScope, metrics.MetadataLatency)

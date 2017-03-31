@@ -935,9 +935,9 @@ func (r *Replicator) CreateRemoteExtent(ctx thrift.Context, createRequest *share
 // CreateConsumerGroupExtent create cg extent at local zone, expect to be called by remote replicator
 func (r *Replicator) CreateConsumerGroupExtent(ctx thrift.Context, createRequest *shared.CreateConsumerGroupExtentRequest) error {
 	lcllg := r.logger.WithFields(bark.Fields{
-		common.TagDst:      common.FmtDst(createRequest.GetDestinationUUID()),
-		common.TagCnsm:      common.FmtDst(createRequest.GetConsumerGroupUUID()),
-		common.TagExt:      common.FmtExt(createRequest.GetExtentUUID()),
+		common.TagDst:  common.FmtDst(createRequest.GetDestinationUUID()),
+		common.TagCnsm: common.FmtDst(createRequest.GetConsumerGroupUUID()),
+		common.TagExt:  common.FmtExt(createRequest.GetExtentUUID()),
 	})
 	r.m3Client.IncCounter(metrics.ReplicatorCreateCgExtentScope, metrics.ReplicatorRequests)
 
@@ -973,9 +973,9 @@ func (r *Replicator) CreateRemoteConsumerGroupExtent(ctx thrift.Context, createR
 	}
 
 	lcllg := r.logger.WithFields(bark.Fields{
-		common.TagDst:      common.FmtDst(createRequest.GetDestinationUUID()),
-		common.TagCnsm:      common.FmtDst(createRequest.GetConsumerGroupUUID()),
-		common.TagExt:      common.FmtExt(createRequest.GetExtentUUID()),
+		common.TagDst:  common.FmtDst(createRequest.GetDestinationUUID()),
+		common.TagCnsm: common.FmtDst(createRequest.GetConsumerGroupUUID()),
+		common.TagExt:  common.FmtExt(createRequest.GetExtentUUID()),
 	})
 
 	readCgRequest := shared.ReadConsumerGroupRequest{
@@ -1044,8 +1044,8 @@ func (r *Replicator) createCgExtentRemoteCall(zone string, logger bark.Logger, c
 
 func (r *Replicator) SetAckOffset(ctx thrift.Context, request *shared.SetAckOffsetRequest) error {
 	lcllg := r.logger.WithFields(bark.Fields{
-		common.TagCnsm:      common.FmtDst(request.GetConsumerGroupUUID()),
-		common.TagExt:      common.FmtExt(request.GetExtentUUID()),
+		common.TagCnsm: common.FmtDst(request.GetConsumerGroupUUID()),
+		common.TagExt:  common.FmtExt(request.GetExtentUUID()),
 	})
 	r.m3Client.IncCounter(metrics.ReplicatorSetAckOffsetScope, metrics.ReplicatorRequests)
 
@@ -1074,8 +1074,8 @@ func (r *Replicator) SetAckOffsetInRemote(ctx thrift.Context, request *shared.Se
 	}
 
 	lcllg := r.logger.WithFields(bark.Fields{
-		common.TagCnsm:      common.FmtDst(request.GetConsumerGroupUUID()),
-		common.TagExt:      common.FmtExt(request.GetExtentUUID()),
+		common.TagCnsm: common.FmtDst(request.GetConsumerGroupUUID()),
+		common.TagExt:  common.FmtExt(request.GetExtentUUID()),
 	})
 
 	readCgRequest := shared.ReadConsumerGroupRequest{
@@ -1173,6 +1173,11 @@ func (r *Replicator) ReadDestination(ctx thrift.Context, getRequest *shared.Read
 // ListConsumerGroups list consumer groups
 func (r *Replicator) ListConsumerGroups(ctx thrift.Context, getRequest *shared.ListConsumerGroupRequest) (*shared.ListConsumerGroupResult_, error) {
 	return r.metaClient.ListConsumerGroups(ctx, getRequest)
+}
+
+// ReadConsumerGroupExtents list consumer group extents
+func (r *Replicator) ReadConsumerGroupExtents(ctx thrift.Context, getRequest *shared.ReadConsumerGroupExtentsRequest) (*shared.ReadConsumerGroupExtentsResult_, error) {
+	return r.metaClient.ReadConsumerGroupExtents(ctx, getRequest)
 }
 
 func (r *Replicator) createExtentRemoteCall(zone string, logger bark.Logger, createRequest *shared.CreateExtentRequest) error {

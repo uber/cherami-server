@@ -322,7 +322,7 @@ func ReadStoreHost(c *cli.Context) {
 	}
 }
 
-func printCgExtent(cgExtent *metadata.ConsumerGroupExtent, mClient mcli.Client) {
+func printCgExtent(cgExtent *shared.ConsumerGroupExtent, mClient mcli.Client) {
 
 	outputHostAddr, err := mClient.UUIDToHostAddr(cgExtent.GetOutputHostUUID())
 	if err != nil {
@@ -480,7 +480,7 @@ func ReadCgQueue(c *cli.Context) {
 	}
 
 	if len(c.Args()) == 1 {
-		req := &metadata.ReadConsumerGroupExtentsRequest{
+		req := &shared.ReadConsumerGroupExtentsRequest{
 			ConsumerGroupUUID: common.StringPtr(cgUUID),
 			MaxResults:        common.Int32Ptr(int32(toolscommon.DefaultPageSize)),
 		}
@@ -957,7 +957,7 @@ func ListConsumerGroupExtents(c *cli.Context) {
 	mClient := toolscommon.GetMClient(c, adminToolService)
 
 	maxResults := c.Int("limit")
-	req := &metadata.ReadConsumerGroupExtentsRequest{
+	req := &shared.ReadConsumerGroupExtentsRequest{
 		DestinationUUID:   common.StringPtr(destUUID),
 		ConsumerGroupUUID: common.StringPtr(cgUUID),
 		MaxResults:        common.Int32Ptr(int32(toolscommon.DefaultPageSize)),

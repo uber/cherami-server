@@ -191,7 +191,7 @@ func (qdc *queueDepthCalculator) handleConsumerGroupEnd(dstDesc *shared.Destinat
 		if len(storeUUIDs) == 0 {
 			continue // should never happen
 		}
-		cge := &metadata.ConsumerGroupExtent{
+		cge := &shared.ConsumerGroupExtent{
 			ConsumerGroupUUID:  common.StringPtr(cgDesc.GetConsumerGroupUUID()),
 			ExtentUUID:         common.StringPtr(string(extent)),
 			OutputHostUUID:     common.StringPtr(zeroUUID),
@@ -228,7 +228,7 @@ func (qdc *queueDepthCalculator) handleDestinationExtent(dstDesc *shared.Destina
 	qdc.iter.dstExtents[extentID(extent.GetExtentUUID())] = extent
 }
 
-func (qdc *queueDepthCalculator) handleConsumerGroupExtent(dstDesc *shared.DestinationDescription, cgDesc *shared.ConsumerGroupDescription, cgExtent *metadata.ConsumerGroupExtent) {
+func (qdc *queueDepthCalculator) handleConsumerGroupExtent(dstDesc *shared.DestinationDescription, cgDesc *shared.ConsumerGroupDescription, cgExtent *shared.ConsumerGroupExtent) {
 
 	iter := &qdc.iter
 	logger := qdc.makeCGExtentLogger(dstDesc, cgDesc, cgExtent)
@@ -266,7 +266,7 @@ func (qdc *queueDepthCalculator) addExtentBacklog(
 	dstDesc *shared.DestinationDescription,
 	cgDesc *shared.ConsumerGroupDescription,
 	dstExtent *metadata.DestinationExtent,
-	cgExtent *metadata.ConsumerGroupExtent,
+	cgExtent *shared.ConsumerGroupExtent,
 	logger bark.Logger) {
 
 	extID := extentID(cgExtent.GetExtentUUID())
@@ -323,7 +323,7 @@ func (qdc *queueDepthCalculator) addExtentBacklog(
 	iter.cg.backlogAvailable += qdc.computeBacklog(cgDesc, cgExtent, storeExtentMetadata, string(connectedStoreID), logger)
 }
 
-func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDescription, cgExtent *metadata.ConsumerGroupExtent, storeMetadata *storeExtentMetadata, storeID string, logger bark.Logger) int64 {
+func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDescription, cgExtent *shared.ConsumerGroupExtent, storeMetadata *storeExtentMetadata, storeID string, logger bark.Logger) int64 {
 
 	var backlog int64 // backlog defaults to '0'
 	var iter = &qdc.iter
@@ -451,7 +451,7 @@ func (qdc *queueDepthCalculator) handleStartFrom(
 	dstDesc *shared.DestinationDescription,
 	cgDesc *shared.ConsumerGroupDescription,
 	dstExtent *metadata.DestinationExtent,
-	consumerGroupExtent *metadata.ConsumerGroupExtent,
+	consumerGroupExtent *shared.ConsumerGroupExtent,
 	storeMetadata *storeExtentMetadata,
 	logger bark.Logger,
 ) (qualify bool) {
@@ -613,7 +613,7 @@ func (qdc *queueDepthCalculator) measureBacklogProgress(dstDesc *shared.Destinat
 	return int(nOpen)
 }
 
-func (qdc *queueDepthCalculator) isCGExtentStalled(cge *metadata.ConsumerGroupExtent) bool {
+func (qdc *queueDepthCalculator) isCGExtentStalled(cge *shared.ConsumerGroupExtent) bool {
 
 	context := qdc.context
 
@@ -733,7 +733,7 @@ func (qdc *queueDepthCalculator) makeMetricsClient(cgDesc *shared.ConsumerGroupD
 	return metrics.NewClientWithTags(qdc.context.m3Client, metrics.Controller, tags)
 }
 
-func (qdc *queueDepthCalculator) makeCGExtentLogger(dstDesc *shared.DestinationDescription, cgDesc *shared.ConsumerGroupDescription, cgExtent *metadata.ConsumerGroupExtent) bark.Logger {
+func (qdc *queueDepthCalculator) makeCGExtentLogger(dstDesc *shared.DestinationDescription, cgDesc *shared.ConsumerGroupDescription, cgExtent *shared.ConsumerGroupExtent) bark.Logger {
 	logger := qdc.ll
 	if qdc.iter.cg.isTabulationRequested {
 		logger = qdc.ll.WithFields(bark.Fields{

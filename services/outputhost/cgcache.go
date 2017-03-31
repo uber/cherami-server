@@ -292,7 +292,7 @@ func (cgCache *consumerGroupCache) getConsumerGroupTags() map[string]string {
 }
 
 // loadExtentCache loads the extent cache, if it doesn't already exist for this consumer group
-func (cgCache *consumerGroupCache) loadExtentCache(ctx thrift.Context, destType shared.DestinationType, cge *metadata.ConsumerGroupExtent) {
+func (cgCache *consumerGroupCache) loadExtentCache(ctx thrift.Context, destType shared.DestinationType, cge *shared.ConsumerGroupExtent) {
 	extUUID := cge.GetExtentUUID()
 	if extCache, exists := cgCache.extentCache[extUUID]; !exists {
 		extCache = &extentCache{
@@ -521,7 +521,7 @@ func (cgCache *consumerGroupCache) refreshCgCache(ctx thrift.Context) error {
 	cgCache.cachedCGDesc.MaxDeliveryCount = cgDesc.MaxDeliveryCount
 
 	// contact the metadata to get the extent info
-	cgReq := &metadata.ReadConsumerGroupExtentsRequest{
+	cgReq := &shared.ReadConsumerGroupExtentsRequest{
 		DestinationUUID:   common.StringPtr(cgCache.cachedCGDesc.GetDestinationUUID()),
 		ConsumerGroupUUID: common.StringPtr(cgCache.cachedCGDesc.GetConsumerGroupUUID()),
 		OutputHostUUID:    common.StringPtr(cgCache.outputHostUUID),
@@ -553,7 +553,7 @@ func (cgCache *consumerGroupCache) refreshCgCache(ctx thrift.Context) error {
 
 // checkSingleCGVisible determines if an extent under a certain destination is visible only to one consumer group. It is a cached call, so the
 // metadata client will only be invoked once per destination+extent
-func (cgCache *consumerGroupCache) checkSingleCGVisible(ctx thrift.Context, cge *metadata.ConsumerGroupExtent) (singleCgVisible bool) {
+func (cgCache *consumerGroupCache) checkSingleCGVisible(ctx thrift.Context, cge *shared.ConsumerGroupExtent) (singleCgVisible bool) {
 	// Note that this same extent can be loaded by either a consumer group of the DLQ destination (i.e. for inspection,
 	// with consumer group visibility = nil), or as an extent being merged into the original consumer group (i.e. for DLQ
 	// merge, with consumer group visibility = this CG).

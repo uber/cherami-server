@@ -420,20 +420,20 @@ func (_m *MetadataService) ReadConsumerGroupExtent(request *metadata.ReadConsume
 }
 
 // ReadConsumerGroupExtents provides a mock function with given fields: request
-func (_m *MetadataService) ReadConsumerGroupExtents(request *metadata.ReadConsumerGroupExtentsRequest) (*metadata.ReadConsumerGroupExtentsResult_, error) {
+func (_m *MetadataService) ReadConsumerGroupExtents(request *shared.ReadConsumerGroupExtentsRequest) (*shared.ReadConsumerGroupExtentsResult_, error) {
 	ret := _m.Called(request)
 
-	var r0 *metadata.ReadConsumerGroupExtentsResult_
-	if rf, ok := ret.Get(0).(func(*metadata.ReadConsumerGroupExtentsRequest) *metadata.ReadConsumerGroupExtentsResult_); ok {
+	var r0 *shared.ReadConsumerGroupExtentsResult_
+	if rf, ok := ret.Get(0).(func(*shared.ReadConsumerGroupExtentsRequest) *shared.ReadConsumerGroupExtentsResult_); ok {
 		r0 = rf(request)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*metadata.ReadConsumerGroupExtentsResult_)
+			r0 = ret.Get(0).(*shared.ReadConsumerGroupExtentsResult_)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*metadata.ReadConsumerGroupExtentsRequest) error); ok {
+	if rf, ok := ret.Get(1).(func(*shared.ReadConsumerGroupExtentsRequest) error); ok {
 		r1 = rf(request)
 	} else {
 		r1 = ret.Error(1)

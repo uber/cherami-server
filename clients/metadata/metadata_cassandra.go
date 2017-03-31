@@ -3615,10 +3615,10 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtentsByExtUUID(ctx thrift.
 	}
 
 	result := &m.ReadConsumerGroupExtentsByExtUUIDResult_{
-		CgExtents:     []*m.ConsumerGroupExtent{},
+		CgExtents:     []*shared.ConsumerGroupExtent{},
 		NextPageToken: listRequest.PageToken,
 	}
-	ext := &m.ConsumerGroupExtent{}
+	ext := &shared.ConsumerGroupExtent{}
 	ext.ExtentUUID = common.StringPtr(listRequest.GetExtentUUID())
 	var storeUUIDs []gocql.UUID
 	count := int64(0)
@@ -3636,7 +3636,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtentsByExtUUID(ctx thrift.
 		&ext.ConnectedStoreUUID) && count < listRequest.GetLimit() {
 		// Get a new item within limit
 		result.CgExtents = append(result.CgExtents, ext)
-		ext = &m.ConsumerGroupExtent{}
+		ext = &shared.ConsumerGroupExtent{}
 		ext.ExtentUUID = common.StringPtr(listRequest.GetExtentUUID())
 		count++
 	}
@@ -3654,7 +3654,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtentsByExtUUID(ctx thrift.
 
 // ReadConsumerGroupExtent returns the [Status, AckOffset] corresponding to the given [ConsumerGroup, Extent], if it exist
 func (s *CassandraMetadataService) ReadConsumerGroupExtent(ctx thrift.Context, request *m.ReadConsumerGroupExtentRequest) (*m.ReadConsumerGroupExtentResult_, error) {
-	result := &m.ReadConsumerGroupExtentResult_{Extent: &m.ConsumerGroupExtent{}}
+	result := &m.ReadConsumerGroupExtentResult_{Extent: &shared.ConsumerGroupExtent{}}
 	result.Extent.ExtentUUID = common.StringPtr(request.GetExtentUUID())
 	result.Extent.ConsumerGroupUUID = common.StringPtr(request.GetConsumerGroupUUID())
 
@@ -3725,7 +3725,7 @@ func (s *CassandraMetadataService) SetOutputHost(ctx thrift.Context, request *m.
 }
 
 // ReadConsumerGroupExtents implements the corresponding TChanMetadataServiceClient API
-func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, request *m.ReadConsumerGroupExtentsRequest) (*m.ReadConsumerGroupExtentsResult_, error) {
+func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, request *shared.ReadConsumerGroupExtentsRequest) (*shared.ReadConsumerGroupExtentsResult_, error) {
 	if request.GetMaxResults() < 1 {
 		return nil, &shared.BadRequestError{
 			Message: "MaxResults < 1",
@@ -3749,8 +3749,8 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, 
 		return nil, err
 	}
 
-	result := &m.ReadConsumerGroupExtentsResult_{
-		Extents:       []*m.ConsumerGroupExtent{},
+	result := &shared.ReadConsumerGroupExtentsResult_{
+		Extents:       []*shared.ConsumerGroupExtent{},
 		NextPageToken: request.PageToken,
 	}
 
@@ -3794,7 +3794,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, 
 			continue
 		}
 
-		item := &m.ConsumerGroupExtent{
+		item := &shared.ConsumerGroupExtent{
 			ExtentUUID:         common.StringPtr(extentUUID),
 			ConsumerGroupUUID:  common.StringPtr(request.GetConsumerGroupUUID()),
 			Status:             common.MetadataConsumerGroupExtentStatusPtr(status),
@@ -3825,7 +3825,7 @@ func (s *CassandraMetadataService) ReadConsumerGroupExtents(ctx thrift.Context, 
 	return result, nil
 }
 
-func (s *CassandraMetadataService) readConsumerGroupExtentsHelper(request *m.ReadConsumerGroupExtentsRequest, ignoreStatusFilter bool) (*gocql.Iter, error) {
+func (s *CassandraMetadataService) readConsumerGroupExtentsHelper(request *shared.ReadConsumerGroupExtentsRequest, ignoreStatusFilter bool) (*gocql.Iter, error) {
 
 	sql := sqlCGGetAllExtents
 	if !ignoreStatusFilter && request.IsSetStatus() {

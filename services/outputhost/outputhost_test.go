@@ -41,7 +41,6 @@ import (
 	"github.com/uber/cherami-thrift/.generated/go/admin"
 	"github.com/uber/cherami-thrift/.generated/go/cherami"
 	"github.com/uber/cherami-thrift/.generated/go/controller"
-	"github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
 	"github.com/uber/cherami-thrift/.generated/go/store"
 
@@ -184,11 +183,11 @@ func (s *OutputHostSuite) TestOutputHostReadMessage() {
 	cgDesc.DestinationUUID = common.StringPtr(destUUID)
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(uuid.New())
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
@@ -250,11 +249,11 @@ func (s *OutputHostSuite) TestOutputHostAckMessage() {
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 	s.mockMeta.On("SetAckOffset", mock.Anything, mock.Anything).Return(nil)
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(extUUID)
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
@@ -394,11 +393,11 @@ func (s *OutputHostSuite) TestOutputHostReconfigure() {
 
 	// 3. Setup the ReadConsumerGroupExtents mock.
 	// At this time we will just have one extent "extUUID1"
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(extUUID1)
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil)
 
@@ -421,7 +420,7 @@ func (s *OutputHostSuite) TestOutputHostReconfigure() {
 	outputHost.cgMutex.Unlock()
 
 	// 7. Now add another extent to the "ReadConsumerGroupExtents" call (extUUID2)
-	cgExt2 := metadata.NewConsumerGroupExtent()
+	cgExt2 := shared.NewConsumerGroupExtent()
 	cgExt2.ExtentUUID = common.StringPtr(extUUID2)
 	cgExt2.StoreUUIDs = []string{"mock2"}
 	cgRes.Extents = append(cgRes.Extents, cgExt2)
@@ -488,11 +487,11 @@ func (s *OutputHostSuite) TestOutputHostReceiveMessageBatch() {
 	cgDesc.DestinationUUID = common.StringPtr(destUUID)
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(uuid.New())
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
@@ -557,11 +556,11 @@ func (s *OutputHostSuite) TestOutputHostReceiveMessageBatch_NoMsg() {
 	cgDesc.DestinationUUID = common.StringPtr(destUUID)
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(uuid.New())
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
@@ -607,11 +606,11 @@ func (s *OutputHostSuite) TestOutputHostReceiveMessageBatch_SomeMsgAvailable() {
 	cgDesc.DestinationUUID = common.StringPtr(destUUID)
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(uuid.New())
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
@@ -710,11 +709,11 @@ func (s *OutputHostSuite) TestOutputCgUnload() {
 
 	// 3. Setup the ReadConsumerGroupExtents mock.
 	// At this time we will just have one extent "extUUID1"
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(extUUID1)
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil)
 
@@ -803,11 +802,11 @@ func (s *OutputHostSuite) TestOutputAckMgrReset() {
 
 	// 3. Setup the ReadConsumerGroupExtents mock.
 	// At this time we will just have one extent "extUUID1"
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(extUUID1)
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil)
 

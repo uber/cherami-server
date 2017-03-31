@@ -36,7 +36,7 @@ type (
 		ReadDestination(request *shared.ReadDestinationRequest) (*shared.DestinationDescription, error)
 		ListDestinations(request *shared.ListDestinationsRequest) (*shared.ListDestinationsResult_, error)
 		ListDestinationsByUUID(request *shared.ListDestinationsByUUIDRequest) (*shared.ListDestinationsResult_, error)
-		ReadConsumerGroupExtents(request *m.ReadConsumerGroupExtentsRequest) (*m.ReadConsumerGroupExtentsResult_, error)
+		ReadConsumerGroupExtents(request *shared.ReadConsumerGroupExtentsRequest) (*shared.ReadConsumerGroupExtentsResult_, error)
 		ReadConsumerGroupExtent(request *m.ReadConsumerGroupExtentRequest) (*m.ReadConsumerGroupExtentResult_, error)
 		ReadConsumerGroupExtentsByExtUUID(request *m.ReadConsumerGroupExtentsByExtUUIDRequest) (*m.ReadConsumerGroupExtentsByExtUUIDResult_, error)
 		ReadConsumerGroupByUUID(request *shared.ReadConsumerGroupRequest) (*shared.ConsumerGroupDescription, error)

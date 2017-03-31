@@ -85,7 +85,7 @@ type (
 	}
 )
 
-func newAckManager(cgCache *consumerGroupCache, ackMgrID uint32, outputHostUUID string, cgUUID string, isMultiZoneCg bool, extUUID string, connectedStoreUUID *string, waitConsumedCh chan<- bool, cge *metadata.ConsumerGroupExtent, metaclient metadata.TChanMetadataService, tClients common.ClientFactory, logger bark.Logger) *ackManager {
+func newAckManager(cgCache *consumerGroupCache, ackMgrID uint32, outputHostUUID string, cgUUID string, isMultiZoneCg bool, extUUID string, connectedStoreUUID *string, waitConsumedCh chan<- bool, cge *shared.ConsumerGroupExtent, metaclient metadata.TChanMetadataService, tClients common.ClientFactory, logger bark.Logger) *ackManager {
 	ackMgr := &ackManager{
 		addrs:              make(map[common.SequenceNumber]*internalMsg),
 		cgCache:            cgCache,

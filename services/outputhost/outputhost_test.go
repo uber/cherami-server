@@ -289,11 +289,11 @@ func (s *OutputHostSuite) TestOutputHostPutsMsgIntoMsgCacheOnWriteError() {
 	cgDesc.DestinationUUID = common.StringPtr(destUUID)
 	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
 
-	cgExt := metadata.NewConsumerGroupExtent()
+	cgExt := shared.NewConsumerGroupExtent()
 	cgExt.ExtentUUID = common.StringPtr(uuid.New())
 	cgExt.StoreUUIDs = []string{"mock"}
 
-	cgRes := &metadata.ReadConsumerGroupExtentsResult_{}
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
 	cgRes.Extents = append(cgRes.Extents, cgExt)
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)

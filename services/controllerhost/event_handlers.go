@@ -824,7 +824,7 @@ func (event *ExtentDownEvent) Handle(context *Context) error {
 			event.state = drainExtentState
 
 		case drainExtentState:
-			drainExtent(context, event.dstID, event.extentID, event.inputID)
+			drainExtent(context, event.dstID, event.extentID, event.inputID, metrics.ExtentDownEventScope)
 			event.state = sealExtentState
 
 		case sealExtentState:
@@ -1105,7 +1105,7 @@ func sealExtentOnStore(context *Context, storeUUID string, storeAddr string, ext
 // drainExtent sends a drain command to input host to gracefully
 // drain the clients connected to a given extent. If the input
 // host is not alive in ringpop, this method will return immediately
-func drainExtent(context *Context, dstID string, extentID string, inputID string) {
+func drainExtent(context *Context, dstID string, extentID string, inputID string, m3Scope int) {
 	addr, err := context.rpm.ResolveUUID(common.InputServiceName, inputID)
 	if err != nil {
 		return
@@ -1130,7 +1130,9 @@ func drainExtent(context *Context, dstID string, extentID string, inputID string
 	}).Info(`sending drain command to input host`)
 
 	ctx, cancel := thrift.NewContext(drainExtentTimeout)
-	adminClient.DrainExtent(ctx, drainReq)
+	if err = adminClient.DrainExtent(ctx, drainReq); err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrDrainFailed)
+	}
 	cancel()
 }
 

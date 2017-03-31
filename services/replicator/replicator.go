@@ -1142,14 +1142,6 @@ func (r *Replicator) setAckOffsetRemoteCall(zone string, logger bark.Logger, req
 	return nil
 }
 
-func (r *Replicator) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
-	return nil
-}
-
-func (r *Replicator) UpdateRemoteConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
-	return nil
-}
-
 // ListDestinations returns a list of destinations
 func (r *Replicator) ListDestinations(ctx thrift.Context, listRequest *shared.ListDestinationsRequest) (*shared.ListDestinationsResult_, error) {
 	return r.metaClient.ListDestinations(ctx, listRequest)

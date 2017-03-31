@@ -456,29 +456,3 @@ func (m *MockTChanReplicator) SetAckOffsetInRemote(ctx thrift.Context, request *
 
 	return r0
 }
-
-func (m *MockTChanReplicator) UpdateConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
-	ret := m.Called(ctx, request)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.UpdateConsumerGroupExtentStatusRequest) error); ok {
-		r0 = rf(ctx, request)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-func (m *MockTChanReplicator) UpdateRemoteConsumerGroupExtentStatus(ctx thrift.Context, request *shared.UpdateConsumerGroupExtentStatusRequest) error {
-	ret := m.Called(ctx, request)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.UpdateConsumerGroupExtentStatusRequest) error); ok {
-		r0 = rf(ctx, request)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}

@@ -879,7 +879,7 @@ func (s *FrontendHostSuite) TestFrontendHostCreateConsumerGroupStartFrom() {
 	testStartFromTime(time.Now())                                             // now
 	testStartFromTime(time.Now().Add(-4 * 7 * 24 * time.Hour))                // four weeks ago
 	testStartFromTime(time.Now().Add(45 * time.Second))                       // 45secs from now (time skew)
-	testStartFromTime(time.Date(2012, time.March, 30, 0, 0, 0, 0, time.UTC))  // ~5 years back
+	testStartFromTime(time.Now().Add(-5 * 365 * 24 * time.Hour))              // 5 years back
 	testStartFromTime(time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)) // 1/1/2000
 
 	testStartFromFail(time.Now().Add(2 * time.Minute)) // 2 mins from now

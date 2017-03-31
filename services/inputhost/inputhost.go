@@ -305,6 +305,11 @@ func (h *InputHost) OpenPublisherStreamHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// DrainExtent drains the given extents
+func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsRequest) error {
+	return &cherami.InternalServiceError{Message: "not implemented"}
+}
+
 // OpenPublisherStream is the implementation of the thrift handler for the In service
 func (h *InputHost) OpenPublisherStream(ctx thrift.Context, call stream.BInOpenPublisherStreamInCall) error {
 
@@ -687,7 +692,7 @@ func (h *InputHost) UnloadDestinations(ctx thrift.Context, request *admin.Unload
 }
 
 // ListLoadedDestinations is the API used to list all the loaded destinations in memory
-func (h *InputHost) ListLoadedDestinations(ctx thrift.Context) (result *admin.ListDestinationsResult_, err error) {
+func (h *InputHost) ListLoadedDestinations(ctx thrift.Context) (result *admin.ListLoadedDestinationsResult_, err error) {
 	defer atomic.AddInt32(&h.loadShutdownRef, -1)
 	sw := h.m3Client.StartTimer(metrics.ListLoadedDestinationsScope, metrics.InputhostLatencyTimer)
 	defer sw.Stop()
@@ -699,7 +704,7 @@ func (h *InputHost) ListLoadedDestinations(ctx thrift.Context) (result *admin.Li
 		return nil, ErrHostShutdown
 	}
 
-	result = admin.NewListDestinationsResult_()
+	result = admin.NewListLoadedDestinationsResult_()
 	h.pathMutex.RLock()
 	result.Dests = make([]*admin.Destinations, len(h.pathCache))
 	count := 0

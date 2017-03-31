@@ -234,6 +234,8 @@ const (
 	PutMessageBatchInputHostScope
 	//PubConnectionScope  represents Streaming Message received by inputhost
 	PubConnectionScope
+	//ReplicaConnectionScope represents inputhost's replica connection stream
+	ReplicaConnectionScope
 	//PutMessageBatchInputHostDestScope represent API PutMessageBatch for per destination
 	PutMessageBatchInputHostDestScope
 	// UnloadDestinationsScope represents UnloadDestinations API
@@ -633,6 +635,7 @@ var dynamicScopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 	Inputhost: {
 		PubConnectionScope:                {operation: "PubConnection"},
 		PutMessageBatchInputHostDestScope: {operation: "PutMessageBatchInputHost"},
+		ReplicaConnectionScope:            {operation: "ReplicaConnection"},
 	},
 
 	// Outputhost Scope Names
@@ -723,6 +726,10 @@ const (
 	InputhostDestWriteMessageBeforeAckLatency
 	// InputhostDestPubConnection is the gauge of active connections per destination
 	InputhostDestPubConnection
+	// InputhostMessageReceivedBytes tracks the total incoming messages in bytes
+	InputhostDestMessageReceivedBytes
+	// InputhostMessageSentBytes tracks the total outgoing messages (to replica) in bytes
+	InputhostDestMessageSentBytes
 
 	// -- Outputhost metrics -- //
 
@@ -772,6 +779,10 @@ const (
 	OutputhostLatencyTimer
 	// OutputhostCGMessageSent records the count of messages sent per consumer group
 	OutputhostCGMessageSent
+	// OutputhostCGMessageSentBytes records the total size of messages sent per consumer-group
+	OutputhostCGMessageSentBytes
+	// OutputhostCGMessageReceivedBytes records the total size of message received from replica per CG
+	OutputhostCGMessageReceivedBytes
 	// OutputhostCGMessageFailures records the count of messages sent failures per consumer group
 	OutputhostCGMessageFailures
 	// OutputhostCGCreditsReceived indicates the count of the credits per consumer group
@@ -1223,6 +1234,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 	// definitions for Inputhost metrics
 	Inputhost: {
 		InputhostDestMessageReceived:              {Counter, "inputhost.message.received.dest"},
+		InputhostDestMessageReceivedBytes:         {Counter, "inputhost.message.received.bytes.dest"},
+		InputhostDestMessageSentBytes:             {Counter, "inputhost.message.sent.bytes.dest"},
 		InputhostDestMessageFailures:              {Counter, "inputhost.message.errors.dest"},
 		InputhostDestMessageLimitThrottled:        {Counter, "inputhost.message.limit.throttled.dest"},
 		InputhostDestMessageChannelFullThrottled:  {Counter, "inputhost.message.channel.throttled.dest"},
@@ -1236,6 +1249,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 	// definitions for Outputhost metrics
 	Outputhost: {
 		OutputhostCGMessageSent:           {Counter, "outputhost.message.sent.cg"},
+		OutputhostCGMessageSentBytes:      {Counter, "outputhost.message.sent.bytes.cg"},
+		OutputhostCGMessageReceivedBytes:  {Counter, "outputhost.message.received.bytes.cg"},
 		OutputhostCGMessageFailures:       {Counter, "outputhost.message.errors.cg"},
 		OutputhostCGCreditsReceived:       {Counter, "outputhost.credit-received.cg"},
 		OutputhostCGDLQMessageRequests:    {Counter, "outputhost.message.sent-dlq.cg"},

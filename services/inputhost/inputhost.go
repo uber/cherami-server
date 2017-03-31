@@ -315,6 +315,11 @@ func (h *InputHost) OpenPublisherStreamHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// DrainExtent drains the given extents
+func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsRequest) error {
+	return &cherami.InternalServiceError{Message: "not implemented"}
+}
+
 // OpenPublisherStream is the implementation of the thrift handler for the In service
 func (h *InputHost) OpenPublisherStream(ctx thrift.Context, call stream.BInOpenPublisherStreamInCall) error {
 

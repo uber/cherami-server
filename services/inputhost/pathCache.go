@@ -540,22 +540,25 @@ func (pathCache *inPathCache) getState() *admin.DestinationState {
 func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, drainWG *sync.WaitGroup) {
 	defer drainWG.Done()
 	pathCache.RLock()
-	defer pathCache.RUnlock()
 
 	extCache, ok := pathCache.extentCache[extentUUID(extUUID)]
 	if !ok {
 		// draining called for extent which is not present
 		// just return
+		pathCache.RUnlock()
 		return
 	}
 
-	if extCache.connection.prepDrain() {
+	if extCache.connection.prepForClose() {
 		var connDrainWG sync.WaitGroup
 		// first send DRAIN command to all connections
 		// then start draining extents
 		pathCache.drainConnections(updateUUID, &connDrainWG)
+		// while drain no need to hold the lock to make sure we
+		// can proceed forward
+		pathCache.RUnlock()
 		// do best effort waiting to notify all connections here
 		common.AwaitWaitGroup(&connDrainWG, connWGTimeout)
-		extCache.connection.drain()
+		extCache.connection.stopWrite()
 	}
 }

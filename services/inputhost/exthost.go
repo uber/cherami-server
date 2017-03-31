@@ -142,10 +142,10 @@ type (
 )
 
 const (
-	extHostActive       extHostState = iota
-	extHostDrainPrepped              // used by the pathcache to determine if the connections need to be torn down or not
-	extHostDraining                  // used when the actual drain is happening
-	extHostInactive                  // used when the extent is closed
+	extHostActive     extHostState = iota
+	extHostPrepClose               // used by the pathcache to determine if the connections need to be torn down or not
+	extHostCloseWrite              // used when the actual drain is happening
+	extHostInactive                // used when the extent is closed
 )
 
 const (
@@ -885,24 +885,24 @@ func (conn *extHost) getState() *admin.InputDestExtent {
 // stopWritePump is used to stop the write pump if the extent is active or has
 // been prepped for drain and  mark the extHost as "Draining"
 func (conn *extHost) stopWritePump() {
-	if conn.state <= extHostDrainPrepped {
+	if conn.state <= extHostPrepClose {
 		close(conn.closeChannel)
 		// wait for the write pump to drain for some timeout period
 		if ret := common.AwaitWaitGroup(&conn.waitWriteWG, defaultWGTimeout); !ret {
 			conn.logger.Fatalf("unable to stop write pump; wait group timeout")
 		}
-		conn.state = extHostDraining
+		conn.state = extHostCloseWrite
 	}
 }
 
 // isDrained returns true if the following conditions are true:
-// 	(1) extHost state is "extHostDraining"
+// 	(1) extHost state is "extHostCloseWrite"
 //	(2) we have seen the reply for the last sent sequence number
 // if not, it returns false
 // Note: RLock() is sufficient here.
 func (conn *extHost) isDrained(replySeqNo int64) bool {
 	conn.lk.RLock()
-	if conn.state != extHostDraining {
+	if conn.state != extHostCloseWrite {
 		conn.lk.RUnlock()
 		return false
 	}
@@ -916,21 +916,21 @@ func (conn *extHost) isDrained(replySeqNo int64) bool {
 	return ret
 }
 
-// prepDrain just decrements the number of writable extents for this destination
-func (conn *extHost) prepDrain() bool {
+// prepForClose just decrements the number of writable extents for this destination
+func (conn *extHost) prepForClose() bool {
 	conn.lk.Lock()
 	if conn.state != extHostActive {
 		conn.lk.Unlock()
 		return false
 	}
-	conn.state = extHostDrainPrepped
+	conn.state = extHostPrepClose
 	conn.dstMetrics.Decrement(load.DstMetricNumWritableExtents)
 	conn.lk.Unlock()
 	return true
 }
 
 // drain simply stops the write pump and marks the state as such
-func (conn *extHost) drain() error {
+func (conn *extHost) stopWrite() error {
 	conn.lk.Lock()
 	conn.stopWritePump()
 	conn.lk.Unlock()

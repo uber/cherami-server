@@ -513,15 +513,14 @@ func (conn *pubConnection) flushCmdToClient(unflushedWrites int) (err error) {
 func (conn *pubConnection) writeCmdToClient(cmd *cherami.InputHostCommand, drainWG *sync.WaitGroup) (err error) {
 	if err = conn.stream.Write(cmd); err != nil {
 		conn.logger.WithFields(bark.Fields{`cmd`: cmd, common.TagErr: err}).Info(`inputhost: Unable to Write cmd back to client`)
-	} else {
-		if cmd.GetType() == cherami.InputHostCommandType_DRAIN {
-			// if this is a DRAIN command wait for some timeout period and then
-			// just close the connection
-			// We do this to make sure the connection object doesn't hang around
-			// at this point we have sent the DRAIN command to the client
-			// XXX:  assert non-nil WG
-			go conn.waitForDrain(drainWG)
-		}
+	}
+	if cmd.GetType() == cherami.InputHostCommandType_DRAIN {
+		// if this is a DRAIN command wait for some timeout period and then
+		// just close the connection
+		// We do this to make sure the connection object doesn't hang around
+		// at this point we have sent the DRAIN command to the client
+		// XXX:  assert non-nil WG
+		go conn.waitForDrain(drainWG)
 	}
 
 	return

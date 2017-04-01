@@ -49,7 +49,6 @@ type (
 		replicator            *Replicator
 		localZone             string
 		suspectMissingExtents map[string]missingExtentInfo
-		cache                 entityCache
 
 		mClient  metadata.TChanMetadataService
 		logger   bark.Logger
@@ -64,10 +63,6 @@ type (
 	missingExtentInfo struct {
 		missingSince time.Time
 		destUUID     string
-	}
-
-	entityCache struct {
-		remoteDestExtents map[string]map[string]map[string]*shared.ExtentStatus
 	}
 )
 
@@ -600,8 +595,8 @@ func (r *metadataReconciler) reconcileDestExtentMetadata() error {
 
 func (r *metadataReconciler) reconcileCgExtentMetadata(localCgs []*shared.ConsumerGroupDescription) error {
 	for _, cg := range localCgs {
-		localExtents, errCur := r.getAllCgExtentInCurrentZone(cg.GetDestinationUUID(), cg.GetConsumerGroupUUID())
-		if errCur != nil {
+		localExtents, err := r.getAllCgExtentInCurrentZone(cg.GetDestinationUUID(), cg.GetConsumerGroupUUID())
+		if err != nil {
 			continue
 		}
 		for _, zoneConfig := range cg.GetZoneConfigs() {
@@ -611,8 +606,8 @@ func (r *metadataReconciler) reconcileCgExtentMetadata(localCgs []*shared.Consum
 			}
 
 			if zoneConfig.GetVisible() {
-				remoteExtents, errRemote := r.getAllCgExtentInRemoteZone(zoneConfig.GetZone(), cg.GetDestinationUUID(), cg.GetConsumerGroupUUID())
-				if errRemote != nil {
+				remoteExtents, err := r.getAllCgExtentInRemoteZone(zoneConfig.GetZone(), cg.GetDestinationUUID(), cg.GetConsumerGroupUUID())
+				if err != nil {
 					continue
 				}
 
@@ -660,18 +655,6 @@ func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID 
 
 		listReq.PageToken = res.GetNextPageToken()
 	}
-	//var allDestExtentsInZone map[string]map[string]*shared.ExtentStatus
-	//if allDestExtentsInZone, zoneFound := r.cache.remoteDestExtents[zone]; !zoneFound {
-	//	r.cache[zone] = make(map[string]map[string]*shared.ExtentStatus)
-	//	allDestExtentsInZone = r.cache[zone]
-	//}
-	//
-	//var destExtentsForDest map[string]*shared.ExtentStatus
-	//if destExtentsForDest, destFound := allDestExtentsInZone[destUUID]; !destFound {
-	//	allDestExtentsInZone[destUUID] = make(map[string]*shared.ExtentStatus)
-	//	destExtentsForDest = allDestExtentsInZone[destUUID]
-	//}
-	//destExtentsForDest = extents
 
 	return extents, nil
 }
@@ -709,13 +692,16 @@ func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map
 }
 
 func (r *metadataReconciler) getAllCgExtentInRemoteZone(zone string, destUUID string, cgUUID string) (map[string]*shared.ConsumerGroupExtent, error) {
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagDst:      common.FmtDst(destUUID),
+		common.TagCnsm:     common.FmtCnsm(cgUUID),
+		common.TagZoneName: common.FmtZoneName(zone),
+	})
+
 	var err error
 	remoteReplicator, err := r.replicator.replicatorclientFactory.GetReplicatorClient(zone)
 	if err != nil {
-		r.logger.WithFields(bark.Fields{
-			common.TagErr:      err,
-			common.TagZoneName: common.FmtZoneName(zone),
-		}).Error(`Failed to get remote replicator client`)
+		lclLg.WithField(common.TagErr, err).Error(`getAllCgExtentInRemoteZone: Failed to get remote replicator client`)
 		return nil, err
 	}
 
@@ -731,7 +717,7 @@ func (r *metadataReconciler) getAllCgExtentInRemoteZone(zone string, destUUID st
 		defer cancel()
 		listRes, err := remoteReplicator.ReadConsumerGroupExtents(ctx, listReq)
 		if err != nil {
-			r.logger.WithField(common.TagErr, err).Error(`Remote replicator call ReadConsumerGroupExtents failed`)
+			lclLg.WithField(common.TagErr, err).Error(`getAllCgExtentInRemoteZone: Remote replicator call ReadConsumerGroupExtents failed`)
 			return nil, err
 		}
 
@@ -749,6 +735,11 @@ func (r *metadataReconciler) getAllCgExtentInRemoteZone(zone string, destUUID st
 }
 
 func (r *metadataReconciler) getAllCgExtentInCurrentZone(destUUID string, cgUUID string) (map[string]*shared.ConsumerGroupExtent, error) {
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagDst:  common.FmtDst(destUUID),
+		common.TagCnsm: common.FmtCnsm(cgUUID),
+	})
+
 	listReq := &shared.ReadConsumerGroupExtentsRequest{
 		DestinationUUID:   common.StringPtr(destUUID),
 		ConsumerGroupUUID: common.StringPtr(cgUUID),
@@ -759,12 +750,12 @@ func (r *metadataReconciler) getAllCgExtentInCurrentZone(destUUID string, cgUUID
 	for {
 		res, err := r.mClient.ReadConsumerGroupExtents(nil, listReq)
 		if err != nil {
-			r.logger.WithField(common.TagErr, err).Error(`Metadata call ReadConsumerGroupExtents failed`)
+			lclLg.WithField(common.TagErr, err).Error(`getAllCgExtentInCurrentZone: Metadata call ReadConsumerGroupExtents failed`)
 			return nil, err
 		}
 
-		for _, ext := range res.GetExtents() {
-			cgExtents[ext.GetExtentUUID()] = ext
+		for _, cgExt := range res.GetExtents() {
+			cgExtents[cgExt.GetExtentUUID()] = cgExt
 		}
 
 		if len(res.GetNextPageToken()) == 0 {
@@ -893,21 +884,24 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 }
 
 func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, localExtents map[string]*shared.ConsumerGroupExtent, remoteExtents map[string]*shared.ConsumerGroupExtent, remoteZone string) {
-	var remoteDeletedLocalNotCount int64
+	lclLg := r.logger.WithFields(bark.Fields{
+		common.TagDst:      common.FmtDst(destUUID),
+		common.TagCnsm:     common.FmtCnsm(cgUUID),
+		common.TagZoneName: common.FmtZoneName(remoteZone),
+	})
+
 	var remoteConsumedLocalMissingCount int64
 	var remoteDeletedLocalMissingCount int64
 	var foundMissingCount int64
+
 	for remoteExtentUUID, remoteExtent := range remoteExtents {
 		remoteExtentStatus := remoteExtent.GetStatus()
 		localExtent, ok := localExtents[remoteExtentUUID]
 		if !ok {
-			r.logger.WithFields(bark.Fields{
-				common.TagDst:            common.FmtDst(destUUID),
-				common.TagCnsm:           common.FmtCnsm(cgUUID),
+			lclLg.WithFields(bark.Fields{
 				common.TagExt:            common.FmtExt(remoteExtentUUID),
-				common.TagZoneName:       common.FmtZoneName(remoteZone),
 				common.TagCGExtentStatus: common.FmtCGExtentStatus(remoteExtentStatus),
-			}).Warn(`Found missing cg extent from remote!`)
+			}).Warn(`reconcileCgExtent: Found missing cg extent from remote!`)
 
 			// if the extent is already in consumed/deleted state on remote side, don't bother to create the extent locally
 			if remoteExtentStatus == shared.ConsumerGroupExtentStatus_CONSUMED {
@@ -930,20 +924,18 @@ func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, l
 			defer cancel()
 			err := r.replicator.CreateConsumerGroupExtent(ctx, createRequest)
 			if err != nil {
-				r.logger.WithFields(bark.Fields{
-					common.TagErr:      err,
-					common.TagDst:      common.FmtDst(destUUID),
-					common.TagExt:      common.FmtExt(remoteExtentUUID),
-					common.TagCnsm:     common.FmtCnsm(cgUUID),
-					common.TagZoneName: common.FmtZoneName(remoteZone),
-				}).Error(`Failed to create cg extent in local zone for reconciliation`)
+				lclLg.WithFields(bark.Fields{
+					common.TagErr: err,
+					common.TagExt: common.FmtExt(remoteExtentUUID),
+				}).Error(`reconcileCgExtent: Failed to create cg extent in local zone for reconciliation`)
 				continue
 			}
 		} else {
 			localExtentStatus := localExtent.GetStatus()
 			if localExtentStatus != remoteExtentStatus {
+				// update the status of local cg extent, if the local cg extent status is "behind" remote
 				if localExtentStatus == shared.ConsumerGroupExtentStatus_OPEN ||
-					(localExtentStatus == shared.ConsumerGroupExtentStatus_CONSUMED && localExtentStatus == shared.ConsumerGroupExtentStatus_DELETED) {
+					(localExtentStatus == shared.ConsumerGroupExtentStatus_CONSUMED && remoteExtentStatus == shared.ConsumerGroupExtentStatus_DELETED) {
 					err := r.mClient.UpdateConsumerGroupExtentStatus(nil, &shared.UpdateConsumerGroupExtentStatusRequest{
 						ConsumerGroupUUID: common.StringPtr(cgUUID),
 						ExtentUUID:        common.StringPtr(remoteExtentUUID),
@@ -951,14 +943,11 @@ func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, l
 					})
 
 					if err != nil {
-						r.logger.WithFields(bark.Fields{
+						lclLg.WithFields(bark.Fields{
 							common.TagErr:            err,
-							common.TagDst:            common.FmtDst(destUUID),
 							common.TagExt:            common.FmtExt(remoteExtentUUID),
-							common.TagCnsm:           common.FmtCnsm(cgUUID),
-							common.TagZoneName:       common.FmtZoneName(remoteZone),
 							common.TagCGExtentStatus: common.FmtCGExtentStatus(remoteExtentStatus),
-						}).Error(`Failed to update cg extent status`)
+						}).Error(`reconcileCgExtent: Failed to update cg extent status`)
 						continue
 					}
 				}
@@ -975,25 +964,19 @@ func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, l
 					ReadLevelSeqNo:    common.Int64Ptr(remoteExtent.GetReadLevelSeqNo()),
 				})
 				if err != nil {
-					r.logger.WithFields(bark.Fields{
+					lclLg.WithFields(bark.Fields{
 						common.TagErr:            err,
-						common.TagDst:            common.FmtDst(destUUID),
 						common.TagExt:            common.FmtExt(remoteExtentUUID),
-						common.TagCnsm:           common.FmtCnsm(cgUUID),
-						common.TagZoneName:       common.FmtZoneName(remoteZone),
-						common.TagCGExtentStatus: common.FmtCGExtentStatus(remoteExtentStatus),
-					}).Error(`Failed to update ack/read level offset`)
+					}).Error(`reconcileCgExtent: Failed to update ack/read level offset`)
 					continue
 				}
 			}
 		}
 	}
 
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentFoundMissing, foundMissingCount)
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentRemoteConsumedLocalMissing, remoteConsumedLocalMissingCount)
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentRemoteDeletedLocalMissing, remoteDeletedLocalMissingCount)
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentRemoteDeletedLocalNot, remoteDeletedLocalNotCount)
-	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestExtentSuspectMissingExtents, int64(len(r.suspectMissingExtents)))
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgExtentFoundMissing, foundMissingCount)
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgExtentRemoteConsumedLocalMissing, remoteConsumedLocalMissingCount)
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgExtentRemoteDeletedLocalMissing, remoteDeletedLocalMissingCount)
 }
 
 func (r *metadataReconciler) handleExtentDeletedOrMissingInRemote(destUUID string, extentUUID string, localStatus shared.ExtentStatus, destExtentRemoteDeletedLocalNotCount *int64) {

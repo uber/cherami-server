@@ -867,6 +867,47 @@ func (s *McpSuite) TestCreateRemoteZoneExtent() {
 	s.True(primaryValid)
 }
 
+func (s *McpSuite) TestCreateRemoteZoneCgExtent() {
+	destUUID := uuid.New()
+	extentUUID := uuid.New()
+	cgUUID := uuid.New()
+	originZone := `zone1`
+
+	createExtentReq := &shared.CreateExtentRequest{
+		Extent: &shared.Extent{
+			DestinationUUID: common.StringPtr(destUUID),
+			ExtentUUID:      common.StringPtr(extentUUID),
+			OriginZone:      common.StringPtr(originZone),
+		},
+	}
+	// issue create extent request
+	res, err := s.mcp.CreateRemoteZoneExtent(nil, createExtentReq)
+	s.NoError(err)
+	s.NotNil(res)
+
+	createCgExtentReq := &shared.CreateConsumerGroupExtentRequest{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ExtentUUID:        common.StringPtr(extentUUID),
+	}
+	// issue create cg extent request
+	err = s.mcp.CreateRemoteZoneConsumerGroupExtent(nil, createCgExtentReq)
+	s.NoError(err)
+
+	// verify local operation
+	cgExtent, err := s.mClient.ReadConsumerGroupExtent(nil, &m.ReadConsumerGroupExtentRequest{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		ExtentUUID:        common.StringPtr(extentUUID),
+	})
+	s.NoError(err)
+	s.NotNil(cgExtent)
+	s.Equal(extentUUID, cgExtent.GetExtent().GetExtentUUID())
+	s.Equal(cgUUID, cgExtent.GetExtent().GetConsumerGroupUUID())
+	s.True(cgExtent.GetExtent().IsSetOutputHostUUID())
+	s.Equal(shared.ConsumerGroupExtentStatus_OPEN, cgExtent.GetExtent().GetStatus())
+}
+
 func (s *McpSuite) TestGetDstType() {
 
 	dstType := shared.DestinationType_PLAIN

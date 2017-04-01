@@ -1337,3 +1337,90 @@ func (s *ReplicatorSuite) TestDestExtentMetadataReconcileRemoteGoneLocalNot() {
 	s.mockStoreClient.AssertExpectations(s.T())
 	s.Equal(0, len(reconciler.suspectMissingExtents))
 }
+
+// local zone is missing one consumer group extent compared to remote. Expect to create the missing consumer group extent
+func (s *ReplicatorSuite) TestCgExtentMetadataReconcileLocalMissing() {
+	localZone := `zone2`
+	remoteZone := `zone1`
+	missingExtent := uuid.New()
+	dest := uuid.New()
+	cg := uuid.New()
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	// setup mock
+	s.mockControllerClient.On("CreateRemoteZoneConsumerGroupExtent", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.CreateConsumerGroupExtentRequest)
+		s.Equal(missingExtent, req.GetExtentUUID())
+		s.Equal(dest, req.GetDestinationUUID())
+		s.Equal(cg, req.GetConsumerGroupUUID())
+	})
+
+	localExtents := make(map[string]*shared.ConsumerGroupExtent)
+	remoteExtents := make(map[string]*shared.ConsumerGroupExtent)
+	remoteExtents[missingExtent] = &shared.ConsumerGroupExtent{
+		ExtentUUID: common.StringPtr(missingExtent),
+		ConsumerGroupUUID: common.StringPtr(cg),
+	}
+	reconciler.reconcileCgExtent(dest, cg, localExtents, remoteExtents, remoteZone)
+	s.mockControllerClient.AssertExpectations(s.T())
+}
+
+//// local zone is missing one consumer group extent compared to remote but remote is consumed. Expect no action
+//func (s *ReplicatorSuite) TestCgExtentMetadataReconcileLocalMissingConsumedExtent() {
+//	localZone := `zone2`
+//	remoteZone := `zone1`
+//	missingExtent := uuid.New()
+//	dest := uuid.New()
+//
+//	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+//	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+//
+//	localExtents := make(map[string]shared.ExtentStatus)
+//	remoteExtents := make(map[string]shared.ExtentStatus)
+//	remoteExtents[missingExtent] = shared.ExtentStatus_CONSUMED
+//	reconciler.reconcileCgExtent(dest, localExtents, remoteExtents, remoteZone)
+//	s.mockControllerClient.AssertExpectations(s.T())
+//}
+//
+//// both local and remote zone has no consumer group extent. Expect no creation request is generated
+//func (s *ReplicatorSuite) TestCgExtentMetadataReconcileLocalAndRemoteEmpty() {
+//	localZone := `zone2`
+//	remoteZone := `zone1`
+//	dest := uuid.New()
+//
+//	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+//	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+//
+//	localExtents := make(map[string]shared.ExtentStatus)
+//	remoteExtents := make(map[string]shared.ExtentStatus)
+//	reconciler.reconcileCgExtent(dest, localExtents, remoteExtents, remoteZone)
+//	s.mockControllerClient.AssertExpectations(s.T())
+//}
+//
+//// Extent sealed in remote but not in local. Expect a update request to update the status
+//func (s *ReplicatorSuite) TestCgExtentMetadataReconcileInconsistentStatus() {
+//	localZone := `zone2`
+//	remoteZone := `zone1`
+//	extent := uuid.New()
+//	dest := uuid.New()
+//
+//	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+//	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+//
+//	// setup mock
+//	s.mockMeta.On("UpdateExtentStats", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+//		req := args.Get(1).(*metadata.UpdateExtentStatsRequest)
+//		s.Equal(dest, req.GetDestinationUUID())
+//		s.Equal(extent, req.GetExtentUUID())
+//		s.Equal(shared.ExtentStatus_SEALED, req.GetStatus())
+//	})
+//
+//	localExtents := make(map[string]shared.ExtentStatus)
+//	remoteExtents := make(map[string]shared.ExtentStatus)
+//	remoteExtents[extent] = shared.ExtentStatus_SEALED
+//	localExtents[extent] = shared.ExtentStatus_OPEN
+//	reconciler.reconcileCgExtent(dest, localExtents, remoteExtents, remoteZone)
+//	s.mockMeta.AssertExpectations(s.T())
+//}

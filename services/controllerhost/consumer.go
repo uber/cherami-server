@@ -294,19 +294,22 @@ func addExtentsToConsumerGroup(context *Context, dstUUID string, cgUUID string, 
 }
 
 func createCGExtentInRemote(context *Context, dstUUID, cgUUID, extUUID string) {
+	lclLg := context.log.WithFields(bark.Fields{
+		common.TagDst:  common.FmtDst(dstUUID),
+		common.TagCnsm: common.FmtCnsm(cgUUID),
+		common.TagExt:  common.FmtExt(extUUID),
+	})
+
 	req := &shared.CreateConsumerGroupExtentRequest{
-		DestinationUUID: common.StringPtr(dstUUID),
+		DestinationUUID:   common.StringPtr(dstUUID),
 		ConsumerGroupUUID: common.StringPtr(cgUUID),
-		ExtentUUID: common.StringPtr(extUUID),
+		ExtentUUID:        common.StringPtr(extUUID),
 	}
 
 	// send to local replicator to fan out
 	localReplicator, err := context.clientFactory.GetReplicatorClient()
 	if err != nil {
-		context.log.WithFields(bark.Fields{
-			common.TagExt: common.FmtExt(extUUID),
-			common.TagErr: err,
-		}).Warn("Failed to get replicator client")
+		lclLg.WithField(common.TagErr, err).Warn("createCGExtentInRemote: Failed to get replicator client")
 		return
 	}
 
@@ -314,16 +317,11 @@ func createCGExtentInRemote(context *Context, dstUUID, cgUUID, extUUID string) {
 	defer cancel()
 	err = localReplicator.CreateRemoteConsumerGroupExtent(ctx, req)
 	if err != nil {
-		context.log.WithFields(bark.Fields{
-			common.TagExt: common.FmtExt(extUUID),
-			common.TagErr: err,
-		}).Warn("Failed to get call CreateRemoteConsumerGroupExtent")
+		lclLg.WithField(common.TagErr, err).Warn("createCGExtentInRemote: Failed to get call CreateRemoteConsumerGroupExtent")
 		return
 	}
 
-	context.log.WithFields(bark.Fields{
-		common.TagExt: common.FmtExt(extUUID),
-	}).Info("Called replicator to Create CG Extent")
+	lclLg.Info("Called replicator to create CG Extent")
 }
 
 func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string, m3Scope int) (

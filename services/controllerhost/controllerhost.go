@@ -1190,9 +1190,9 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 	defer sw.Stop()
 
 	lclLg := context.log.WithFields(bark.Fields{
-		common.TagDst:      common.FmtDst(createRequest.GetDestinationUUID()),
-		common.TagCnsm:      common.FmtDst(createRequest.GetConsumerGroupUUID()),
-		common.TagExt:      common.FmtExt(createRequest.GetExtentUUID()),
+		common.TagDst:  common.FmtDst(createRequest.GetDestinationUUID()),
+		common.TagCnsm: common.FmtCnsm(createRequest.GetConsumerGroupUUID()),
+		common.TagExt:  common.FmtExt(createRequest.GetExtentUUID()),
 	})
 
 	destExt, err := context.mm.ReadExtentStats(createRequest.GetDestinationUUID(), createRequest.GetExtentUUID())
@@ -1211,7 +1211,7 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 	err = context.mm.AddExtentToConsumerGroup(createRequest.GetDestinationUUID(), createRequest.GetConsumerGroupUUID(),
 		createRequest.GetExtentUUID(), outhost.UUID, destExt.GetExtent().GetStoreUUIDs())
 	if err != nil {
-		context.log.WithField(common.TagErr, err).Warn("Failed to add cg extent to consumer group")
+		lclLg.WithField(common.TagErr, err).Warn("Failed to add cg extent to consumer group")
 		context.m3Client.IncCounter(metrics.ControllerCreateRemoteZoneCgExtentScope, metrics.ControllerErrMetadataUpdateCounter)
 		return err
 	}
@@ -1222,6 +1222,6 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 		createRequest.GetExtentUUID(), outhost.UUID)
 	context.eventPipeline.Add(event)
 
-	context.log.Info("Extent added to consumer group")
+	lclLg.Info("CreateRemoteZoneConsumerGroupExtent: Extent added to consumer group")
 	return nil
 }

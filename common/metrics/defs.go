@@ -1056,6 +1056,12 @@ const (
 	ReplicatorReconcileCgExtentRun
 	// ReplicatorReconcileCgExtentFail indicates the reconcile for cg extent fails
 	ReplicatorReconcileCgExtentFail
+	// ReplicatorReconcileCgExtentFoundMissing indicates the reconcile for cg extent found a missing cg extent
+	ReplicatorReconcileCgExtentFoundMissing
+	// ReplicatorReconcileCgExtentRemoteConsumedLocalMissing indicates the reconcile for cg extent found a cg extent that is consumed on remote side and local is missing
+	ReplicatorReconcileCgExtentRemoteConsumedLocalMissing
+	// ReplicatorReconcileCgExtentRemoteDeletedLocalMissing indicates the reconcile for cg extent found a cg extent that is deleted on remote side and local is missing
+	ReplicatorReconcileCgExtentRemoteDeletedLocalMissing
 
 	numMetrics
 )
@@ -1227,6 +1233,9 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ReplicatorReconcileDestExtentSuspectMissingExtents:      {Gauge, "replicator.reconcile.destextent.suspect-missing-extent"},
 		ReplicatorReconcileCgExtentRun:                          {Gauge, "replicator.reconcile.cgextent.run"},
 		ReplicatorReconcileCgExtentFail:                         {Gauge, "replicator.reconcile.cgextent.fail"},
+		ReplicatorReconcileCgExtentFoundMissing:                 {Gauge, "replicator.reconcile.cgextent.foundmissing"},
+		ReplicatorReconcileCgExtentRemoteConsumedLocalMissing:   {Gauge, "replicator.reconcile.cgextent.remote-consumed-local-missing"},
+		ReplicatorReconcileCgExtentRemoteDeletedLocalMissing:    {Gauge, "replicator.reconcile.cgextent.remote-deleted-local-missing"},
 	},
 }
 

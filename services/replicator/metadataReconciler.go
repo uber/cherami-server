@@ -951,9 +951,7 @@ func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, l
 						continue
 					}
 				}
-			}
-
-			if localExtent.GetAckLevelOffset() < remoteExtent.GetAckLevelOffset() {
+			} else if localExtent.GetAckLevelOffset() < remoteExtent.GetAckLevelOffset() {
 				err := r.mClient.SetAckOffset(nil, &shared.SetAckOffsetRequest{
 					ExtentUUID:        common.StringPtr(remoteExtentUUID),
 					ConsumerGroupUUID: common.StringPtr(cgUUID),
@@ -965,8 +963,8 @@ func (r *metadataReconciler) reconcileCgExtent(destUUID string, cgUUID string, l
 				})
 				if err != nil {
 					lclLg.WithFields(bark.Fields{
-						common.TagErr:            err,
-						common.TagExt:            common.FmtExt(remoteExtentUUID),
+						common.TagErr: err,
+						common.TagExt: common.FmtExt(remoteExtentUUID),
 					}).Error(`reconcileCgExtent: Failed to update ack/read level offset`)
 					continue
 				}

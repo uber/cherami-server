@@ -963,7 +963,6 @@ func (r *Replicator) CreateRemoteConsumerGroupExtent(ctx thrift.Context, createR
 	r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgExtentScope, metrics.ReplicatorRequests)
 
 	var err error
-
 	if createRequest == nil || !createRequest.IsSetDestinationUUID() || !createRequest.IsSetConsumerGroupUUID() || !createRequest.IsSetExtentUUID() {
 		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgExtentScope, metrics.ReplicatorFailures)
 		err = &shared.BadRequestError{Message: fmt.Sprintf(`Create remote cg extent request invalid. IsSetDestinationUUID: [%v], IsSetConsumerGroupUUID: [%v], IsSetExtentUUID: [%v]`,
@@ -989,7 +988,7 @@ func (r *Replicator) CreateRemoteConsumerGroupExtent(ctx thrift.Context, createR
 	}
 
 	if !cgDesc.GetIsMultiZone() {
-		err = &shared.BadRequestError{Message: fmt.Sprintf(`Consumer group [%v] is not multi zone destination`, createRequest.GetConsumerGroupUUID())}
+		err = &shared.BadRequestError{Message: fmt.Sprintf(`Consumer group [%v] is not multi zone`, createRequest.GetConsumerGroupUUID())}
 		lcllg.WithField(common.TagErr, err).Error(`Consumer group is not multi zone destination`)
 		r.m3Client.IncCounter(metrics.ReplicatorCreateRmtCgExtentScope, metrics.ReplicatorFailures)
 		return err

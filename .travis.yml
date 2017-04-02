@@ -68,8 +68,9 @@ install:
   - export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:`pwd`"
 
 before_script:
-  - export CHERAMI_PACKAGES=`go list ./... | grep -ve vendor | sed "s#github.com/uber/cherami-server#.#"` 
+  - export CHERAMI_PACKAGES=`go list ./... | grep -ve vendor | grep -ve test | sed "s#github.com/uber/cherami-server#.#"` 
   - go tool vet -all -printfuncs=Info,Infof,Debug,Debugf,Warn,Warnf,Panic,Panicf $CHERAMI_PACKAGES
+  - gofmt -l $CHERAMI_PACKAGES
 
 script:
   - EMBEDROCKSDB=0 make cover_ci

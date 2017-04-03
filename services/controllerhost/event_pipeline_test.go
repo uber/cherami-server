@@ -798,7 +798,3 @@ func (service *MockInputOutputService) ListLoadedDestinations(ctx thrift.Context
 func (service *MockInputOutputService) ReadDestState(ctx thrift.Context, req *admin.ReadDestinationStateRequest) (*admin.ReadDestinationStateResult_, error) {
 	return nil, fmt.Errorf("mock not implemented")
 }
-
-func (service *MockInputOutputService) DrainExtent(ctx thrift.Context, req *admin.DrainExtentsRequest) error {
-	return fmt.Errorf("mock not implemented")
-}

@@ -470,9 +470,9 @@ func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
 	s.NoError(err)
 
 	// Publish messages
-	// Make the doneCh to be a minimum size so that we don't
+	// Make the doneCh to be a smaller size so that we don't
 	// fill up immediately
-	doneCh := make(chan *client.PublisherReceipt, 1)
+	doneCh := make(chan *client.PublisherReceipt, 50)
 	var wg sync.WaitGroup
 
 	for i := 0; i < testMsgCount; i++ {
@@ -506,16 +506,22 @@ func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
 	drainReq.ExtentUUID = common.StringPtr(receiptParts[0])
 	dReq.Extents = append(dReq.Extents, drainReq)
 
-	ctx, _ := thrift.NewContext(2 * time.Minute)
-	err = ih.DrainExtent(ctx, dReq)
+	err = ih.DrainExtent(nil, dReq)
 	s.Nil(err)
 
+	consumeCount := testMsgCount
 	// Now try to get all the other messages
 	wg.Add(1)
 	go func() {
 		for i := 0; i < testMsgCount-1; i++ {
 			receipt := <-doneCh
 			log.Infof("client: acking id %s", receipt.Receipt)
+			if receipt.Error != nil {
+				s.InDelta(testMsgCount, i, 500)
+				consumeCount = i + 1
+			} else {
+				break
+			}
 			s.NoError(receipt.Error)
 		}
 		wg.Done()
@@ -562,7 +568,7 @@ func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
 
 	// Read the messages in a loop. We will exit the loop via a timeout
 ReadLoop:
-	for msgCount := 0; msgCount < testMsgCount; msgCount++ {
+	for msgCount := 0; msgCount < consumeCount; msgCount++ {
 		timeout := time.NewTimer(time.Second * 45)
 		log.Infof("waiting to get a message on del chan")
 		select {
@@ -571,7 +577,7 @@ ReadLoop:
 			msg.Ack()
 		case <-timeout.C:
 			log.Errorf("consumer delivery channel timed out after %v messages", msgCount)
-			s.Equal(msgCount, testMsgCount) // FAIL the test
+			s.Equal(msgCount, consumeCount) // FAIL the test
 			break ReadLoop
 		}
 	}

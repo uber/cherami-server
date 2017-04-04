@@ -935,9 +935,10 @@ func (conn *extHost) prepForClose() bool {
 // waitForDrain is needed to wait for the actual drain to finish.
 // if we simply return without this, the controller will immediately
 // seal the extents since this drain API is synchronous
-func (conn *extHost) waitForDrain() {
-	drainTimer := common.NewTimer(defaultDrainTimeout)
+func (conn *extHost) waitForDrain(drainTimeout time.Duration) {
+	drainTimer := common.NewTimer(drainTimeout)
 	defer drainTimer.Stop()
+	conn.logger.Infof("waiting for drain")
 	select {
 	// after we drain, we close the exthost which closes this channel as well
 	case <-conn.streamClosedChannel:
@@ -949,12 +950,12 @@ func (conn *extHost) waitForDrain() {
 }
 
 // drain simply stops the write pump and marks the state as such
-func (conn *extHost) stopWrite() error {
+func (conn *extHost) stopWrite(drainTimeout time.Duration) error {
 	conn.lk.Lock()
 	stopped := conn.stopWritePump()
 	conn.lk.Unlock()
 	if stopped {
-		conn.waitForDrain()
+		conn.waitForDrain(drainTimeout)
 	}
 	return nil
 }

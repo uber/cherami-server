@@ -234,6 +234,8 @@ const (
 	PutMessageBatchInputHostScope
 	//PubConnectionScope  represents Streaming Message received by inputhost
 	PubConnectionScope
+	//ReplicaConnectionScope represents inputhost's replica connection stream
+	ReplicaConnectionScope
 	//PutMessageBatchInputHostDestScope represent API PutMessageBatch for per destination
 	PutMessageBatchInputHostDestScope
 	// UnloadDestinationsScope represents UnloadDestinations API
@@ -242,6 +244,8 @@ const (
 	ListLoadedDestinationsScope
 	// ReadDestStateScope represents ReadDestState API
 	ReadDestStateScope
+	// DrainExtentsScope represents DrainExtentsScope API
+	DrainExtentsScope
 
 	// -- Operation scopes for OutputHost --
 
@@ -526,6 +530,7 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		UnloadDestinationsScope:       {operation: "UnloadDestinations"},
 		ListLoadedDestinationsScope:   {operation: "ListLoadedDestinations"},
 		ReadDestStateScope:            {operation: "ReadDestState"},
+		DrainExtentsScope:             {operation: "DrainExtentsScope"},
 	},
 
 	// Outputhost operation tag values as seen by the Metrics backend
@@ -564,12 +569,12 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		ReplicatorUpdateRmtDestScope:     {operation: "ReplicatorUpdateRemoteDestination"},
 		ReplicatorDeleteDestScope:        {operation: "ReplicatorDeleteDestination"},
 		ReplicatorDeleteRmtDestScope:     {operation: "ReplicatorDeleteRemoteDestination"},
-		ReplicatorCreateCgUUIDScope:    {operation: "ReplicatorCreateConsumerGroupUUID"},
-		ReplicatorCreateRmtCgUUIDScope: {operation: "ReplicatorCreateRemoteConsumerGroupUUID"},
-		ReplicatorUpdateCgScope:        {operation: "ReplicatorUpdateConsumerGroup"},
-		ReplicatorUpdateRmtCgScope:     {operation: "ReplicatorUpdateRemoteConsumerGroup"},
-		ReplicatorDeleteCgScope:        {operation: "ReplicatorDeleteConsumerGroup"},
-		ReplicatorDeleteRmtCgScope:     {operation: "ReplicatorDeleteRemoteConsumerGroup"},
+		ReplicatorCreateCgUUIDScope:      {operation: "ReplicatorCreateConsumerGroupUUID"},
+		ReplicatorCreateRmtCgUUIDScope:   {operation: "ReplicatorCreateRemoteConsumerGroupUUID"},
+		ReplicatorUpdateCgScope:          {operation: "ReplicatorUpdateConsumerGroup"},
+		ReplicatorUpdateRmtCgScope:       {operation: "ReplicatorUpdateRemoteConsumerGroup"},
+		ReplicatorDeleteCgScope:          {operation: "ReplicatorDeleteConsumerGroup"},
+		ReplicatorDeleteRmtCgScope:       {operation: "ReplicatorDeleteRemoteConsumerGroup"},
 		ReplicatorCreateExtentScope:      {operation: "ReplicatorCreateExtent"},
 		ReplicatorCreateRmtExtentScope:   {operation: "ReplicatorCreateRemoteExtent"},
 		ReplicatorReconcileScope:         {operation: "ReplicatorReconcile"},
@@ -618,6 +623,7 @@ var dynamicScopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 	Inputhost: {
 		PubConnectionScope:                {operation: "PubConnection"},
 		PutMessageBatchInputHostDestScope: {operation: "PutMessageBatchInputHost"},
+		ReplicaConnectionScope:            {operation: "ReplicaConnection"},
 	},
 
 	// Outputhost Scope Names
@@ -708,6 +714,10 @@ const (
 	InputhostDestWriteMessageBeforeAckLatency
 	// InputhostDestPubConnection is the gauge of active connections per destination
 	InputhostDestPubConnection
+	// InputhostMessageReceivedBytes tracks the total incoming messages in bytes
+	InputhostDestMessageReceivedBytes
+	// InputhostMessageSentBytes tracks the total outgoing messages (to replica) in bytes
+	InputhostDestMessageSentBytes
 
 	// -- Outputhost metrics -- //
 
@@ -757,6 +767,10 @@ const (
 	OutputhostLatencyTimer
 	// OutputhostCGMessageSent records the count of messages sent per consumer group
 	OutputhostCGMessageSent
+	// OutputhostCGMessageSentBytes records the total size of messages sent per consumer-group
+	OutputhostCGMessageSentBytes
+	// OutputhostCGMessageReceivedBytes records the total size of message received from replica per CG
+	OutputhostCGMessageReceivedBytes
 	// OutputhostCGMessageFailures records the count of messages sent failures per consumer group
 	OutputhostCGMessageFailures
 	// OutputhostCGCreditsReceived indicates the count of the credits per consumer group
@@ -912,6 +926,8 @@ const (
 	ControllerErrBadRequestCounter
 	// ControllerErrBadEntityCounter indicates either an entity not exists or disabled error
 	ControllerErrBadEntityCounter
+	// ControllerErrDrainFailed indicates that a drain command issued to input failed
+	ControllerErrDrainFailed
 
 	// ControllerEventsDropped indicates an event drop due to queue full
 	ControllerEventsDropped
@@ -1144,6 +1160,7 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ControllerErrNoRetryWorkers:                {Counter, "controller.errors.no-retry-workers"},
 		ControllerErrBadRequestCounter:             {Counter, "controller.errors.bad-requests"},
 		ControllerErrBadEntityCounter:              {Counter, "controller.errors.bad-entity"},
+		ControllerErrDrainFailed:                   {Counter, "controller.errors.drain-failed"},
 		ControllerEventsDropped:                    {Counter, "controller.events-dropped"},
 		ControllerRequests:                         {Counter, "controller.requests"},
 		ControllerFailures:                         {Counter, "controller.errors"},
@@ -1185,9 +1202,9 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ReplicatorReconcileDestRun:                              {Gauge, "replicator.reconcile.dest.run"},
 		ReplicatorReconcileDestFail:                             {Gauge, "replicator.reconcile.dest.fail"},
 		ReplicatorReconcileDestFoundMissing:                     {Gauge, "replicator.reconcile.dest.foundmissing"},
-		ReplicatorReconcileCgRun:                              {Gauge, "replicator.reconcile.cg.run"},
-		ReplicatorReconcileCgFail:                             {Gauge, "replicator.reconcile.cg.fail"},
-		ReplicatorReconcileCgFoundMissing:                     {Gauge, "replicator.reconcile.cg.foundmissing"},
+		ReplicatorReconcileCgRun:                                {Gauge, "replicator.reconcile.cg.run"},
+		ReplicatorReconcileCgFail:                               {Gauge, "replicator.reconcile.cg.fail"},
+		ReplicatorReconcileCgFoundMissing:                       {Gauge, "replicator.reconcile.cg.foundmissing"},
 		ReplicatorReconcileDestExtentRun:                        {Gauge, "replicator.reconcile.destextent.run"},
 		ReplicatorReconcileDestExtentFail:                       {Gauge, "replicator.reconcile.destextent.fail"},
 		ReplicatorReconcileDestExtentFoundMissing:               {Gauge, "replicator.reconcile.destextent.foundmissing"},
@@ -1202,6 +1219,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 	// definitions for Inputhost metrics
 	Inputhost: {
 		InputhostDestMessageReceived:              {Counter, "inputhost.message.received.dest"},
+		InputhostDestMessageReceivedBytes:         {Counter, "inputhost.message.received.bytes.dest"},
+		InputhostDestMessageSentBytes:             {Counter, "inputhost.message.sent.bytes.dest"},
 		InputhostDestMessageFailures:              {Counter, "inputhost.message.errors.dest"},
 		InputhostDestMessageLimitThrottled:        {Counter, "inputhost.message.limit.throttled.dest"},
 		InputhostDestMessageChannelFullThrottled:  {Counter, "inputhost.message.channel.throttled.dest"},
@@ -1215,6 +1234,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 	// definitions for Outputhost metrics
 	Outputhost: {
 		OutputhostCGMessageSent:           {Counter, "outputhost.message.sent.cg"},
+		OutputhostCGMessageSentBytes:      {Counter, "outputhost.message.sent.bytes.cg"},
+		OutputhostCGMessageReceivedBytes:  {Counter, "outputhost.message.received.bytes.cg"},
 		OutputhostCGMessageFailures:       {Counter, "outputhost.message.errors.cg"},
 		OutputhostCGCreditsReceived:       {Counter, "outputhost.credit-received.cg"},
 		OutputhostCGDLQMessageRequests:    {Counter, "outputhost.message.sent-dlq.cg"},

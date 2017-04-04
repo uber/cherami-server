@@ -884,7 +884,7 @@ func (conn *extHost) getState() *admin.InputDestExtent {
 
 // stopWritePump is used to stop the write pump if the extent is active or has
 // been prepped for drain and  mark the extHost as "Draining"
-func (conn *extHost) stopWritePump() {
+func (conn *extHost) stopWritePump() bool {
 	if conn.state <= extHostPrepClose {
 		close(conn.closeChannel)
 		// wait for the write pump to drain for some timeout period
@@ -892,7 +892,10 @@ func (conn *extHost) stopWritePump() {
 			conn.logger.Fatalf("unable to stop write pump; wait group timeout")
 		}
 		conn.state = extHostCloseWrite
+		return true
 	}
+
+	return false
 }
 
 // isDrained returns true if the following conditions are true:
@@ -929,10 +932,29 @@ func (conn *extHost) prepForClose() bool {
 	return true
 }
 
+// waitForDrain is needed to wait for the actual drain to finish.
+// if we simply return without this, the controller will immediately
+// seal the extents since this drain API is synchronous
+func (conn *extHost) waitForDrain() {
+	drainTimer := common.NewTimer(defaultDrainTimeout)
+	defer drainTimer.Stop()
+	select {
+	// after we drain, we close the exthost which closes this channel as well
+	case <-conn.streamClosedChannel:
+		return
+	case <-drainTimer.C:
+		// timedout.. simply close
+		go conn.close()
+	}
+}
+
 // drain simply stops the write pump and marks the state as such
 func (conn *extHost) stopWrite() error {
 	conn.lk.Lock()
-	conn.stopWritePump()
+	stopped := conn.stopWritePump()
 	conn.lk.Unlock()
+	if stopped {
+		conn.waitForDrain()
+	}
 	return nil
 }

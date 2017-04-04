@@ -169,6 +169,9 @@ const (
 
 	// extLoadReportingInterval is the interval destination extent load is reported to controller
 	extLoadReportingInterval = 2 * time.Second
+
+	// drainIdleTimeout is the idle timeout for checking whether we have already drained or not
+	drainIdleTimeout = 5 * time.Second
 )
 
 var (
@@ -629,11 +632,16 @@ func (conn *extHost) aggregateAndSendReplies(numReplicas int) {
 	perMsgTimer := common.NewTimer(msgAckTimeout)
 	defer perMsgTimer.Stop()
 
+	// Drain idle timer
+	drainTimer := common.NewTimer(drainIdleTimeout)
+	defer drainTimer.Stop()
+
 	if conn.lastSuccessSeqNoCh != nil {
 		defer close(conn.lastSuccessSeqNoCh)
 	}
 
 	for {
+		drainTimer.Reset(drainIdleTimeout)
 		select {
 		case resCh, ok := <-conn.replyClientCh: // resCh is a writeResponse; each replica has a copy of this structure that it will use to send us ACK's through the appendMsgAck channel
 			if ok {
@@ -736,6 +744,13 @@ func (conn *extHost) aggregateAndSendReplies(numReplicas int) {
 			} else {
 				// we are closing the connection.
 				return
+			}
+		case <-drainTimer.C:
+			// if there are no inflight messages or if we have already drained all the things,
+			// we need to check here
+			if conn.isDrained(atomic.LoadInt64(&conn.lastSuccessSeqNo)) {
+				// just call close
+				go conn.close()
 			}
 		case <-conn.streamClosedChannel:
 			return
@@ -912,6 +927,9 @@ func (conn *extHost) isDrained(replySeqNo int64) bool {
 
 	ret := false
 	if atomic.LoadInt64(&conn.seqNo) == replySeqNo {
+		conn.logger.WithFields(bark.Fields{
+			`drainedSeqNo`: replySeqNo,
+		}).Info("extent drained completely")
 		ret = true
 	}
 
@@ -938,7 +956,6 @@ func (conn *extHost) prepForClose() bool {
 func (conn *extHost) waitForDrain(drainTimeout time.Duration) {
 	drainTimer := common.NewTimer(drainTimeout)
 	defer drainTimer.Stop()
-	conn.logger.Infof("waiting for drain")
 	select {
 	// after we drain, we close the exthost which closes this channel as well
 	case <-conn.streamClosedChannel:

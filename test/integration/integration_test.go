@@ -481,7 +481,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	// Publish messages
 	// Make the doneCh to be a minimum size so that we don't
 	// fill up immediately
-	doneCh := make(chan *client.PublisherReceipt, 1)
+	doneCh := make(chan *client.PublisherReceipt, 500)
 	var wg sync.WaitGroup
 
 	for i := 0; i < testMsgCount; i++ {
@@ -515,7 +515,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	drainReq.ExtentUUID = common.StringPtr(receiptParts[0])
 	dReq.Extents = append(dReq.Extents, drainReq)
 
-	ctx, _ := thrift.NewContext(2 * time.Minute)
+	ctx, _ := thrift.NewContext(1 * time.Minute)
 	err = ih.DrainExtent(ctx, dReq)
 	s.Nil(err)
 

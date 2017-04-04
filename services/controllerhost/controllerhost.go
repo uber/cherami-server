@@ -1201,6 +1201,12 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 		context.m3Client.IncCounter(metrics.ControllerCreateRemoteZoneCgExtentScope, metrics.ControllerErrMetadataReadCounter)
 		return err
 	}
+	if !(destExt.GetStatus() == shared.ExtentStatus_OPEN) && !(destExt.GetStatus() == shared.ExtentStatus_SEALED) {
+		lclLg.WithField(common.TagErr, err).Error("CreateRemoteZoneConsumerGroupExtent: dest extent is neither open nor sealed")
+		context.m3Client.IncCounter(metrics.ControllerCreateRemoteZoneCgExtentScope, metrics.ControllerErrMetadataReadCounter)
+		return err
+	}
+
 	outhost, err := pickOutputHostForStoreHosts(context, destExt.GetExtent().GetStoreUUIDs())
 	if err != nil {
 		lclLg.WithField(common.TagErr, err).Error("CreateRemoteZoneConsumerGroupExtent: Failed to pick outhost for extent")

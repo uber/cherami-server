@@ -73,6 +73,8 @@ type (
 const (
 	remoteReplicatorCallTimeOut = 30 * time.Second
 
+	remoteReplicatorSetAcklevelCallTimeOut = 5 * time.Second
+
 	localReplicatorCallTimeOut = 30 * time.Second
 )
 
@@ -1129,7 +1131,8 @@ func (r *Replicator) setAckOffsetRemoteCall(zone string, logger bark.Logger, req
 	}
 
 	// send to remote zone replicator
-	ctx, cancel := thrift.NewContext(remoteReplicatorCallTimeOut)
+	// Note: intentionally use a shorter timeout as the ack level is being updated frequently.
+	ctx, cancel := thrift.NewContext(remoteReplicatorSetAcklevelCallTimeOut)
 	defer cancel()
 	err = client.SetAckOffset(ctx, request)
 	if err != nil {

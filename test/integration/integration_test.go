@@ -2008,7 +2008,8 @@ ReadLoop2_TheReloopening:
 
 }
 
-func (s *NetIntegrationSuiteParallelC) TestStartFromWithCassandra() {
+// XXX: skip
+func (s *NetIntegrationSuiteParallelC) _TestStartFromWithCassandra() {
 	destPath := "/dest/TestStartFromWithCassandra"
 	cgPathEverything := "/cg/TestStartFromWithCassandraEverything"
 	cgPathStartFrom := "/cg/TestStartFromWithCassandra"

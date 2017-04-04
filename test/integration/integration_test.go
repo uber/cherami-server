@@ -63,6 +63,9 @@ type NetIntegrationSuiteParallelC struct {
 type NetIntegrationSuiteParallelD struct {
 	testBase
 }
+type NetIntegrationSuiteParallelE struct {
+	testBase
+}
 type NetIntegrationSuiteSerial struct {
 	testBase
 }
@@ -87,6 +90,12 @@ func TestNetIntegrationSuiteParallelC(t *testing.T) {
 }
 func TestNetIntegrationSuiteParallelD(t *testing.T) {
 	s := new(NetIntegrationSuiteParallelD)
+	s.testBase.SetupSuite(t)
+	t.Parallel()
+	suite.Run(t, s)
+}
+func TestNetIntegrationSuiteParallelE(t *testing.T) {
+	s := new(NetIntegrationSuiteParallelE)
 	s.testBase.SetupSuite(t)
 	t.Parallel()
 	suite.Run(t, s)
@@ -426,7 +435,7 @@ ReadLoop:
 	s.Nil(err, "Failed to delete destination")
 }
 
-func (s *NetIntegrationSuiteParallelC) TestWriteWithDrain() {
+func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	destPath := "/dest/testWriteDrain"
 	cgPath := "/cg/testWriteDrain"
 	testMsgCount := 1000
@@ -2009,7 +2018,7 @@ ReadLoop2_TheReloopening:
 }
 
 // XXX: skip
-func (s *NetIntegrationSuiteParallelC) _TestStartFromWithCassandra() {
+func (s *NetIntegrationSuiteParallelE) _TestStartFromWithCassandra() {
 	destPath := "/dest/TestStartFromWithCassandra"
 	cgPathEverything := "/cg/TestStartFromWithCassandraEverything"
 	cgPathStartFrom := "/cg/TestStartFromWithCassandra"

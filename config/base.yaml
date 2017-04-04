@@ -90,8 +90,8 @@ ReplicatorConfig:
 
 # Logging configuration
 logging:
-  level: info
-  stdout: true
+  level: error
+  stdout: false
 
 # DefaultDestinationConfig right now configures how many replicas you want
 DefaultDestinationConfig:

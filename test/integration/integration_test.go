@@ -295,7 +295,7 @@ ReadLoop2:
 	consumerTest.Close()
 }
 
-func (s *NetIntegrationSuiteParallelC) TestWriteEndToEndSuccessWithCassandra() {
+func (s *NetIntegrationSuiteParallelE) TestWriteEndToEndSuccessWithCassandra() {
 	destPath := "/dest/testWriteEndToEndCassandra"
 	cgPath := "/cg/testWriteEndToEndCassandra"
 	testMsgCount := 100

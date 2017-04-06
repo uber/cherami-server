@@ -501,16 +501,18 @@ func (monitor *extentStateMonitor) handleDestinationExtent(dstDesc *shared.Desti
 		monitor.loopStats.nDLQExtentsByStatus[int(extent.GetStatus())]++
 	}
 
+	context := monitor.context
+
 	switch extent.GetStatus() {
 	case shared.ExtentStatus_OPEN:
-		if !common.IsRemoteZoneExtent(extent.GetOriginZone(), monitor.context.localZone) && (dstDesc.GetStatus() == shared.DestinationStatus_DELETING || !monitor.isExtentHealthy(dstDesc, extent)) {
+		if !common.IsRemoteZoneExtent(extent.GetOriginZone(), context.localZone) && (dstDesc.GetStatus() == shared.DestinationStatus_DELETING || !monitor.isExtentHealthy(dstDesc, extent)) {
 			// rate limit extent seals to limit the
 			// amount of work generated during a given
 			// interval
 			if !monitor.rateLimiter.Consume(1, 2*time.Second) {
 				return
 			}
-			addExtentDownEvent(monitor.context, 0, dstDesc.GetDestinationUUID(), extent.GetExtentUUID())
+			addExtentDownEvent(context, 0, dstDesc.GetDestinationUUID(), extent.GetExtentUUID())
 		}
 	default:
 		// from a store perspective, an extent is either sealed or
@@ -522,6 +524,26 @@ func (monitor *extentStateMonitor) handleDestinationExtent(dstDesc *shared.Desti
 		lastUpdateTime := time.Unix(0, extent.GetStatusUpdatedTimeMillis()*int64(time.Millisecond))
 		if time.Since(lastUpdateTime) > 2*extentCacheTTL {
 			monitor.fixOutOfSyncStoreExtents(dstDesc.GetDestinationUUID(), extent)
+		}
+	}
+
+	if common.IsRemoteZoneExtent(extent.GetOriginZone(), context.localZone) {
+		// handle remote zone extent replication job failures
+		for _, storeID := range extent.GetStoreUUIDs() {
+			notify := false
+			state, duration := context.failureDetector.GetHostState(storeServiceID, storeID)
+			switch state {
+			case dfddHostStateUnknown:
+				notify = true
+			case dfddHostStateDown:
+				if duration >= maxHostRestartDuration {
+					notify = true
+				}
+			}
+			if notify {
+				event := NewStoreRemoteExtentReplicatorDownEvent(storeID, extent.GetExtentUUID())
+				context.eventPipeline.Add(event)
+			}
 		}
 	}
 }

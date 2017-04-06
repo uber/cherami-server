@@ -591,9 +591,14 @@ func (event *StoreHostFailedEvent) Handle(context *Context) error {
 // interval (~5 mins max). The action taken is to assign a new
 // primary replicator for the affected extent
 func (event *StoreRemoteExtentReplicatorDownEvent) Handle(context *Context) error {
+	sw := context.m3Client.StartTimer(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerLatencyTimer)
+	defer sw.Stop()
+	context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerRequests)
 
 	extStats, err := context.mm.ReadStoreExtentStats(event.extentID, event.storeID)
 	if err != nil {
+		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerErrMetadataReadCounter)
+		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerFailures)
 		context.log.WithFields(bark.Fields{
 			common.TagErr:  err,
 			common.TagStor: event.storeID,
@@ -645,8 +650,10 @@ func (event *StoreRemoteExtentReplicatorDownEvent) Handle(context *Context) erro
 
 	_, err = context.mm.UpdateRemoteExtentPrimaryStore(extent.GetDestinationUUID(), extent.GetExtentUUID(), newRemoteExtentPrimaryStore)
 	if err != nil {
+		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerErrMetadataUpdateCounter)
+		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerFailures)
 		lclog.WithField(common.TagErr, err).Warn(`failed to update primary store in metadata`)
-		return errRetryable
+		return nil
 	}
 
 	remoteExtentReplicationEvent := NewStartReplicationForRemoteZoneExtent(extent.GetDestinationUUID(), extent.GetExtentUUID(), extent.GetStoreUUIDs(), newRemoteExtentPrimaryStore)

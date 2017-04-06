@@ -264,8 +264,8 @@ func NewExtentDownEvent(sealSeq int64, dstID string, extentID string) Event {
 
 // NewStoreRemoteExtentReplicatorDownEvent creates and returns an StoreRemoteExtentReplicatorDownEvent
 func NewStoreRemoteExtentReplicatorDownEvent(storeID string, extentID string) Event {
-	return &StoreRemoteExtentReplicatorDownEvent {
-		storeID: storeID,
+	return &StoreRemoteExtentReplicatorDownEvent{
+		storeID:  storeID,
 		extentID: extentID,
 	}
 }

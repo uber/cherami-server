@@ -107,8 +107,10 @@ const (
 // state that represents that the host is about to
 // go down for planned deployment or maintenance
 const hostGoingDownEvent common.RingpopEventType = 99
+
 // how long remains in down state before its forgotten forever
 const downToForgottenDuration = int64(time.Hour * 2)
+
 // periodic ticker interval for the dfdd state machine
 var stateMachineTickerInterval = time.Minute * 5
 
@@ -121,7 +123,7 @@ var stateMachineTickerInterval = time.Minute * 5
 func NewDfdd(context *Context, timeSource common.TimeSource) Dfdd {
 	dfdd := &dfddImpl{
 		context:         context,
-		timeSource: timeSource,
+		timeSource:      timeSource,
 		shutdownC:       make(chan struct{}),
 		inputListenerCh: make(chan *common.RingpopListenerEvent, listenerChannelSize),
 		storeListenerCh: make(chan *common.RingpopListenerEvent, listenerChannelSize),

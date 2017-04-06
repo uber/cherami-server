@@ -110,6 +110,10 @@ func (k *kafkaTopicPartitionAddresser) GetStoreAddress(tp *topicPartition, offse
 	k.i2tp[k.nextTP] = tp
 	k.tp2i[*tp] = k.nextTP
 
+	if k.nextTP > kafkaAddresserMaxTP {
+		panic(`too many topic/partition assignments`)
+	}
+
 	logFn().WithFields(bark.Fields{
 		`module`:    `kafkaAddresser`,
 		`topic`:     tp.Topic,

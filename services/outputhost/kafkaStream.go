@@ -85,9 +85,10 @@ func (k *kafkaStream) ResponseHeaders() (map[string]string, error) {
  * Setup & Utility
  */
 
-func OpenKafkaStream(c <-chan *s.ConsumerMessage) stream.BStoreOpenReadStreamOutCall {
+func OpenKafkaStream(c <-chan *s.ConsumerMessage, logger bark.Logger) stream.BStoreOpenReadStreamOutCall {
 	k := &kafkaStream{
 		kafkaMsgsCh: c,
+		logger: logger,
 	}
 	return k
 }

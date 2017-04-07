@@ -766,6 +766,35 @@ func (s *CassandraSuite) TestExtentCRU() {
 	}
 }
 
+func (s *CassandraSuite) TestCreateExtentWithCgVisibility() {
+	extentUUID := uuid.New()
+	destUUID := uuid.New()
+	cgUUID := uuid.New()
+	storeIds := []string{uuid.New(), uuid.New(), uuid.New()}
+	extent := &shared.Extent{
+		ExtentUUID:      common.StringPtr(extentUUID),
+		DestinationUUID: common.StringPtr(destUUID),
+		StoreUUIDs:      storeIds,
+		InputHostUUID:   common.StringPtr(uuid.New()),
+	}
+	createRequest := &shared.CreateExtentRequest{
+		Extent: extent,
+		ConsumerGroupVisibility: common.StringPtr(cgUUID),
+	}
+	_, err := s.client.CreateExtent(nil, createRequest)
+	s.Nil(err)
+
+	readExtentStats := &m.ReadExtentStatsRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+		ExtentUUID: common.StringPtr(extentUUID),
+	}
+	extentStats, err := s.client.ReadExtentStats(nil, readExtentStats)
+	s.Nil(err)
+	s.NotNil(extentStats)
+	s.Equal(shared.ExtentStatus_OPEN, extentStats.GetExtentStats().GetStatus())
+	s.Equal(cgUUID, extentStats.GetExtentStats().GetConsumerGroupVisibility())
+}
+
 func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	extentUUID := uuid.New()
 	destUUID := uuid.New()

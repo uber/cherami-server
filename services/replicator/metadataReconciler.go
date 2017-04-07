@@ -618,7 +618,7 @@ func (r *metadataReconciler) reconcileCgExtentMetadata(localCgs []*shared.Consum
 	return nil
 }
 
-func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID string) (map[string]shared.ExtentStatus, error) {
+func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID string) (map[string]*shared.ExtentStats, error) {
 	var err error
 	remoteReplicator, err := r.replicator.replicatorclientFactory.GetReplicatorClient(zone)
 	if err != nil {
@@ -635,7 +635,7 @@ func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID 
 		Limit:            common.Int64Ptr(metadataListRequestPageSize),
 	}
 
-	extents := make(map[string]shared.ExtentStatus)
+	extents := make(map[string]*shared.ExtentStats)
 	for {
 		ctx, cancel := thrift.NewContext(remoteReplicatorCallTimeOut)
 		defer cancel()
@@ -646,7 +646,7 @@ func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID 
 		}
 
 		for _, ext := range res.GetExtentStatsList() {
-			extents[ext.GetExtent().GetExtentUUID()] = ext.GetStatus()
+			extents[ext.GetExtent().GetExtentUUID()] = ext
 		}
 
 		if len(res.GetNextPageToken()) == 0 {
@@ -659,14 +659,14 @@ func (r *metadataReconciler) getAllDestExtentInRemoteZone(zone string, destUUID 
 	return extents, nil
 }
 
-func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map[string]map[string]shared.ExtentStatus, error) {
+func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map[string]map[string]*shared.ExtentStats, error) {
 	listReq := &shared.ListExtentsStatsRequest{
 		DestinationUUID:  common.StringPtr(destUUID),
 		LocalExtentsOnly: common.BoolPtr(false),
 		Limit:            common.Int64Ptr(metadataListRequestPageSize),
 	}
 
-	perZoneExtents := make(map[string]map[string]shared.ExtentStatus)
+	perZoneExtents := make(map[string]map[string]*shared.ExtentStats)
 	for {
 		res, err := r.mClient.ListExtentsStats(nil, listReq)
 		if err != nil {
@@ -677,9 +677,9 @@ func (r *metadataReconciler) getAllDestExtentInCurrentZone(destUUID string) (map
 		for _, ext := range res.GetExtentStatsList() {
 			zone := ext.GetExtent().GetOriginZone()
 			if _, ok := perZoneExtents[zone]; !ok {
-				perZoneExtents[zone] = make(map[string]shared.ExtentStatus)
+				perZoneExtents[zone] = make(map[string]*shared.ExtentStats)
 			}
-			perZoneExtents[zone][ext.GetExtent().GetExtentUUID()] = ext.GetStatus()
+			perZoneExtents[zone][ext.GetExtent().GetExtentUUID()] = ext
 		}
 
 		if len(res.GetNextPageToken()) == 0 {
@@ -767,13 +767,14 @@ func (r *metadataReconciler) getAllCgExtentInCurrentZone(destUUID string, cgUUID
 	return cgExtents, nil
 }
 
-func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents map[string]shared.ExtentStatus, remoteExtents map[string]shared.ExtentStatus, remoteZone string) {
+func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents map[string]*shared.ExtentStats, remoteExtents map[string]*shared.ExtentStats, remoteZone string) {
 	var remoteDeletedLocalNotCount int64
 	var remoteConsumedLocalMissingCount int64
 	var remoteDeletedLocalMissingCount int64
 	var foundMissingCount int64
-	for remoteExtentUUID, remoteExtentStatus := range remoteExtents {
-		localExtentStatus, ok := localExtents[remoteExtentUUID]
+	for remoteExtentUUID, remoteExtentStats := range remoteExtents {
+		remoteExtentStatus := remoteExtentStats.GetStatus()
+		localExtentStats, ok := localExtents[remoteExtentUUID]
 		if !ok {
 			r.logger.WithFields(bark.Fields{
 				common.TagDst:          common.FmtDst(destUUID),
@@ -803,6 +804,12 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 					OriginZone:      common.StringPtr(remoteZone),
 				},
 			}
+
+			// if the remote extent has cg visibility set (a merged dlq extent), propagate that field too.
+			if remoteExtentStats.IsSetConsumerGroupVisibility() {
+				createRequest.ConsumerGroupVisibility = common.StringPtr(remoteExtentStats.GetConsumerGroupVisibility())
+			}
+
 			ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
 			defer cancel()
 			_, err := r.replicator.CreateExtent(ctx, createRequest)
@@ -816,6 +823,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 				continue
 			}
 		} else {
+			localExtentStatus := localExtentStats.GetStatus()
 			if (remoteExtentStatus == shared.ExtentStatus_SEALED || remoteExtentStatus == shared.ExtentStatus_CONSUMED) && localExtentStatus == shared.ExtentStatus_OPEN {
 				r.sealExtentInMetadata(destUUID, remoteExtentUUID)
 			}
@@ -833,9 +841,9 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 	// we act on it only after it has been missing for a certain period of time
 
 	remoteMissingExtents := make(map[string]struct{})
-	for localExtentUUID, localExtentStatus := range localExtents {
+	for localExtentUUID, localExtentStats := range localExtents {
 		// we're going to delete this extent soon locally so no need to act on it
-		if localExtentStatus == shared.ExtentStatus_CONSUMED || localExtentStatus == shared.ExtentStatus_DELETED {
+		if localExtentStats.GetStatus() == shared.ExtentStatus_CONSUMED || localExtentStats.GetStatus() == shared.ExtentStatus_DELETED {
 			continue
 		}
 		if _, ok := remoteExtents[localExtentUUID]; !ok {
@@ -853,7 +861,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 			delete(r.suspectMissingExtents, suspectExtent)
 		} else {
 			if time.Since(suspectExtentInfo.missingSince) > extentMissingDurationThreshold {
-				localStatus, ok := localExtents[suspectExtent]
+				localStats, ok := localExtents[suspectExtent]
 				if !ok {
 					r.logger.WithFields(bark.Fields{
 						common.TagDst: common.FmtDst(suspectExtentInfo.destUUID),
@@ -861,7 +869,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 					}).Error(`code bug!! suspect extent should in local extent map!!`)
 					continue
 				}
-				r.handleExtentDeletedOrMissingInRemote(suspectExtentInfo.destUUID, suspectExtent, localStatus, &remoteDeletedLocalNotCount)
+				r.handleExtentDeletedOrMissingInRemote(suspectExtentInfo.destUUID, suspectExtent, localStats.GetStatus(), &remoteDeletedLocalNotCount)
 			}
 		}
 	}

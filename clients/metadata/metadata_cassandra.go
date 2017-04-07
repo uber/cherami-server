@@ -2141,7 +2141,11 @@ func (s *CassandraMetadataService) CreateExtent(ctx thrift.Context, request *sha
 		}
 	}
 
-	epochMillisNow := s.createExtentImpl(extent, shared.ExtentStatus_OPEN, replicaStatsList, nil, batch)
+	var consumerGroupVisibility *string
+	if len(request.GetConsumerGroupVisibility()) > 0 {
+		consumerGroupVisibility = common.StringPtr(request.GetConsumerGroupVisibility())
+	}
+	epochMillisNow := s.createExtentImpl(extent, shared.ExtentStatus_OPEN, replicaStatsList, consumerGroupVisibility, batch)
 	if err := s.session.ExecuteBatch(batch); err != nil {
 		return nil, &shared.InternalServiceError{
 			Message: "CreateExtent: " + err.Error(),

@@ -526,22 +526,37 @@ func (monitor *extentStateMonitor) handleDestinationExtent(dstDesc *shared.Desti
 			monitor.fixOutOfSyncStoreExtents(dstDesc.GetDestinationUUID(), extent)
 		}
 	}
-
+	
 	if common.IsRemoteZoneExtent(extent.GetOriginZone(), context.localZone) {
-		// handle remote zone extent replication job failures
-		for _, storeID := range extent.GetStoreUUIDs() {
-			notify := false
-			state, duration := context.failureDetector.GetHostState(storeServiceID, storeID)
-			switch state {
-			case dfddHostStateUnknown:
-				notify = true
-			case dfddHostStateDown:
-				if duration >= maxHostRestartDuration {
-					notify = true
-				}
+		monitor.handleRemoteZoneDestinationExtent(dstDesc, isDLQ, extent)
+	}
+}
+
+// handleRemoteZoneDestinationExtent is the local handler for remote destination extent
+// this handler kicks off an event if the primary replicator for the extent is down
+func (monitor *extentStateMonitor) handleRemoteZoneDestinationExtent(dstDesc *shared.DestinationDescription, isDLQ bool, extent *metadata.DestinationExtent) {
+	context := monitor.context
+	// handle remote zone extent replication job failures
+	var failedStores []string
+	for _, storeID := range extent.GetStoreUUIDs() {
+		state, duration := context.failureDetector.GetHostState(common.StoreServiceName, storeID)
+		switch state {
+		case dfddHostStateUnknown:
+			failedStores = append(failedStores, storeID)
+		case dfddHostStateDown:
+			if duration >= maxHostRestartDuration {
+				failedStores = append(failedStores, storeID)
 			}
-			if notify {
-				event := NewStoreRemoteExtentReplicatorDownEvent(storeID, extent.GetExtentUUID())
+		}
+	}
+	if len(failedStores) > 0 {
+		stats, err := context.mm.ReadExtentStats(dstDesc.GetDestinationUUID(), extent.GetExtentUUID())
+		if err != nil {
+			return
+		}
+		for _, s := range failedStores {
+			if s == stats.GetExtent().GetRemoteExtentPrimaryStore() {
+				event := NewStoreRemoteExtentReplicatorDownEvent(s, extent.GetExtentUUID())
 				context.eventPipeline.Add(event)
 			}
 		}

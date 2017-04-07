@@ -91,7 +91,7 @@ func isExtentBeingSealed(context *Context, extentID string) bool {
 // isInputGoingDown returns true if the specified input host
 // is going down for planned maintenance or deployment
 func isInputGoingDown(context *Context, hostID string) bool {
-	state, _ := context.failureDetector.GetHostState(inputServiceID, hostID)
+	state, _ := context.failureDetector.GetHostState(common.StoreServiceName, hostID)
 	return state == dfddHostStateGoingDown
 }
 

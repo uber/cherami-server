@@ -547,9 +547,9 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	if metrics.IsSetNodeStatus() && request.IsSetRole() {
 		switch request.GetRole() {
 		case c.Role_IN:
-			context.failureDetector.ReportHostGoingDown(inputServiceID, hostID)
+			context.failureDetector.ReportHostGoingDown(common.InputServiceName, hostID)
 		case c.Role_STORE:
-			context.failureDetector.ReportHostGoingDown(storeServiceID, hostID)
+			context.failureDetector.ReportHostGoingDown(common.StoreServiceName, hostID)
 		}
 	}
 

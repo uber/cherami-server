@@ -236,11 +236,11 @@ func (s *ExtentStateMonitorSuite) TestStoreRemoteExtentReplicatorDownTrigger() {
 			Key:  storeIDs[i],
 			Type: common.HostAddedEvent,
 		}
-		dfdd.handleHostAddedEvent(storeServiceID, event)
+		dfdd.handleHostAddedEvent(common.StoreServiceName, event)
 	}
 
 	event := &common.RingpopListenerEvent{Key: storeIDs[0], Type: common.HostRemovedEvent}
-	dfdd.handleHostRemovedEvent(storeServiceID, event)
+	dfdd.handleHostRemovedEvent(common.StoreServiceName, event)
 	timeSource.Advance(maxHostRestartDuration)
 
 	// now invoke the extent monitor to make sure it enqueues the right event

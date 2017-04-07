@@ -39,16 +39,12 @@ type (
 		common.Daemon
 		// ReportHostGoingDown reports a host as going down
 		// for planned deployment or maintenance
-		ReportHostGoingDown(svcID serviceID, hostID string)
+		ReportHostGoingDown(service string, hostID string)
 		// GetHostState returns a tuple representing the current
 		// dfdd host state and the duration for which the host
 		// has been in that state
-		GetHostState(svcID serviceID, hostID string) (dfddHostState, time.Duration)
+		GetHostState(service string, hostID string) (dfddHostState, time.Duration)
 	}
-
-	// serviceID is an enum for identifying
-	// cherami service [input/output/store]
-	serviceID int
 
 	dfddHost struct {
 		state               dfddHostState
@@ -74,12 +70,6 @@ type (
 )
 
 var errUnknownService = errors.New("dfdd: unknown service")
-
-const (
-	inputServiceID serviceID = iota
-	outputServiceID
-	storeServiceID
-)
 
 const (
 	listenerChannelSize = 32
@@ -169,8 +159,8 @@ func (dfdd *dfddImpl) Stop() {
 // GetHostState returns a tuple representing the current
 // dfdd host state and the duration for which the host
 // has been in that state
-func (dfdd *dfddImpl) GetHostState(svcID serviceID, hostID string) (dfddHostState, time.Duration) {
-	hosts, err := dfdd.getHosts(svcID)
+func (dfdd *dfddImpl) GetHostState(service string, hostID string) (dfddHostState, time.Duration) {
+	hosts, err := dfdd.getHosts(service)
 	if err != nil {
 		return dfddHostStateUnknown, time.Duration(0)
 	}
@@ -183,17 +173,17 @@ func (dfdd *dfddImpl) GetHostState(svcID serviceID, hostID string) (dfddHostStat
 
 // ReportHostGoingDown reports a host as going down
 // for planned deployment or maintenance
-func (dfdd *dfddImpl) ReportHostGoingDown(svcID serviceID, hostID string) {
+func (dfdd *dfddImpl) ReportHostGoingDown(service string, hostID string) {
 	event := &common.RingpopListenerEvent{
 		Key:  hostID,
 		Type: hostGoingDownEvent,
 	}
-	switch svcID {
-	case inputServiceID:
+	switch service {
+	case common.InputServiceName:
 		dfdd.inputListenerCh <- event
 		dfdd.context.log.WithField(common.TagIn, hostID).
 			Info("input host reported as going down for planned maintenance")
-	case storeServiceID:
+	case common.StoreServiceName:
 		dfdd.storeListenerCh <- event
 		dfdd.context.log.WithField(common.TagStor, hostID).
 			Info("store host reported as going down for planned maintenance")
@@ -212,9 +202,9 @@ func (dfdd *dfddImpl) run() {
 	for {
 		select {
 		case e := <-dfdd.inputListenerCh:
-			dfdd.handleListenerEvent(inputServiceID, e)
+			dfdd.handleListenerEvent(common.InputServiceName, e)
 		case e := <-dfdd.storeListenerCh:
-			dfdd.handleListenerEvent(storeServiceID, e)
+			dfdd.handleListenerEvent(common.StoreServiceName, e)
 		case <-ticker.C:
 			dfdd.handleTicker()
 			ticker.Reset(stateMachineTickerInterval)
@@ -227,7 +217,7 @@ func (dfdd *dfddImpl) run() {
 
 func (dfdd *dfddImpl) handleTicker() {
 	now := dfdd.timeSource.Now().UnixNano()
-	hosts, _ := dfdd.getHosts(storeServiceID)
+	hosts, _ := dfdd.getHosts(common.StoreServiceName)
 	forgotten := make(map[string]struct{}, 4)
 	for k, v := range hosts {
 		if v.state == dfddHostStateDown {
@@ -247,11 +237,11 @@ func (dfdd *dfddImpl) handleTicker() {
 	for k := range forgotten {
 		delete(copy, k)
 	}
-	dfdd.putHosts(storeServiceID, copy)
+	dfdd.putHosts(common.StoreServiceName, copy)
 }
 
-func (dfdd *dfddImpl) handleHostAddedEvent(id serviceID, event *common.RingpopListenerEvent) {
-	hosts, err := dfdd.getHosts(id)
+func (dfdd *dfddImpl) handleHostAddedEvent(service string, event *common.RingpopListenerEvent) {
+	hosts, err := dfdd.getHosts(service)
 	if err != nil {
 		return
 	}
@@ -262,12 +252,12 @@ func (dfdd *dfddImpl) handleHostAddedEvent(id serviceID, event *common.RingpopLi
 	}
 	copy := deepCopyMap(hosts)
 	copy[event.Key] = newDFDDHost(dfddHostStateUP, dfdd.timeSource)
-	dfdd.putHosts(id, copy)
+	dfdd.putHosts(service, copy)
 }
 
-func (dfdd *dfddImpl) handleHostRemovedEvent(svcID serviceID, event *common.RingpopListenerEvent) {
+func (dfdd *dfddImpl) handleHostRemovedEvent(service string, event *common.RingpopListenerEvent) {
 
-	hosts, err := dfdd.getHosts(svcID)
+	hosts, err := dfdd.getHosts(service)
 	if err != nil {
 		return
 	}
@@ -279,25 +269,25 @@ func (dfdd *dfddImpl) handleHostRemovedEvent(svcID serviceID, event *common.Ring
 
 	var failedEvent Event
 	copy := deepCopyMap(hosts)
-	switch svcID {
-	case inputServiceID:
+	switch service {
+	case common.InputServiceName:
 		delete(copy, event.Key)
 		failedEvent = NewInputHostFailedEvent(event.Key)
-	case storeServiceID:
+	case common.StoreServiceName:
 		dfddHost := newDFDDHost(dfddHostStateDown, dfdd.timeSource)
 		copy[event.Key] = dfddHost
 		failedEvent = NewStoreHostFailedEvent(event.Key)
 	}
 
-	dfdd.putHosts(svcID, copy)
+	dfdd.putHosts(service, copy)
 	if !dfdd.context.eventPipeline.Add(failedEvent) {
 		dfdd.context.log.WithField(common.TagEvent, event).Error("failed to enqueue event")
 	}
 }
 
-func (dfdd *dfddImpl) handleHostGoingDownEvent(svcID serviceID, event *common.RingpopListenerEvent) {
+func (dfdd *dfddImpl) handleHostGoingDownEvent(service string, event *common.RingpopListenerEvent) {
 
-	hosts, err := dfdd.getHosts(svcID)
+	hosts, err := dfdd.getHosts(service)
 	if err != nil {
 		return
 	}
@@ -309,36 +299,36 @@ func (dfdd *dfddImpl) handleHostGoingDownEvent(svcID serviceID, event *common.Ri
 
 	copy := deepCopyMap(hosts)
 	copy[event.Key] = newDFDDHost(dfddHostStateGoingDown, dfdd.timeSource)
-	dfdd.putHosts(svcID, copy)
+	dfdd.putHosts(service, copy)
 }
 
-func (dfdd *dfddImpl) handleListenerEvent(svcID serviceID, event *common.RingpopListenerEvent) {
+func (dfdd *dfddImpl) handleListenerEvent(service string, event *common.RingpopListenerEvent) {
 	switch event.Type {
 	case common.HostAddedEvent:
-		dfdd.handleHostAddedEvent(svcID, event)
+		dfdd.handleHostAddedEvent(service, event)
 	case common.HostRemovedEvent:
-		dfdd.handleHostRemovedEvent(svcID, event)
+		dfdd.handleHostRemovedEvent(service, event)
 	case hostGoingDownEvent:
-		dfdd.handleHostGoingDownEvent(svcID, event)
+		dfdd.handleHostGoingDownEvent(service, event)
 	}
 }
 
-func (dfdd *dfddImpl) getHosts(svcID serviceID) (map[string]dfddHost, error) {
-	switch svcID {
-	case inputServiceID:
+func (dfdd *dfddImpl) getHosts(service string) (map[string]dfddHost, error) {
+	switch service {
+	case common.InputServiceName:
 		return dfdd.inputHosts.Load().(map[string]dfddHost), nil
-	case storeServiceID:
+	case common.StoreServiceName:
 		return dfdd.storeHosts.Load().(map[string]dfddHost), nil
 	default:
 		return nil, errUnknownService
 	}
 }
 
-func (dfdd *dfddImpl) putHosts(svcID serviceID, hosts map[string]dfddHost) {
-	switch svcID {
-	case inputServiceID:
+func (dfdd *dfddImpl) putHosts(service string, hosts map[string]dfddHost) {
+	switch service {
+	case common.InputServiceName:
 		dfdd.inputHosts.Store(hosts)
-	case storeServiceID:
+	case common.StoreServiceName:
 		dfdd.storeHosts.Store(hosts)
 	default:
 		return

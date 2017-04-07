@@ -89,14 +89,14 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.Equal(0, s.eventPipeline.numStoreRemoteExtentReplicatorDownEvents(), "unexpected events generated")
 
 	for _, h := range inHostIDs {
-		state, _ := s.dfdd.GetHostState(inputServiceID, h)
+		state, _ := s.dfdd.GetHostState(common.InputServiceName, h)
 		s.True(s.eventPipeline.isInputHostFailed(h), "Dfdd failed to detect in host failure")
 		s.Equal(dfddHostStateUnknown, state, "dfdd failed to delete failed input host entry")
 	}
 
 	s.timeSource.Advance(time.Duration(downToForgottenDuration) - time.Millisecond)
 	for _, h := range storeIDs {
-		state, d := s.dfdd.GetHostState(storeServiceID, h)
+		state, d := s.dfdd.GetHostState(common.StoreServiceName, h)
 		s.True(s.eventPipeline.isStoreHostFailed(h), "Dfdd failed to detect store host failure")
 		s.Equal(dfddHostStateDown, state, "dfdd forgot about a storehost pre-maturely")
 		s.Equal(time.Duration(downToForgottenDuration)-time.Millisecond, d, "getHostState() returned wrong duration")
@@ -104,7 +104,7 @@ func (s *DfddTestSuite) TestFailureDetection() {
 
 	s.timeSource.Advance(time.Millisecond)
 	for _, h := range storeIDs {
-		cond := func() bool { s, _ := s.dfdd.GetHostState(storeServiceID, h); return s == dfddHostStateUnknown }
+		cond := func() bool { s, _ := s.dfdd.GetHostState(common.StoreServiceName, h); return s == dfddHostStateUnknown }
 		succ := common.SpinWaitOnCondition(cond, time.Second*10)
 		s.True(succ, "dfdd failed to remove store host entry after downToForgottenDuration")
 	}
@@ -113,17 +113,17 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.rpm.NotifyListeners(common.InputServiceName, inHostIDs[0], common.HostAddedEvent)
 	s.rpm.NotifyListeners(common.StoreServiceName, storeIDs[0], common.HostAddedEvent)
 	succ = common.SpinWaitOnCondition(func() bool {
-		h1, _ := s.dfdd.GetHostState(inputServiceID, inHostIDs[0])
-		h2, _ := s.dfdd.GetHostState(storeServiceID, storeIDs[0])
+		h1, _ := s.dfdd.GetHostState(common.InputServiceName, inHostIDs[0])
+		h2, _ := s.dfdd.GetHostState(common.StoreServiceName, storeIDs[0])
 		return h1 == dfddHostStateUP && h2 == dfddHostStateUP
 	}, 10*time.Second)
 	s.True(succ, "dfdd failed to discover new hosts")
 
-	s.dfdd.ReportHostGoingDown(inputServiceID, inHostIDs[0])
-	s.dfdd.ReportHostGoingDown(storeServiceID, storeIDs[0])
+	s.dfdd.ReportHostGoingDown(common.InputServiceName, inHostIDs[0])
+	s.dfdd.ReportHostGoingDown(common.StoreServiceName, storeIDs[0])
 	succ = common.SpinWaitOnCondition(func() bool {
-		h1, _ := s.dfdd.GetHostState(inputServiceID, inHostIDs[0])
-		h2, _ := s.dfdd.GetHostState(storeServiceID, storeIDs[0])
+		h1, _ := s.dfdd.GetHostState(common.InputServiceName, inHostIDs[0])
+		h2, _ := s.dfdd.GetHostState(common.StoreServiceName, storeIDs[0])
 		return h1 == dfddHostStateGoingDown && h2 == dfddHostStateGoingDown
 	}, 10*time.Second)
 	s.True(succ, "dfdd failed to discover new hosts")

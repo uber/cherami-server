@@ -80,7 +80,7 @@ func (s *KafkaLivenessIntegrationSuite) TestKafkaLiveness() {
 	if err != nil {
 		return
 	}
-	
+
 	defer func() {
 		err := consumer.Close()
 		s.Assert().Nil(err)

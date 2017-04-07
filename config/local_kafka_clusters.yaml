@@ -1,0 +1,7 @@
+clusters:
+  local:
+    brokers:
+      - localhost
+    zookeepers:
+      - localhost
+    chroot:

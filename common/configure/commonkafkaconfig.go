@@ -20,9 +20,16 @@
 
 package configure
 
+import (
+	"io/ioutil"
+	log "github.com/Sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+)
+
 // KafkaConfig holds the configuration for the Kafka client
 type KafkaConfig struct {
 	kafkaClusterConfigFile string `yaml:kafkaClusterConfigFile`
+	clustersConfig clustersConfig
 }
 
 type clustersConfig struct {
@@ -30,6 +37,7 @@ type clustersConfig struct {
 }
 
 type cluster struct {
+	name       string
 	brokers    []string `yaml:brokers`
 	zookeepers []string `yaml:zookeepers`
 	chroot     string   `yaml:chroot`
@@ -37,5 +45,33 @@ type cluster struct {
 
 // NewCommonKafkaConfig instantiates a Kafka config
 func NewCommonKafkaConfig() *KafkaConfig {
-	return &KafkaConfig{}
+	config := &KafkaConfig{}
+	config.loadClusterConfigFile()
+	return config
+}
+
+// GetKafkaClusters returns all kafka cluster names
+func (r *KafkaConfig) GetKafkaClusters() []string {
+	var ret = []string{}
+	for _, cluster := range r.clustersConfig.clusters {
+		ret = append(ret, cluster.name)
+	}
+	return ret
+}
+
+func (r *KafkaConfig) loadClusterConfigFile() {
+	// TODO do we need to detect file change and reload on file change
+	if len(r.kafkaClusterConfigFile) == 0 {
+		log.Warnf("Could not load kafka configu because kafka cluster config file is not configured")
+		return
+	}
+
+	contents, err := ioutil.ReadFile(r.kafkaClusterConfigFile)
+	if err != nil {
+		log.Warnf("Failed to load kafka cluster config file %s: %v", r.kafkaClusterConfigFile, err)
+	}
+
+	if err := yaml.Unmarshal(contents, &r.clustersConfig); err != nil {
+		log.Warnf("Failed to parse kafka cluster config file %s: %v", r.kafkaClusterConfigFile, err)
+	}
 }

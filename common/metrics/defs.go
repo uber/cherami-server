@@ -308,8 +308,8 @@ const (
 	InputFailedEventScope
 	// StoreFailedEventScope represents event handler
 	StoreFailedEventScope
-	// StoreRemoteExtentReplicatorDownEventScope represents event handler
-	StoreRemoteExtentReplicatorDownEventScope
+	// RemoteExtentPrimaryStoreDownEventScope represents event handler
+	RemoteExtentPrimaryStoreDownEventScope
 	// StoreExtentStatusOutOfSyncEventScope represents an event handler
 	StoreExtentStatusOutOfSyncEventScope
 	// StartReplicationForRemoteZoneExtentScope represents event handler
@@ -617,7 +617,7 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		OutputNotifyEventScope:                    {operation: "OutputNotifyEvent"},
 		InputFailedEventScope:                     {operation: "InputFailedEvent"},
 		StoreFailedEventScope:                     {operation: "StoreFailedEvent"},
-		StoreRemoteExtentReplicatorDownEventScope: {operation: "StoreRemoteExtentReplicatorDownEvent"},
+		RemoteExtentPrimaryStoreDownEventScope:    {operation: "RemoteExtentPrimaryStoreDownEvent"},
 		StoreExtentStatusOutOfSyncEventScope:      {operation: "StoreExtentStatusOutOfSyncEvent"},
 		StartReplicationForRemoteZoneExtentScope:  {operation: "StartReplicationForRemoteZoneExtent"},
 		QueueDepthBacklogCGScope:                  {operation: "QueueDepthBacklog"},

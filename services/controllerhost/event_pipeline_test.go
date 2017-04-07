@@ -299,7 +299,7 @@ func (s *EventPipelineSuite) TestStoreHostFailedEvent() {
 	}
 }
 
-func (s *EventPipelineSuite) TestStoreRemoteExtentReplicatorDownEvent() {
+func (s *EventPipelineSuite) TestRemoteExtentPrimaryStoreDownEvent() {
 
 	path := s.generateName("/cherami/event-test")
 	dstDesc, err := s.createDestination(path)
@@ -335,7 +335,7 @@ func (s *EventPipelineSuite) TestStoreRemoteExtentReplicatorDownEvent() {
 	}
 	s.mcp.context.rpm = rpm
 
-	event := NewStoreRemoteExtentReplicatorDownEvent(storeIDs[1], extentIDs[0])
+	event := NewRemoteExtentPrimaryStoreDownEvent(storeIDs[1], extentIDs[0])
 	s.mcp.context.eventPipeline.Add(event)
 
 	cond := func() bool {

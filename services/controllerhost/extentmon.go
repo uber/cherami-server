@@ -526,15 +526,15 @@ func (monitor *extentStateMonitor) handleDestinationExtent(dstDesc *shared.Desti
 			monitor.fixOutOfSyncStoreExtents(dstDesc.GetDestinationUUID(), extent)
 		}
 	}
-	
+
 	if common.IsRemoteZoneExtent(extent.GetOriginZone(), context.localZone) {
-		monitor.handleRemoteZoneDestinationExtent(dstDesc, isDLQ, extent)
+		monitor.handleRemoteZoneDestinationExtent(dstDesc, extent)
 	}
 }
 
 // handleRemoteZoneDestinationExtent is the local handler for remote destination extent
-// this handler kicks off an event if the primary replicator for the extent is down
-func (monitor *extentStateMonitor) handleRemoteZoneDestinationExtent(dstDesc *shared.DestinationDescription, isDLQ bool, extent *metadata.DestinationExtent) {
+// this handler kicks off an event if the primary store for the extent is down
+func (monitor *extentStateMonitor) handleRemoteZoneDestinationExtent(dstDesc *shared.DestinationDescription, extent *metadata.DestinationExtent) {
 	context := monitor.context
 	// handle remote zone extent replication job failures
 	var failedStores []string
@@ -556,7 +556,7 @@ func (monitor *extentStateMonitor) handleRemoteZoneDestinationExtent(dstDesc *sh
 		}
 		for _, s := range failedStores {
 			if s == stats.GetExtent().GetRemoteExtentPrimaryStore() {
-				event := NewStoreRemoteExtentReplicatorDownEvent(s, extent.GetExtentUUID())
+				event := NewRemoteExtentPrimaryStoreDownEvent(s, extent.GetExtentUUID())
 				context.eventPipeline.Add(event)
 			}
 		}

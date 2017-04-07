@@ -80,11 +80,12 @@ type dfddHostState int
 /*
  * State Transitions
  *
- *        Unknown  -- rp.HostAddedEvent           --> UP
- *             UP  -- loadReporter.HostGoingDown  --> GoingDown
- *             UP  -- rp.HostRemovedEvent         --> Down
- *      GoingDown  -- rp.HostRemovedEvent         --> Down
- *           Down  -- 2 hours                    --> Forgotten/Removed
+ *          Unknown  -- rp.HostAddedEvent           --> UP
+ *               UP  -- loadReporter.HostGoingDown  --> GoingDown
+ *               UP  -- rp.HostRemovedEvent         --> Down
+ *        GoingDown  -- rp.HostRemovedEvent         --> Down
+ *  Down (storeHost) -- 2 hours                     --> Forgotten/Removed
+ *  Down (inputHost) -- 0 hours                     --> Forgotten/Removed
  */
 const (
 	dfddHostStateUnknown dfddHostState = iota
@@ -100,6 +101,12 @@ const hostGoingDownEvent common.RingpopEventType = 99
 
 // how long remains in down state before its forgotten forever
 const downToForgottenDuration = int64(time.Hour * 2)
+
+// max time host can be down during deployments / restarts etc
+const maxHostRestartDuration = 5 * time.Minute
+
+// initial capacity of the hosts map
+const hostMapInitialCapacity = 8
 
 // periodic ticker interval for the dfdd state machine
 var stateMachineTickerInterval = time.Minute * 5
@@ -342,8 +349,12 @@ func newDFDDHost(state dfddHostState, timeSource common.TimeSource) dfddHost {
 	}
 }
 
+// creates a new map and copies the key/values from the
+// given map into the new map. The capacity of the new
+// map will the max(hostMapInitialCapacity, len(src))
+// This is to avoid map reallocations later
 func deepCopyMap(src map[string]dfddHost) map[string]dfddHost {
-	copy := make(map[string]dfddHost, common.MaxInt(len(src), 8))
+	copy := make(map[string]dfddHost, common.MaxInt(len(src), hostMapInitialCapacity))
 	for k, v := range src {
 		copy[k] = v
 	}

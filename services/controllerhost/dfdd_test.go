@@ -128,6 +128,10 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	}, 10*time.Second)
 	s.True(succ, "dfdd failed to discover new hosts")
 
+	s.context.failureDetector = s.dfdd
+	succ = isInputGoingDown(s.context, inHostIDs[0])
+	s.True(succ, "isInputGoingDown() failed")
+
 	s.dfdd.Stop()
 	stateMachineTickerInterval = oldStateMachineInterval
 }

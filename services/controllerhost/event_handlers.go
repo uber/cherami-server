@@ -99,11 +99,11 @@ type (
 		storeIDs []string
 	}
 
-	// StoreRemoteExtentReplicatorDownEvent is triggered
+	// RemoteExtentPrimaryStoreDownEvent is triggered
 	// for an extent when the primary store host that's
 	// responsible for replicating that extent from origin
 	// zone is down
-	StoreRemoteExtentReplicatorDownEvent struct {
+	RemoteExtentPrimaryStoreDownEvent struct {
 		eventBase
 		storeID  string
 		extentID string
@@ -163,9 +163,6 @@ const resultCacheRefreshMaxWaitTime = int64(500 * time.Millisecond)
 
 // how long to wait for an input host to respond to a drain command
 const drainExtentTimeout = time.Minute
-
-// max time host can be down during deployments / restarts etc
-const maxHostRestartDuration = 5 * time.Minute
 
 var (
 	sealExtentInitialCallTimeout = 2 * time.Second
@@ -262,9 +259,9 @@ func NewExtentDownEvent(sealSeq int64, dstID string, extentID string) Event {
 	}
 }
 
-// NewStoreRemoteExtentReplicatorDownEvent creates and returns an StoreRemoteExtentReplicatorDownEvent
-func NewStoreRemoteExtentReplicatorDownEvent(storeID string, extentID string) Event {
-	return &StoreRemoteExtentReplicatorDownEvent{
+// NewRemoteExtentPrimaryStoreDownEvent creates and returns an StoreRemoteExtentReplicatorDownEvent
+func NewRemoteExtentPrimaryStoreDownEvent(storeID string, extentID string) Event {
+	return &RemoteExtentPrimaryStoreDownEvent{
 		storeID:  storeID,
 		extentID: extentID,
 	}
@@ -585,20 +582,20 @@ func (event *StoreHostFailedEvent) Handle(context *Context) error {
 
 }
 
-// Handle handles a StoreRemoteExtentReplicatorDownEvent. This event is
+// Handle handles a RemoteExtentPrimaryStoreDownEvent. This event is
 // triggered when a store host that acts as the primary replicator for
 // an extent is down for a period greater than a typical deployment
 // interval (~5 mins max). The action taken is to assign a new
 // primary replicator for the affected extent
-func (event *StoreRemoteExtentReplicatorDownEvent) Handle(context *Context) error {
-	sw := context.m3Client.StartTimer(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerLatencyTimer)
+func (event *RemoteExtentPrimaryStoreDownEvent) Handle(context *Context) error {
+	sw := context.m3Client.StartTimer(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerLatencyTimer)
 	defer sw.Stop()
-	context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerRequests)
+	context.m3Client.IncCounter(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerRequests)
 
 	extStats, err := context.mm.ReadStoreExtentStats(event.extentID, event.storeID)
 	if err != nil {
-		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerErrMetadataReadCounter)
-		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerFailures)
+		context.m3Client.IncCounter(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerErrMetadataReadCounter)
+		context.m3Client.IncCounter(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerFailures)
 		context.log.WithFields(bark.Fields{
 			common.TagErr:  err,
 			common.TagStor: event.storeID,
@@ -650,8 +647,8 @@ func (event *StoreRemoteExtentReplicatorDownEvent) Handle(context *Context) erro
 
 	_, err = context.mm.UpdateRemoteExtentPrimaryStore(extent.GetDestinationUUID(), extent.GetExtentUUID(), newRemoteExtentPrimaryStore)
 	if err != nil {
-		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerErrMetadataUpdateCounter)
-		context.m3Client.IncCounter(metrics.StoreRemoteExtentReplicatorDownEventScope, metrics.ControllerFailures)
+		context.m3Client.IncCounter(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerErrMetadataUpdateCounter)
+		context.m3Client.IncCounter(metrics.RemoteExtentPrimaryStoreDownEventScope, metrics.ControllerFailures)
 		lclog.WithField(common.TagErr, err).Warn(`failed to update primary store in metadata`)
 		return nil
 	}

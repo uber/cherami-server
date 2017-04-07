@@ -502,7 +502,7 @@ func (s *McpSuite) TestGetOutputHosts() {
 	extents := make(map[string]bool)
 
 	resp, err := s.mcp.GetOutputHosts(nil, &c.GetOutputHostsRequest{DestinationUUID: common.StringPtr(dstUUID), ConsumerGroupUUID: common.StringPtr(cgUUID)})
-	s.Nil(err, "GetOutputHosts() failed on a new consumer group")
+	s.Nil(err, fmt.Sprintf("GetOutputHosts() failed on a new consumer group: %v", err))
 	s.Equal(1, len(resp.GetOutputHostIds()), "GetOutputHosts() returned more than one out host")
 
 	outputHost, err := s.mockrpm.FindHostForAddr(common.OutputServiceName, resp.OutputHostIds[0])

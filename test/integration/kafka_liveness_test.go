@@ -53,6 +53,10 @@ func (s *KafkaLivenessIntegrationSuite) TestKafkaLiveness() {
 	producer, err := sarama.NewSyncProducer(brokers, config)
 	s.Assert().Nil(err)
 
+	if err != nil {
+		return
+	}
+
 	defer func() {
 		err := producer.Close()
 		s.Assert().Nil(err)
@@ -73,6 +77,10 @@ func (s *KafkaLivenessIntegrationSuite) TestKafkaLiveness() {
 	consumer, err := sarama.NewConsumer(brokers, config)
 	s.Assert().Nil(err)
 
+	if err != nil {
+		return
+	}
+	
 	defer func() {
 		err := consumer.Close()
 		s.Assert().Nil(err)

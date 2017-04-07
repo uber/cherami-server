@@ -37,6 +37,8 @@ imports:
   - service/sts
 - name: github.com/benbjohnson/clock
   version: 7dc76406b6d3c05b5f71a86293cbcf3c4ea03b19
+- name: github.com/bsm/sarama-cluster
+  version: 82cfa5798a3898e4cf7d913f4a448911af83c3f5  
 - name: github.com/cactus/go-statsd-client
   version: d8eabe07bc70ff9ba6a56836cde99d1ea3d005f7
   subpackages:

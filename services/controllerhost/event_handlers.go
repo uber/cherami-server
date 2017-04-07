@@ -259,7 +259,7 @@ func NewExtentDownEvent(sealSeq int64, dstID string, extentID string) Event {
 	}
 }
 
-// NewRemoteExtentPrimaryStoreDownEvent creates and returns an StoreRemoteExtentReplicatorDownEvent
+// NewRemoteExtentPrimaryStoreDownEvent creates and returns an RemoteExtentPrimaryStoreDownEvent
 func NewRemoteExtentPrimaryStoreDownEvent(storeID string, extentID string) Event {
 	return &RemoteExtentPrimaryStoreDownEvent{
 		storeID:  storeID,

@@ -23,14 +23,17 @@ package configure
 import (
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"sort"
 )
 
 func TestLoadKafkaConfig(t *testing.T) {
 	KafkaConfig := NewCommonKafkaConfig()
 	KafkaConfig.KafkaClusterConfigFile = "../../config/local_kafka_clusters.yaml"
 	clusters := KafkaConfig.GetKafkaClusters()
-	assert.Equal(t, 1, len(clusters))
+	sort.Strings(clusters)
+	assert.Equal(t, 2, len(clusters))
 	assert.Equal(t, "local", clusters[0])
+	assert.Equal(t, "test", clusters[1])
 
 	clusterConfig, ok := KafkaConfig.GetKafkaClusterConfig("local")
 	assert.True(t, ok)
@@ -45,4 +48,14 @@ func TestLoadKafkaConfig(t *testing.T) {
 	assert.Equal(t, 0, len(clusterConfig2.Brokers))
 	assert.Equal(t, 0, len(clusterConfig2.Zookeepers))
 	assert.Equal(t, 0, len(clusterConfig2.Chroot))
+
+	clusterConfig3, ok3 := KafkaConfig.GetKafkaClusterConfig("test")
+	assert.True(t, ok3)
+	assert.Equal(t, 2, len(clusterConfig3.Brokers))
+	assert.Equal(t, "server1", clusterConfig3.Brokers[0])
+	assert.Equal(t, "server2", clusterConfig3.Brokers[1])
+	assert.Equal(t, 2, len(clusterConfig3.Zookeepers))
+	assert.Equal(t, "server3", clusterConfig3.Zookeepers[0])
+	assert.Equal(t, "server4", clusterConfig3.Zookeepers[1])
+	assert.Equal(t, "test", clusterConfig3.Chroot)
 }

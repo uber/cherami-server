@@ -38,18 +38,22 @@ const (
 	dstTypeDLQ   = dstType(-2) // metadata doesn't have this type
 	dstTypePlain = dstType(shared.DestinationType_PLAIN)
 	dstTypeTimer = dstType(shared.DestinationType_TIMER)
+	dstTypeKafka = dstType(shared.DestinationType_KAFKA)
 )
 
 const (
-	minOpenExtentsForDstDLQ                      = 1
-	maxExtentsToConsumeForDstDLQ                 = 2
-	minOpenExtentsForDstTimer                    = 2
 	defaultMinOpenPublishExtents                 = 2 // Only used if the extent configuration can't be retrieved
 	defaultRemoteExtents                         = 2
 	defaultMinConsumeExtents                     = defaultMinOpenPublishExtents * 2
-	maxExtentsToConsumeForDstTimer               = 64 // timer dst need to consume from all open extents
-	minExtentsToConsumeForSingleCGVisibleExtents = 1
 	replicatorCallTimeout                        = 20 * time.Second
+	minOpenExtentsForDstDLQ                      = 1
+	maxExtentsToConsumeForDstDLQ                 = 2
+	minOpenExtentsForDstTimer                    = 2
+	maxExtentsToConsumeForDstTimer               = 64 // timer dst need to consume from all open extents
+	numKafkaExtentsForDstKafka                   = 2
+	maxDlqExtentsForDstKafka                     = 2
+	maxExtentsToConsumeForDstKafka               = numKafkaExtentsForDstKafka + maxDlqExtentsForDstKafka
+	minExtentsToConsumeForSingleCGVisibleExtents = 1
 )
 
 var (
@@ -96,11 +100,20 @@ func getLockTimeout(result *resultCacheReadResult) time.Duration {
 }
 
 func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
+
+	// special-case for Kafka destinations that do not really have
+	// a physical store (in Cherami), indicated by a placeholder.
+	if len(storeIDs) == 1 && storeIDs[0] == kafkaPhantomStoreUUID {
+		return true
+	}
+
 	for _, id := range storeIDs {
+
 		if context.rpm.IsHostHealthy(common.StoreServiceName, id) {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -216,6 +229,8 @@ func getDstType(desc *shared.DestinationDescription) dstType {
 		return dstTypePlain
 	case shared.DestinationType_TIMER:
 		return dstTypeTimer
+	case shared.DestinationType_KAFKA:
+		return dstTypeKafka
 	}
 	return dstTypePlain
 }
@@ -333,6 +348,29 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 
 		lclLg.Info("Called replicator to Create Extent")
 	}
+
+	return
+}
+
+func createPhantomExtent(context *Context, dstUUID string, inputhostUUID string, storeUUIDs []string, m3Scope int) (extentUUID string, err error) {
+
+	extentUUID = uuid.New()
+
+	// create a 'phantom' extent and assign given inputhost/stores
+	if _, err = context.mm.CreateExtent(dstUUID, extentUUID, inputhostUUID, storeUUIDs); err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataUpdateCounter)
+		return
+	}
+
+	lclLg := context.log.WithFields(bark.Fields{
+		common.TagDst: common.FmtDst(dstUUID),
+		common.TagExt: common.FmtExt(extentUUID),
+	})
+
+	lclLg.WithFields(bark.Fields{
+		common.TagIn:   inputhostUUID,
+		common.TagStor: storeUUIDs,
+	}).Info("Extent (for Kafka destination) created locally")
 
 	return
 }

@@ -34,6 +34,10 @@ import (
 
 const failBackoffInterval = int64(time.Millisecond * 100)
 
+// Define phantom store/inputhost for extents belonging to Kafka destinations
+var kafkaPhantomStoreUUID = "00000000-0000-0000-0000-000000000000"
+var kafkaPhantomInputUUID = "00000000-0000-0000-0000-000000000000"
+
 var (
 	// TTL after which the cache entry is due for refresh
 	// The entry won't be evicted immediately afte the TTL
@@ -70,11 +74,19 @@ func newCGExtentsByCategory() *cgExtentsByCategory {
 }
 
 func maxExtentsToConsumeForDst(context *Context, dstPath, cgName string, dstType dstType, zoneConfigs []*shared.DestinationZoneConfig) int {
+
 	switch dstType {
 	case dstTypeTimer:
 		return maxExtentsToConsumeForDstTimer
+
 	case dstTypeDLQ:
 		return maxExtentsToConsumeForDstDLQ
+
+	case dstTypeKafka:
+		return maxExtentsToConsumeForDstKafka
+
+	default:
+		// fallthrough to using dynamic config, etc
 	}
 
 	logFn := func() bark.Logger {
@@ -129,6 +141,12 @@ func hostInfoMapToSlice(hosts map[string]*common.HostInfo) ([]string, []string) 
 }
 
 func pickOutputHostForStoreHosts(context *Context, storeUUIDs []string) (*common.HostInfo, error) {
+
+	// special-case kafka phantom extents, that don't use Cherami stores
+	if len(storeUUIDs) == 1 && storeUUIDs[0] == kafkaPhantomStoreUUID {
+		return context.placement.PickOutputHost(nil)
+	}
+
 	var storeHosts []*common.HostInfo
 	for _, uuid := range storeUUIDs {
 		if addr, err := context.rpm.ResolveUUID(common.StoreServiceName, uuid); err != nil {
@@ -224,10 +242,10 @@ func repairExtentsAndUpdateOutputHosts(
 	m3Scope int) int {
 
 	nRepaired := 0
-	for i := 0; i < len(cgExtents.openBad); i++ {
-		toRepair := cgExtents.openBad[i]
-		outHost := reassignOutHost(context, dstUUID, cgUUID, toRepair, m3Scope)
-		if outHost != nil {
+	for _, toRepair := range cgExtents.openBad {
+
+		if outHost := reassignOutHost(context, dstUUID, cgUUID, toRepair, m3Scope); outHost != nil {
+
 			outputHosts[outHost.UUID] = outHost
 			event := NewOutputHostNotificationEvent(dstUUID, cgUUID, outHost.UUID,
 				notifyExtentRepaired, toRepair.GetExtentUUID(), a.NotificationType_HOST)
@@ -239,6 +257,7 @@ func repairExtentsAndUpdateOutputHosts(
 				}).Error("Dropping OutputHostNotificationEvent after repairing extent, event queue full")
 			}
 		}
+
 		nRepaired++
 		cgExtents.openHealthy[toRepair.GetExtentUUID()] = struct{}{}
 		// Limit the repair to a few extents per call
@@ -346,9 +365,11 @@ func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string,
 		// if atleast one store is healthy, this
 		// extent is consumable, inc the consumable count
 		if !isAnyStoreHealthy(context, ext.GetStoreUUIDs()) {
+			// cgExtents.openBad = append(cgExtents.openBad, ext) // FIXME: put this in "bad" list?
 			continue
 		}
 
+		// FIXME: replace with context.rpm.IsHostHealthy(common.OutputServiceName, hostID)?
 		hostID := ext.GetOutputHostUUID()
 		addr, e2 := context.rpm.ResolveUUID(common.OutputServiceName, hostID)
 		if e2 != nil {
@@ -524,7 +545,7 @@ func refreshCGExtents(context *Context,
 	dstID := dstDesc.GetDestinationUUID()
 	cgID := cgDesc.GetConsumerGroupUUID()
 
-	// generate map of consumed CG Extents
+	// generate set of consumed CG Extents
 	filterBy := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_CONSUMED}
 	consumedCGExtentsList, err := listConsumerGroupExtents(context, dstID, cgID, m3Scope, filterBy)
 	if err != nil {
@@ -568,6 +589,144 @@ func refreshCGExtents(context *Context,
 	return addExtentsToConsumerGroup(context, dstID, cgID, cgDesc.GetIsMultiZone(), newExtents, outputHosts, m3Scope), nil
 }
 
+func refreshCGExtentsKafka(context *Context,
+	dstDesc *shared.DestinationDescription,
+	cgDesc *shared.ConsumerGroupDescription,
+	cgExtents *cgExtentsByCategory,
+	outputHosts map[string]*common.HostInfo,
+	m3Scope int) (int, error) {
+
+	dstID := dstDesc.GetDestinationUUID()
+	cgID := cgDesc.GetConsumerGroupUUID()
+
+	log := context.log.WithFields(bark.Fields{
+		common.TagDst:  common.FmtDst(dstID),
+		common.TagCnsm: common.FmtCnsm(cgID),
+	})
+
+	// find CONSUMED cg-extents (should only be DLQ extents)
+	filterBy := []shared.ConsumerGroupExtentStatus{shared.ConsumerGroupExtentStatus_CONSUMED}
+	consumedCGExtentsList, err := listConsumerGroupExtents(context, dstID, cgID, m3Scope, filterBy)
+	if err != nil {
+		return 0, err
+	}
+
+	for _, ext := range consumedCGExtentsList {
+		cgExtents.consumed[ext.GetExtentUUID()] = struct{}{}
+	}
+
+	// find OPEN (kafka+dlq) or SEALED (dlq) dest-extents
+	dstExtFilter := []shared.ExtentStatus{shared.ExtentStatus_SEALED, shared.ExtentStatus_OPEN}
+	dstExtents, err := context.mm.ListDestinationExtentsByStatus(dstID, dstExtFilter)
+	if err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
+		return 0, err
+	}
+
+	sortExtentStatsByTime(dstExtents) // sort extents by created time
+
+	var nKafkaOpen, nDlqOpen int             // count of open kafka/dlq extents
+	var dlqConsumable []*m.DestinationExtent // list of consumable DLQ extents
+
+	for _, ext := range dstExtents {
+
+		extID, visibility := ext.GetExtentUUID(), ext.GetConsumerGroupVisibility()
+
+		if len(visibility) == 0 { // not DLQ -> Kafka 'phantom' extent
+
+			// validate status
+			if status := ext.GetStatus(); status == shared.ExtentStatus_SEALED {
+				log.WithFields(bark.Fields{
+					common.TagExt: extID,
+					`status`:      status,
+				}).Errorf("ASSERTION FAILURE: Kafka phantom extent should not be in sealed state")
+				continue
+			}
+
+			// validate phantom store
+			if stores := ext.GetStoreUUIDs(); len(stores) != 1 || stores[0] != kafkaPhantomStoreUUID {
+				log.WithFields(bark.Fields{
+					common.TagExt: extID,
+					`stores`:      stores,
+				}).Errorf("ASSERTION FAILURE: Invalid store-configuration for kafka phantom extent")
+				continue
+			}
+
+			// ensure kafka extent is already open
+			if _, ok := cgExtents.open[extID]; ok {
+
+				nKafkaOpen++
+
+			} else {
+
+				// assertion failure!
+				log.WithField(common.TagExt, extID).Errorf("ASSERTION FAILURE: Kafka phantom extent should be open")
+			}
+
+		} else if visibility == cgID { // DLQ extent -> check visibility
+
+			// if not already open, then add it to consumable list
+			if _, ok := cgExtents.open[extID]; ok {
+
+				nDlqOpen++
+
+			} else {
+
+				// add it to list of extents available to be assigned
+				dlqConsumable = append(dlqConsumable, ext)
+			}
+		} // else, not visible to CG; so ignore
+	}
+
+	// create list of extents to add
+	var addExtents []*m.DestinationExtent
+
+	// ensure we have enough phantom kafka extents available
+	for n := nKafkaOpen; n < numKafkaExtentsForDstKafka; n++ {
+
+		phantomInput := kafkaPhantomInputUUID
+		phantomStores := []string{kafkaPhantomStoreUUID}
+
+		// create phantom kafka extent
+		extentID, e := createPhantomExtent(context, dstID, phantomInput, phantomStores, m3Scope)
+		if e != nil {
+			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
+			return 0, e // FIXME: handle this better?
+		}
+
+		ext := &m.DestinationExtent{
+			ExtentUUID:    common.StringPtr(extentID),
+			StoreUUIDs:    phantomStores,
+			InputHostUUID: common.StringPtr(phantomInput),
+		}
+
+		addExtents = append(addExtents, ext)
+	}
+
+	// fill out rest of the available capacity with unassigned DLQ extents
+	cap := maxExtentsToConsumeForDstKafka - nKafkaOpen - nDlqOpen - len(addExtents)
+
+	if cap >= 0 {
+
+		// pick as many from the dlqConsumable list to fill in available capacity
+		for i := 0; i < cap && i < len(dlqConsumable); i++ {
+
+			addExtents = append(addExtents, dlqConsumable[i])
+		}
+
+	} else {
+
+		log.WithFields(bark.Fields{
+			`maxExtentsToConsumeForDstKafka`: maxExtentsToConsumeForDstKafka,
+			`nKafkaOpen`:                     nKafkaOpen,
+			`nDlqOpen`:                       nDlqOpen,
+			`new-kafka-extents`:              len(addExtents),
+		}).Errorf("ASSERTION FAILURE: extents allocated over capacity")
+	}
+
+	return addExtentsToConsumerGroup(context, dstID, cgID, cgDesc.GetIsMultiZone(), addExtents, outputHosts, m3Scope), nil
+}
+
 // refreshOutputHostsForConsGroup refreshes the output hosts for the given consumer group
 func refreshOutputHostsForConsGroup(context *Context,
 	dstID string,
@@ -606,7 +765,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 
 	var maxExtentsToConsume = maxExtentsToConsumeForDst(context, dstDesc.GetPath(), cgDesc.GetConsumerGroupName(), dstType, dstDesc.GetZoneConfigs())
 
-	writeToCache := func(ttl int64) {
+	writeToCache := func(outputHosts map[string]*common.HostInfo, ttl int64) {
 
 		outputIDs, outputAddrs = hostInfoMapToSlice(outputHosts)
 
@@ -630,6 +789,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 
 	// If we have enough extents and nothing changed since last refresh,
 	// short circuit and return
+	// FIXME: is the check nConsumable == cacheEntry.nExtents sufficient? (ABA problem?)
 	if nConsumable >= maxExtentsToConsume && nConsumable == cacheEntry.nExtents {
 		// Logic to avoid leaving too many open extents for the
 		// consumer group. Goal is for the consumer to keep up
@@ -648,7 +808,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 		return cacheEntry.cachedResult, nil
 	}
 
-	// repair unhealthy extents before making a decision on whether to create a new extent or not
+	// repair unhealthy extents before making a decision on whether to create new extent(s)
 	if len(cgExtents.openBad) > 0 {
 		nRepaired := repairExtentsAndUpdateOutputHosts(context, dstID, cgID, cgExtents, maxExtentsToConsume, outputHosts, m3Scope)
 		nConsumable += nRepaired
@@ -656,15 +816,21 @@ func refreshOutputHostsForConsGroup(context *Context,
 			// if we cannot repair all of the bad extents,
 			// we will likely won't be able to create new
 			// consumer group extents, short circuit
-			writeToCache(int64(outputCacheTTL))
+			writeToCache(outputHosts, int64(outputCacheTTL))
 			return outputAddrs, nil
 		}
 	}
 
 	// A this point, we do a full refresh i.e we will scan the destination extents,
 	// not just existing consumer group extents. This is a 'full scan'
-	nAdded, _ := refreshCGExtents(context, dstDesc, cgDesc, cgExtents, outputHosts, m3Scope)
-	nConsumable += nAdded
-	writeToCache(failBackoffInterval)
+	switch dstType {
+	case dstTypeKafka:
+		refreshCGExtentsKafka(context, dstDesc, cgDesc, cgExtents, outputHosts, m3Scope)
+
+	default:
+		refreshCGExtents(context, dstDesc, cgDesc, cgExtents, outputHosts, m3Scope)
+	}
+
+	writeToCache(outputHosts, failBackoffInterval)
 	return outputAddrs, err
 }

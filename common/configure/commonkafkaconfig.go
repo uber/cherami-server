@@ -21,57 +21,76 @@
 package configure
 
 import (
-	"io/ioutil"
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 // KafkaConfig holds the configuration for the Kafka client
 type KafkaConfig struct {
-	kafkaClusterConfigFile string `yaml:kafkaClusterConfigFile`
-	clustersConfig clustersConfig
+	KafkaClusterConfigFile string `yaml:"kafkaClusterConfigFile"`
+	ClustersConfig         ClustersConfig
 }
 
-type clustersConfig struct {
-	clusters []cluster `yaml:clusters`
+type ClustersConfig struct {
+	Clusters map[string]ClusterConfig `yaml:"clusters"`
 }
 
-type cluster struct {
-	name       string
-	brokers    []string `yaml:brokers`
-	zookeepers []string `yaml:zookeepers`
-	chroot     string   `yaml:chroot`
+type ClusterConfig struct {
+	Brokers    []string `yaml:"brokers"`
+	Zookeepers []string `yaml:"zookeepers"`
+	Chroot     string   `yaml:"chroot"`
 }
 
 // NewCommonKafkaConfig instantiates a Kafka config
 func NewCommonKafkaConfig() *KafkaConfig {
-	config := &KafkaConfig{}
-	config.loadClusterConfigFile()
-	return config
+	return &KafkaConfig{}
 }
 
 // GetKafkaClusters returns all kafka cluster names
 func (r *KafkaConfig) GetKafkaClusters() []string {
-	var ret = []string{}
-	for _, cluster := range r.clustersConfig.clusters {
-		ret = append(ret, cluster.name)
+	r.loadClusterConfigFileIfNecessary()
+
+	ret := make([]string, 0, len(r.ClustersConfig.Clusters))
+	for key, _ := range r.ClustersConfig.Clusters {
+		ret = append(ret, key)
 	}
 	return ret
 }
 
+// GetKafkaClusters returns all kafka cluster names
+func (r *KafkaConfig) GetKafkaClusterConfig(cluster string) (ClusterConfig, bool) {
+	r.loadClusterConfigFileIfNecessary()
+
+	val, ok := r.ClustersConfig.Clusters[cluster]
+	return val, ok
+}
+
+func (r *KafkaConfig) loadClusterConfigFileIfNecessary() {
+	if len(r.ClustersConfig.Clusters) > 0 {
+		return
+	}
+
+	r.loadClusterConfigFile()
+}
+
 func (r *KafkaConfig) loadClusterConfigFile() {
 	// TODO do we need to detect file change and reload on file change
-	if len(r.kafkaClusterConfigFile) == 0 {
+	if len(r.KafkaClusterConfigFile) == 0 {
 		log.Warnf("Could not load kafka configu because kafka cluster config file is not configured")
 		return
 	}
 
-	contents, err := ioutil.ReadFile(r.kafkaClusterConfigFile)
+	contents, err := ioutil.ReadFile(r.KafkaClusterConfigFile)
 	if err != nil {
-		log.Warnf("Failed to load kafka cluster config file %s: %v", r.kafkaClusterConfigFile, err)
+		log.Warnf("Failed to load kafka cluster config file %s: %v", r.KafkaClusterConfigFile, err)
 	}
 
-	if err := yaml.Unmarshal(contents, &r.clustersConfig); err != nil {
-		log.Warnf("Failed to parse kafka cluster config file %s: %v", r.kafkaClusterConfigFile, err)
+	log.Println("Parsing kafka cluster config file", r.KafkaClusterConfigFile, ":", string(contents))
+	clusters := ClustersConfig{}
+	if err := yaml.Unmarshal(contents, &clusters); err != nil {
+		log.Warnf("Failed to parse kafka cluster config file %s: %v", r.KafkaClusterConfigFile, err)
+	} else {
+		r.ClustersConfig = clusters
 	}
 }

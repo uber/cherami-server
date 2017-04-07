@@ -387,6 +387,18 @@ func (s *McpSuite) TestGetInputHosts() {
 	s.Equal(1+sealedExtents+minOpenExtentsForDst(s.mcp.context, `/`, dstTypePlain), len(extentStats), "Wrong number of extents for destination")
 }
 
+func (s *McpSuite) TestGetInputHostsForKafkaDest() {
+
+	dstPath := s.generateName("/cherami/mcp-test")
+	dstDesc, err := s.createDestination(dstPath, shared.DestinationType_KAFKA)
+	s.Nil(err, "Failed to create destination")
+
+	_, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
+	s.NotNil(err, "GetInputHosts should fail for Kafka destination")
+	_, ok := err.(*shared.BadRequestError)
+	s.True(ok, "Wrong error type returned for GetInputHosts for Kafka destination")
+}
+
 func (s *McpSuite) TestGetOutputHostsMaxOpenExtentsLimit() {
 
 	dstTypes := []shared.DestinationType{shared.DestinationType_PLAIN, shared.DestinationType_TIMER}

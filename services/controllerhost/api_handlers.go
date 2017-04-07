@@ -38,6 +38,7 @@ const (
 	dstTypeDLQ   = dstType(-2) // metadata doesn't have this type
 	dstTypePlain = dstType(shared.DestinationType_PLAIN)
 	dstTypeTimer = dstType(shared.DestinationType_TIMER)
+	dstTypeKafka = dstType(shared.DestinationType_KAFKA)
 )
 
 const (
@@ -216,8 +217,11 @@ func getDstType(desc *shared.DestinationDescription) dstType {
 		return dstTypePlain
 	case shared.DestinationType_TIMER:
 		return dstTypeTimer
+	case shared.DestinationType_KAFKA:
+		return dstTypeKafka
+	default:
+		return dstTypePlain
 	}
-	return dstTypePlain
 }
 
 func minOpenExtentsForDst(context *Context, dstPath string, dstType dstType) int {
@@ -353,6 +357,13 @@ func refreshInputHostsForDst(context *Context, dstUUID string, now int64) ([]str
 	}
 
 	var dstType = getDstType(dstDesc)
+
+	// Fail attempts to publish to Kafka destinations
+	if dstType == dstTypeKafka {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
+		return nil, &shared.BadRequestError{Message: "Cannot publish to Kafka destinations"}
+	}
+
 	var minOpenExtents = minOpenExtentsForDst(context, dstDesc.GetPath(), dstType)
 	var isMultiZoneDest = dstDesc.GetIsMultiZone()
 

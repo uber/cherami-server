@@ -226,5 +226,6 @@ type (
 	// CommonKafkaConfig holds the Kafka-related config
 	CommonKafkaConfig interface {
 		GetKafkaClusters() []string
+		GetKafkaClusterConfig(cluster string) (ClusterConfig, bool)
 	}
 )

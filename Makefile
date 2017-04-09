@@ -127,8 +127,12 @@ lint:
 	@echo gofmt -l $(ALL_SRC)
 	@OUTPUT=`gofmt -l $(ALL_SRC) 2>&1`; \
 	if [ "$$OUTPUT" ]; then \
-		echo "'gofmt -w' must be run on the following files:"; \
+		echo "Run 'make fmt'. gofmt must be run on the following files:"; \
 		echo "$$OUTPUT"; \
 		exit 1; \
 	fi
 	go tool vet -all -printfuncs=Info,Infof,Debug,Debugf,Warn,Warnf,Panic,Panicf $(ALL_TEST_DIRS)
+
+fmt:
+	gofmt -w $(ALL_SRC)
+

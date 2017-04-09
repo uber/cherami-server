@@ -32,6 +32,7 @@ import (
 	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go/thrift"
 
+	"github.com/Shopify/sarama"
 	ccommon "github.com/uber/cherami-client-go/common"
 	"github.com/uber/cherami-server/common"
 	cassDconfig "github.com/uber/cherami-server/common/dconfig"
@@ -761,6 +762,8 @@ func NewOutputHost(serviceName string, sVice common.SCommon, metadataClient meta
 		ackMgrIDGen:    common.NewHostAckIDGenerator(defaultAckMgrIDStartFrom),
 		hostMetrics:    load.NewHostMetrics(),
 	}
+
+	sarama.Logger = NewSaramaLoggerFromBark(bs.logger, `sarama`)
 
 	bs.sessionID = common.UUIDToUint16(sVice.GetHostUUID())
 

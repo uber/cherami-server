@@ -23,12 +23,14 @@ package outputhost
 import (
 	"encoding/json"
 	"sync"
+	"time"
 
 	sc "github.com/bsm/sarama-cluster"
 	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
-	"github.com/uber/cherami-thrift/.generated/go/metadata"
 )
+
+var outputHostStartTime = time.Now()
 
 // kafkaCommitter is commits ackLevels to Cassandra through the TChanMetadataClient interface
 type kafkaCommitter struct {
@@ -36,12 +38,11 @@ type kafkaCommitter struct {
 	commitLevel        CommitterLevel
 	readLevel          CommitterLevel
 	finalLevel         CommitterLevel
-	metaclient         metadata.TChanMetadataService
 	*sc.OffsetStash
-	*sc.Consumer
+	consumer **sc.Consumer
 	KafkaOffsetMetadata
 	metadataString string // JSON version of KafkaOffsetMetadata
-	logger bark.Logger
+	logger         bark.Logger
 }
 
 // KafkaOffsetMetadata is a structure used for JSON encoding/decoding of the metadata stored for
@@ -55,6 +56,12 @@ type KafkaOffsetMetadata struct {
 
 	// OutputHostUUID is the UUID of the Cherami Outputhost that committed this offset
 	OutputHostUUID string
+
+	// OutputHostStartTime is the time that the output host started
+	OutputHostStartTime string
+
+	// CommitterStartTime is the time that this committer was started
+	CommitterStartTime string
 }
 
 const kafkaOffsetMetadataVersion = uint(0) // Current version of the KafkaOffsetMetadata
@@ -87,7 +94,9 @@ func (c *kafkaCommitter) UnlockAndFlush(l sync.Locker) error {
 	os := c.OffsetStash
 	c.OffsetStash = sc.NewOffsetStash()
 	l.Unlock() // MarkOffsets may take some time, so we unlock the thread that owns us
-	c.MarkOffsets(os)
+	if *c.consumer != nil {
+		(*c.consumer).MarkOffsets(os)
+	}
 	return nil
 }
 
@@ -107,27 +116,27 @@ func (c *kafkaCommitter) GetCommitLevel() (l CommitterLevel) {
  * Setup & Utility
  */
 
-// NewkafkaCommitter instantiates a kafkaCommitter
-func NewkafkaCommitter(metaclient metadata.TChanMetadataService,
+// NewKafkaCommitter instantiates a kafkaCommitter
+func NewKafkaCommitter(
 	outputHostUUID string,
 	cgUUID string,
-	extUUID string,
-	connectedStoreUUID *string,
-	logger bark.Logger) *kafkaCommitter {
+	logger bark.Logger,
+	client **sc.Consumer) *kafkaCommitter {
+	now := time.Now()
 	meta := KafkaOffsetMetadata{
-		Version:        kafkaOffsetMetadataVersion,
-		OutputHostUUID: outputHostUUID,
-		CGUUID:         cgUUID,
+		Version:             kafkaOffsetMetadataVersion,
+		OutputHostUUID:      outputHostUUID,
+		CGUUID:              cgUUID,
+		OutputHostStartTime: outputHostStartTime.Format(time.RFC3339),
+		CommitterStartTime:  now.Format(time.RFC3339),
 	}
 
 	metaJSON, _ := json.Marshal(meta)
 	return &kafkaCommitter{
-		metaclient:          metaclient,
-		connectedStoreUUID:  connectedStoreUUID,
 		OffsetStash:         sc.NewOffsetStash(),
 		metadataString:      string(metaJSON),
 		KafkaOffsetMetadata: meta,
-		logger: logger,
+		logger:              logger,
 	}
 }
 

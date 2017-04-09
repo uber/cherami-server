@@ -19,25 +19,3 @@
 // THE SOFTWARE.
 
 package common
-
-import (
-	"strings"
-
-	"github.com/uber/cherami-thrift/.generated/go/shared"
-)
-
-// IsDLQDestination checks whether a destination is dlq type
-func IsDLQDestination(dstDesc *shared.DestinationDescription) bool {
-	// Other destination types have paths that start with '/'; DLQ starts with 'D'
-	return dstDesc != nil && IsDLQDestinationPath(dstDesc.GetPath())
-}
-
-// IsDLQDestinationPath checks whether a destination path is dlq type
-func IsDLQDestinationPath(path string) bool {
-	return len(path) > 4 && strings.HasSuffix(path, ".dlq")
-}
-
-// IsKafkaConsumerGroupExtent determines if a consumer group extent is a Kafka consumption assignment
-func IsKafkaConsumerGroupExtent(e *shared.ConsumerGroupExtent) bool {
-	return len(e.GetStoreUUIDs()) == 0 // TODO: Replace this heuristic when CGE metadata has been updated
-}

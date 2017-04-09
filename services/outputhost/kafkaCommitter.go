@@ -41,7 +41,7 @@ type kafkaCommitter struct {
 	*sc.Consumer
 	KafkaOffsetMetadata
 	metadataString string // JSON version of KafkaOffsetMetadata
-	logger bark.Logger
+	logger         bark.Logger
 }
 
 // KafkaOffsetMetadata is a structure used for JSON encoding/decoding of the metadata stored for
@@ -127,7 +127,7 @@ func NewkafkaCommitter(metaclient metadata.TChanMetadataService,
 		OffsetStash:         sc.NewOffsetStash(),
 		metadataString:      string(metaJSON),
 		KafkaOffsetMetadata: meta,
-		logger: logger,
+		logger:              logger,
 	}
 }
 

@@ -46,7 +46,7 @@ type (
 		// to be communicated/persisted until a successful call to Flush()
 		SetFinalLevel(l CommitterLevel)
 
-		// UnlockAndFlush copies accumulated commit/read state, unlocks the provided lock, and then commits 
+		// UnlockAndFlush copies accumulated commit/read state, unlocks the provided lock, and then commits
 		// the levels to durable storage, e.g. Kafka offset storage or Cherami-Cassandra AckLevel storage
 		UnlockAndFlush(l sync.Locker) error
 

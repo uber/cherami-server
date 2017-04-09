@@ -21,9 +21,9 @@
 package outputhost
 
 import (
-	"sync/atomic"
 	"errors"
 	"strconv"
+	"sync/atomic"
 
 	s "github.com/Shopify/sarama"
 	"github.com/uber-common/bark"
@@ -88,7 +88,7 @@ func (k *kafkaStream) ResponseHeaders() (map[string]string, error) {
 func OpenKafkaStream(c <-chan *s.ConsumerMessage, logger bark.Logger) stream.BStoreOpenReadStreamOutCall {
 	k := &kafkaStream{
 		kafkaMsgsCh: c,
-		logger: logger,
+		logger:      logger,
 	}
 	return k
 }

@@ -167,6 +167,10 @@ func checkCGEExists(context *Context, dstUUID, cgUUID string, extUUID extentUUID
 func validateDstStatus(dstDesc *shared.DestinationDescription) error {
 	switch dstDesc.GetStatus() {
 	case shared.DestinationStatus_ENABLED:
+		fallthrough
+	case shared.DestinationStatus_SENDONLY:
+		fallthrough
+	case shared.DestinationStatus_RECEIVEONLY:
 		return nil
 	case shared.DestinationStatus_DELETED:
 		return ErrDestinationNotExists
@@ -193,6 +197,11 @@ func isEntityError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isBadRequestError(err error) bool {
+	_, ok := err.(*shared.BadRequestError)
+	return ok
 }
 
 func readDestination(context *Context, dstID string, m3Scope int) (*shared.DestinationDescription, error) {

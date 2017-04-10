@@ -121,7 +121,6 @@ func (s *McpSuite) startController() {
 	context.channel = s.mcp.GetTChannel()
 	context.eventPipeline = NewEventPipeline(context, nEventPipelineWorkers)
 	context.eventPipeline.Start()
-	context.failureDetector = NewDfdd(context, common.NewRealTimeSource())
 	s.mcp.started = 1
 }
 
@@ -406,15 +405,16 @@ func (s *McpSuite) TestGetInputHostsForReceiveOnlyDest() {
 	s.Nil(err, "Failed to create destination")
 
 	updateReq := &shared.UpdateDestinationRequest{
-		DestinationUUID: common.StringPtr(dstDesc.GetDestinationUUID()),
+		DestinationUUID: dstDesc.DestinationUUID,
 		Status:          shared.DestinationStatusPtr(shared.DestinationStatus_RECEIVEONLY),
 	}
 
-	_, err = s.mcp.UpdateDestination(nil, updateReq)
+	_, err = s.mClient.UpdateDestination(nil, updateReq)
 	s.Nil(err, "Failed to update destination to receive-only")
 
 	_, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
 	s.NotNil(err, "GetInputHosts should fail for receive-only destination")
+
 	s.Equal(ErrPublishToReceiveOnlyDestination, err, "Expected ErrPublishToReceiveOnlyDestination")
 }
 

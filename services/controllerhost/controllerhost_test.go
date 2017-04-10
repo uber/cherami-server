@@ -398,6 +398,25 @@ func (s *McpSuite) TestGetInputHostsForKafkaDest() {
 	s.Equal(ErrPublishToKafkaDestination, err, "Expected ErrPublishToKafkaDestination")
 }
 
+func (s *McpSuite) TestGetInputHostsForReceiveOnlyDest() {
+
+	dstPath := s.generateName("/cherami/mcp-test")
+	dstDesc, err := s.createDestination(dstPath, shared.DestinationType_PLAIN)
+	s.Nil(err, "Failed to create destination")
+
+	updateReq := &shared.UpdateDestinationRequest{
+		DestinationUUID: common.StringPtr(dstDesc.GetDestinationUUID()),
+		Status:          shared.DestinationStatusPtr(shared.DestinationStatus_RECEIVEONLY),
+	}
+
+	_, err = s.mcp.UpdateDestination(nil, updateReq)
+	s.Nil(err, "Failed to update destination to receive-only")
+
+	_, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
+	s.NotNil(err, "GetInputHosts should fail for receive-only destination")
+	s.Equal(ErrPublishToReceiveOnlyDestination, err, "Expected ErrPublishToReceiveOnlyDestination")
+}
+
 func (s *McpSuite) TestGetOutputHostsMaxOpenExtentsLimit() {
 
 	dstTypes := []shared.DestinationType{shared.DestinationType_PLAIN, shared.DestinationType_TIMER}

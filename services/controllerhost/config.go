@@ -50,6 +50,8 @@ type (
 		AdminStatus string `name:"adminStatus" default:"enabled"`
 	}
 
+	// ControllerDynamicConfig contains the config
+	// parameters needed for controller
 	ControllerDynamicConfig struct {
 		NumPublisherExtentsByPath      []string `name:"numPublisherExtentsByPath" default:"/=4"`
 		NumConsumerExtentsByPath       []string `name:"numConsumerExtentsByPath" default:"/=8"`
@@ -65,6 +67,7 @@ func newConfigManager(mClient m.TChanMetadataService, logger bark.Logger) dconfi
 		common.OutputServiceName:     OutputPlacementConfig{},
 		common.StoreServiceName:      StorePlacementConfig{},
 		common.ControllerServiceName: ControllerDynamicConfig{},
+		common.CommonServiceName:     common.MultiZoneDynamicConfig{},
 	}
 	return dconfig.NewCassandraConfigManager(mClient, cfgTypes, logger)
 }

@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -89,6 +90,7 @@ type (
 		ackMgrUnloadCh    chan uint32
 		hostMetrics       *load.HostMetrics
 		cfgMgr            cassDconfig.ConfigManager
+		localZone         string
 		common.SCommon
 	}
 
@@ -761,6 +763,8 @@ func NewOutputHost(serviceName string, sVice common.SCommon, metadataClient meta
 		ackMgrIDGen:    common.NewHostAckIDGenerator(defaultAckMgrIDStartFrom),
 		hostMetrics:    load.NewHostMetrics(),
 	}
+
+	bs.localZone, _ = common.GetLocalClusterInfo(strings.ToLower(deploymentName))
 
 	bs.sessionID = common.UUIDToUint16(sVice.GetHostUUID())
 

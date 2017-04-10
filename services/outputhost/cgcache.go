@@ -155,6 +155,9 @@ type (
 		// sessionID is the 16 bit session identifier for this host
 		sessionID uint16
 
+		// local zone name
+		localZone string
+
 		// ackMgrLoadCh is the channel used to notify the outputhost when an
 		// ackMgr is loaded
 		ackMgrLoadCh chan<- ackMgrLoadMsg
@@ -252,6 +255,7 @@ func newConsumerGroupCache(destPath string, cgDesc shared.ConsumerGroupDescripti
 		creditRequestCh:          make(chan string, 50),
 		lastDisconnectTime:       time.Now(),
 		sessionID:                h.sessionID,
+		localZone:                h.localZone,
 		ackIDGen:                 h.ackMgrIDGen,
 		ackMgrLoadCh:             h.ackMgrLoadCh,
 		ackMgrUnloadCh:           h.ackMgrUnloadCh,
@@ -539,6 +543,20 @@ func (cgCache *consumerGroupCache) refreshCgCache(ctx thrift.Context) error {
 		return ErrCgUnloaded
 	}
 
+	if cgDesc.GetIsMultiZone() {
+		cfg, err := cgCache.getMultiZoneDynamicConfig()
+		if err != nil {
+			cgCache.logger.WithField(common.TagErr, err).Error(`failed to get multizone dynamic config`)
+			return err
+		}
+
+		// If we shouldn't consume in this zone(for a multi_zone cg), short circuit and return
+		if !common.ShouldConsumeInZone(cgCache.localZone, cgDesc, cfg) {
+			go cgCache.unloadConsumerGroupCache()
+			return nil
+		}
+	}
+
 	cgCache.cachedCGDesc.Status = cgDesc.Status
 	cgCache.cachedCGDesc.MaxDeliveryCount = cgDesc.MaxDeliveryCount
 
@@ -611,6 +629,21 @@ func (cgCache *consumerGroupCache) getDynamicCgConfig() (OutputCgConfig, error) 
 	if !ok {
 		cgCache.logger.Error(`Couldn't cast cfg to OutputCgConfig`)
 		return OutputCgConfig{}, ErrConfigCast
+	}
+	return cfg, nil
+}
+
+// getMultiZoneDynamicConfig gets the configuration object for this host
+func (cgCache *consumerGroupCache) getMultiZoneDynamicConfig() (common.MultiZoneDynamicConfig, error) {
+	dCfgIface, err := cgCache.cfgMgr.Get(common.CommonServiceName, `*`, `*`, `*`)
+	if err != nil {
+		cgCache.logger.WithFields(bark.Fields{common.TagErr: err}).Error(`Couldn't get the configuration object`)
+		return common.MultiZoneDynamicConfig{}, err
+	}
+	cfg, ok := dCfgIface.(common.MultiZoneDynamicConfig)
+	if !ok {
+		cgCache.logger.Error(`Couldn't cast cfg to common.MultiZoneDynamicConfig`)
+		return common.MultiZoneDynamicConfig{}, ErrConfigCast
 	}
 	return cfg, nil
 }

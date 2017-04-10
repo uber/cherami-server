@@ -375,6 +375,7 @@ func (h *OutputHost) processAcks(ackIds []string, isNack bool) (invalidIDs []str
 		if ackMgr == nil {
 			h.logger.WithFields(bark.Fields{
 				common.TagAckID: ackIDStr,
+				`ackMgrID`: ackMgrID,
 			}).Info("processAcks could not get ack manager (probably extent is consumed)")
 			h.m3Client.IncCounter(metrics.AckMessagesScope, metrics.OutputhostMessageNoAckManager)
 			continue

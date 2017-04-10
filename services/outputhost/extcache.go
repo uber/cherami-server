@@ -560,7 +560,7 @@ notificationsLoop:
 				log.WithField(`released`, n.Released).Info(`released partitions`)
 			}
 			if len(n.Current) > 0 {
-				log.WithField(`current`, n.Released).Info(`current partitions`)
+				log.WithField(`current`, n.Current).Info(`current partitions`)
 			}
 		}
 	}

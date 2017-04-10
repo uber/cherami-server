@@ -91,13 +91,16 @@ func (c *kafkaCommitter) SetFinalLevel(l CommitterLevel) {
 
 // UnlockAndFlush pushes our commit and read levels to Cherami metadata, using SetAckOffset
 func (c *kafkaCommitter) UnlockAndFlush(l sync.Locker) error {
+	var err error
 	os := c.OffsetStash
 	c.OffsetStash = sc.NewOffsetStash()
 	l.Unlock() // MarkOffsets may take some time, so we unlock the thread that owns us
 	if *c.consumer != nil {
+		c.logger.WithField(`offsets`, os.Offsets()).Debug(`Flushing Offsets`)
 		(*c.consumer).MarkOffsets(os)
+		err = (*c.consumer).CommitOffsets()
 	}
-	return nil
+	return err
 }
 
 // GetReadLevel returns the next readlevel that will be flushed
@@ -137,6 +140,7 @@ func NewKafkaCommitter(
 		metadataString:      string(metaJSON),
 		KafkaOffsetMetadata: meta,
 		logger:              logger,
+		consumer:              client,
 	}
 }
 

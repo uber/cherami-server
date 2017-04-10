@@ -395,8 +395,7 @@ func (s *McpSuite) TestGetInputHostsForKafkaDest() {
 
 	_, err = s.mcp.GetInputHosts(nil, &c.GetInputHostsRequest{DestinationUUID: dstDesc.DestinationUUID})
 	s.NotNil(err, "GetInputHosts should fail for Kafka destination")
-	_, ok := err.(*shared.BadRequestError)
-	s.True(ok, "Wrong error type returned for GetInputHosts for Kafka destination")
+	s.Equal(ErrPublishToKafkaDestination, err, "Expected ErrPublishToKafkaDestination")
 }
 
 func (s *McpSuite) TestGetOutputHostsMaxOpenExtentsLimit() {

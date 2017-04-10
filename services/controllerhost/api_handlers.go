@@ -56,6 +56,8 @@ const (
 var (
 	// ErrTooManyUnHealthy is returned when there are too many open but unhealthy extents for a destination
 	ErrTooManyUnHealthy = &shared.InternalServiceError{Message: "Too many open, but unhealthy extents for destination"}
+	// ErrPublishToKafkaDestination is returned on invoking GetInputHosts on a Kafka destination
+	ErrPublishToKafkaDestination = &shared.BadRequestError{Message: "Cannot publish to Kafka destinations"}
 )
 
 var (
@@ -361,7 +363,7 @@ func refreshInputHostsForDst(context *Context, dstUUID string, now int64) ([]str
 	// Fail attempts to publish to Kafka destinations
 	if dstType == dstTypeKafka {
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
-		return nil, &shared.BadRequestError{Message: "Cannot publish to Kafka destinations"}
+		return nil, ErrPublishToKafkaDestination
 	}
 
 	var minOpenExtents = minOpenExtentsForDst(context, dstDesc.GetPath(), dstType)

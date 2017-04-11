@@ -209,7 +209,7 @@ func (mcp *Mcp) Start(thriftService []thrift.TChanServer) {
 	context.loadMetrics.Start()
 	context.cfgMgr.Start()
 
-	context.failureDetector = NewDfdd(context)
+	context.failureDetector = NewDfdd(context, common.NewRealTimeSource())
 	context.failureDetector.Start()
 
 	context.retMgr = newRetMgrRunner(&retMgrRunnerContext{
@@ -324,11 +324,17 @@ func (mcp *Mcp) GetInputHosts(ctx thrift.Context, inReq *c.GetInputHostsRequest)
 	hostIDs, err := refreshInputHostsForDst(context, dstUUID, now)
 	context.dstLock.Unlock(dstUUID)
 	if err != nil {
-		if isEntityError(err) {
+
+		switch {
+		case isEntityError(err):
 			context.m3Client.IncCounter(metrics.GetInputHostsScope, metrics.ControllerErrBadEntityCounter)
 			return nil, err
+		case isBadRequestError(err):
+			context.m3Client.IncCounter(metrics.GetInputHostsScope, metrics.ControllerErrBadRequestCounter)
+			return nil, err
+		default:
+			return response(&shared.InternalServiceError{Message: err.Error()})
 		}
-		return response(&shared.InternalServiceError{Message: err.Error()})
 	}
 
 	return &c.GetInputHostsResult_{InputHostIds: hostIDs}, nil
@@ -543,6 +549,14 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	}
 	if metrics.IsSetOutgoingBytesCounter() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.BytesOutPerSec, metrics.GetOutgoingBytesCounter(), timestamp)
+	}
+	if metrics.IsSetNodeStatus() && request.IsSetRole() {
+		switch request.GetRole() {
+		case c.Role_IN:
+			context.failureDetector.ReportHostGoingDown(common.InputServiceName, hostID)
+		case c.Role_STORE:
+			context.failureDetector.ReportHostGoingDown(common.StoreServiceName, hostID)
+		}
 	}
 
 	return nil

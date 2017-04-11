@@ -363,6 +363,57 @@ func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string,
 	return
 }
 
+// listConsummableExtents returns the list of extents for the destination that
+// are in open or sealed state and can be consumed by the given CG.
+func listConsummableExtents(context *Context, dstUUID string, cgUUID string, m3Scope int) ([]*m.DestinationExtent, error) {
+
+	// get list of open/sealed extents
+	filterBy := []shared.ExtentStatus{shared.ExtentStatus_SEALED, shared.ExtentStatus_OPEN}
+	dstExtents, err := context.mm.ListDestinationExtentsByStatus(dstUUID, filterBy)
+	if err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
+		return nil, err
+	}
+
+	var consExtents []*m.DestinationExtent
+
+	for _, ext := range dstExtents {
+
+		visibility := ext.GetConsumerGroupVisibility()
+
+		// if DLQ, ensure the extent is visible to the CG
+		if len(visibility) == 0 || visibility == cgUUID {
+			consExtents = append(consExtents, ext)
+		}
+	}
+
+	// sort extents by created time
+	sortExtentStatsByTime(consExtents)
+
+	return consExtents, nil
+}
+
+// creates extent for the given destination and returns the 'DestinationExtent'
+func createDestExtent(context *Context, dstDesc *shared.DestinationDescription, m3Scope int) (ext *m.DestinationExtent, err error) {
+
+	extentID, _, storehosts, err := createExtent(context, dstDesc.GetDestinationUUID(), dstDesc.GetIsMultiZone(), m3Scope)
+	if err != nil {
+		return nil, err
+	}
+
+	storeUUIDs := make([]string, len(storehosts))
+	for i := 0; i < len(storehosts); i++ {
+		storeUUIDs[i] = storehosts[i].UUID
+	}
+
+	ext = &m.DestinationExtent{
+		ExtentUUID: common.StringPtr(extentID),
+		StoreUUIDs: storeUUIDs,
+	}
+
+	return
+}
+
 // Given the set of current open consumer_group_extents,
 // this method picks the next set of extents to consume
 // for the given consumer group. It does the following:
@@ -402,10 +453,9 @@ func selectNextExtentsToConsume(
 	dstID := dstDesc.GetDestinationUUID()
 	cgID := cgDesc.GetConsumerGroupUUID()
 
-	filterBy := []shared.ExtentStatus{shared.ExtentStatus_SEALED, shared.ExtentStatus_OPEN}
-	dstExtents, err := context.mm.ListDestinationExtentsByStatus(dstID, filterBy)
+	// get list of extents that can be consumed by this CG
+	dstExtents, err := listConsummableExtents(context, dstID, cgID, m3Scope)
 	if err != nil {
-		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
 		return nil, 0, err
 	}
 
@@ -415,8 +465,6 @@ func selectNextExtentsToConsume(
 	var dstDlqExtents []*m.DestinationExtent
 	dstExtentsCount := 0
 	dstExtentsByZone := make(map[string][]*m.DestinationExtent)
-
-	sortExtentStatsByTime(dstExtents)
 
 	for _, ext := range dstExtents {
 
@@ -432,18 +480,11 @@ func selectNextExtentsToConsume(
 			continue
 		}
 
-		visibility := ext.GetConsumerGroupVisibility()
-
 		if _, ok := cgExtents.open[extID]; ok {
-			if len(visibility) > 0 {
-				nCGDlqExtents++
-			}
-			continue
-		}
 
-		if len(visibility) > 0 {
-			if visibility == cgID {
-				dstDlqExtents = append(dstDlqExtents, ext)
+			// if visibility is specified, this must be a DLQ extent
+			if len(ext.GetConsumerGroupVisibility()) > 0 {
+				nCGDlqExtents++
 			}
 			continue
 		}
@@ -525,26 +566,6 @@ func selectNextExtentsToConsume(
 	}
 
 	return result, nAvailable, nil
-}
-
-func createDestExtent(context *Context, dstDesc *shared.DestinationDescription, m3Scope int) (ext *m.DestinationExtent, err error) {
-
-	extentID, _, storehosts, e := createExtent(context, dstDesc.GetDestinationUUID(), dstDesc.GetIsMultiZone(), m3Scope)
-	if e != nil {
-		return nil, e
-	}
-
-	storeUUIDs := make([]string, len(storehosts))
-	for i := 0; i < len(storehosts); i++ {
-		storeUUIDs[i] = storehosts[i].UUID
-	}
-
-	ext = &m.DestinationExtent{
-		ExtentUUID: common.StringPtr(extentID),
-		StoreUUIDs: storeUUIDs,
-	}
-
-	return
 }
 
 func refreshCGExtents(context *Context,

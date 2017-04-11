@@ -46,6 +46,7 @@ type (
 func newConfigManager(mClient m.TChanMetadataService, logger bark.Logger) dconfig.ConfigManager {
 	cfgTypes := map[string]interface{}{
 		common.OutputServiceName: OutputCgConfig{},
+		common.CommonServiceName: common.MultiZoneDynamicConfig{},
 	}
 	return dconfig.NewCassandraConfigManager(mClient, cfgTypes, logger)
 }

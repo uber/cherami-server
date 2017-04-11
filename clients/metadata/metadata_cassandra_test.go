@@ -778,7 +778,7 @@ func (s *CassandraSuite) TestCreateExtentWithCgVisibility() {
 		InputHostUUID:   common.StringPtr(uuid.New()),
 	}
 	createRequest := &shared.CreateExtentRequest{
-		Extent: extent,
+		Extent:                  extent,
 		ConsumerGroupVisibility: common.StringPtr(cgUUID),
 	}
 	_, err := s.client.CreateExtent(nil, createRequest)
@@ -786,7 +786,7 @@ func (s *CassandraSuite) TestCreateExtentWithCgVisibility() {
 
 	readExtentStats := &m.ReadExtentStatsRequest{
 		DestinationUUID: common.StringPtr(destUUID),
-		ExtentUUID: common.StringPtr(extentUUID),
+		ExtentUUID:      common.StringPtr(extentUUID),
 	}
 	extentStats, err := s.client.ReadExtentStats(nil, readExtentStats)
 	s.Nil(err)

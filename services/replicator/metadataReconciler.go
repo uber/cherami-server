@@ -1045,7 +1045,7 @@ func (r *metadataReconciler) handleExtentDeletedOrMissingInRemote(destUUID strin
 	}
 }
 
-func (r *metadataReconciler) cgExistInLocal(cgUUID string) (bool, error){
+func (r *metadataReconciler) cgExistInLocal(cgUUID string) (bool, error) {
 	_, err := r.mClient.ReadConsumerGroupByUUID(nil, &shared.ReadConsumerGroupRequest{
 		ConsumerGroupUUID: common.StringPtr(cgUUID),
 	})
@@ -1054,7 +1054,7 @@ func (r *metadataReconciler) cgExistInLocal(cgUUID string) (bool, error){
 			return false, nil
 		}
 		r.logger.WithFields(bark.Fields{
-			common.TagErr: err,
+			common.TagErr:  err,
 			common.TagCnsm: common.FmtCnsm(cgUUID),
 		}).Error(`cgExistInLocal: failed to call ReadConsumerGroupByUUID`)
 		return false, err

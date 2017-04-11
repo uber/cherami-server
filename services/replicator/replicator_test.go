@@ -1359,7 +1359,7 @@ func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissingDLQExtent()
 	localExtents := make(map[string]*shared.ExtentStats)
 	remoteExtents := make(map[string]*shared.ExtentStats)
 	remoteExtents[missingExtent] = &shared.ExtentStats{
-		Status: common.MetadataExtentStatusPtr(shared.ExtentStatus_OPEN),
+		Status:                  common.MetadataExtentStatusPtr(shared.ExtentStatus_OPEN),
 		ConsumerGroupVisibility: common.StringPtr(cg),
 	}
 	reconciler.reconcileDestExtent(dest, localExtents, remoteExtents, remoteZone)
@@ -1387,7 +1387,7 @@ func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissingDLQExtentRe
 	localExtents := make(map[string]*shared.ExtentStats)
 	remoteExtents := make(map[string]*shared.ExtentStats)
 	remoteExtents[missingExtent] = &shared.ExtentStats{
-		Status: common.MetadataExtentStatusPtr(shared.ExtentStatus_OPEN),
+		Status:                  common.MetadataExtentStatusPtr(shared.ExtentStatus_OPEN),
 		ConsumerGroupVisibility: common.StringPtr(cg),
 	}
 	reconciler.reconcileDestExtent(dest, localExtents, remoteExtents, remoteZone)

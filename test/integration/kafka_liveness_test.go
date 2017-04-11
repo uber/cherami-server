@@ -22,12 +22,12 @@ package integration
 
 import (
 	"github.com/Shopify/sarama"
+	"github.com/bsm/sarama-cluster"
 	"github.com/pborman/uuid"
 	"github.com/stretchr/testify/suite"
 	"log"
 	"testing"
 	"time"
-	"github.com/bsm/sarama-cluster"
 )
 
 // Note: you need to start ZooKeeper/Kafka on your local machine to run following tests.
@@ -115,7 +115,7 @@ func (s *KafkaLivenessIntegrationSuite) TestKafkaLivenessBySaramaCluster() {
 	config.Group.Return.Notifications = true
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	consumer, err := cluster.NewConsumer(brokers, "/kafka/consumer/group/" + uuid.New(), topics, config)
+	consumer, err := cluster.NewConsumer(brokers, "/kafka/consumer/group/"+uuid.New(), topics, config)
 	s.Assert().Nil(err)
 
 	if err != nil {

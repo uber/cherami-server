@@ -385,10 +385,10 @@ func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
 
 		extID := ext.GetExtentUUID()
 
+		// skip, if already processed
 		if _, ok := dedup[extID]; ok {
 			continue
 		}
-
 		dedup[extID] = struct{}{}
 
 		// skip, if already consumed
@@ -406,11 +406,11 @@ func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
 
 		// skip, if DLQ and not visibible
 		visibility := ext.GetConsumerGroupVisibility()
-
 		if len(visibility) > 0 && visibility != cgUUID {
 			continue
 		}
 
+		// add to list of consummable extents
 		consExtents = append(consExtents, ext)
 	}
 

@@ -45,9 +45,10 @@ func (s *McpSuite) TestCGExtentSelectorWithNoExtents() {
 
 	context := s.mcp.context
 	cgExtents := newCGExtentsByCategory()
-	extents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	extents, avail, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(1, len(extents), "Extent not created when no consummable extent available")
+	s.Equal(1, len(extents), "Extent not created when no consummable extent")
+	s.Equal(1, avail, "Extent not created when no consummable extent")
 }
 
 func (s *McpSuite) TestCGExtentSelectorWithNoConsumableExtents() {
@@ -90,9 +91,10 @@ func (s *McpSuite) TestCGExtentSelectorWithNoConsumableExtents() {
 		cgExtents.consumed[extID] = struct{}{}
 	}
 
-	extents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	extents, avail, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(1, len(extents), "Extent not created when no consummable extent available")
+	s.Equal(1, len(extents), "Extent not created when no consummable extent")
+	s.Equal(1, avail, "Extent not created when no consummable extent")
 }
 
 func (s *McpSuite) TestCGExtentSelectorHonorsCreatedTime() {
@@ -127,10 +129,11 @@ func (s *McpSuite) TestCGExtentSelectorHonorsCreatedTime() {
 
 	cgExtents := newCGExtentsByCategory()
 
-	gotExtents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
 
 	s.Equal(maxExtentsToConsumeForDstPlain, len(gotExtents), "Wrong number of next extents to consume")
+	s.Equal(nExtents, avail, "Wrong number of available extents")
 
 	for i := 0; i < len(gotExtents); i++ {
 		s.Equal(extents[i], gotExtents[i].GetExtentUUID(), "Extents not served in time order")
@@ -170,15 +173,17 @@ func (s *McpSuite) TestCGExtentSelectorHonorsDlqQuota() {
 		}
 	}
 
-	gotExtents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
 	s.Equal(1, len(gotExtents), "Wrong number of next extents to consume")
+	s.Equal(1, avail, "Wrong number of available extents")
 	s.Equal(dlqExtID, gotExtents[0].GetExtentUUID(), "DLQ quota not honored")
 
 	cgExtents.open[dlqExtID] = struct{}{}
-	gotExtents, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
 	s.Equal(0, len(gotExtents), "Wrong number of next extents to consume")
+	s.Equal(0, avail, "Wrong number of available extents")
 
 	// make all currently open CGExtents consumed and start fresh
 	cgExtents.consumed, cgExtents.open = cgExtents.open, cgExtents.consumed
@@ -202,9 +207,10 @@ func (s *McpSuite) TestCGExtentSelectorHonorsDlqQuota() {
 		dstExtents[extID] = struct{}{}
 	}
 
-	gotExtents, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
 	s.Equal(maxExtentsToConsumeForDstPlain, len(gotExtents), "Wrong number of next extents to consume")
+	s.Equal(14, avail, "Wrong number of available extents")
 
 	nDlq := 0
 	for _, ext := range gotExtents {
@@ -223,9 +229,9 @@ func (s *McpSuite) TestCGExtentSelectorHonorsDlqQuota() {
 		cgExtents.consumed[k] = struct{}{}
 	}
 
-	gotExtents, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(1, len(gotExtents), "Extent not created when no consummable extent available")
+	s.Equal(1, len(gotExtents), "Extent not created when no consummable extent")
 }
 
 func (s *McpSuite) TestCGExtentSelectorHonorsRemoteExtent() {
@@ -259,10 +265,11 @@ func (s *McpSuite) TestCGExtentSelectorHonorsRemoteExtent() {
 
 	cgExtents := newCGExtentsByCategory()
 
-	gotExtents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+	gotExtents, avail, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
 
 	s.Equal(maxExtentsToConsumeForDstPlain+extentsToConsumePerRemoteZone, len(gotExtents), "Wrong number of next extents to consume")
+	s.Equal(nExtents, avail, "Wrong number of available extents")
 
 	var curZoneExtent int
 	var remoteZoneExtent int
@@ -328,7 +335,9 @@ func (s *McpSuite) TestCGExtentSelectorWithBacklog() {
 
 	for dlqExtsAvail > 0 || openExtsAvail > 0 {
 
-		gotExtents, err1 := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
+		totalAvail := openExtsAvail + dlqExtsAvail
+
+		gotExtents, avail, err1 := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 		s.Nil(err1, "selectNextExtentsToConsume() error")
 
 		dlqQuota := common.MinInt(dlqExtsAvail, maxExtentsToConsumeForDstPlain/4-len(openDLQExtents))
@@ -336,6 +345,7 @@ func (s *McpSuite) TestCGExtentSelectorWithBacklog() {
 
 		expectedCount := common.MinInt(maxExtentsToConsumeForDstPlain, (openExtsAvail + dlqQuota))
 		s.Equal(expectedCount, len(gotExtents), "Wrong number of next extents to consume")
+		s.Equal(totalAvail, avail, "Wrong number of available extents")
 
 		for _, ext := range gotExtents {
 

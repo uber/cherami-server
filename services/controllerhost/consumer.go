@@ -397,7 +397,7 @@ func selectNextExtentsToConsume(
 	dstDesc *shared.DestinationDescription,
 	cgDesc *shared.ConsumerGroupDescription,
 	cgExtents *cgExtentsByCategory,
-	m3Scope int) ([]*m.DestinationExtent, error) {
+	m3Scope int) ([]*m.DestinationExtent, int, error) {
 
 	dstID := dstDesc.GetDestinationUUID()
 	cgID := cgDesc.GetConsumerGroupUUID()
@@ -406,7 +406,7 @@ func selectNextExtentsToConsume(
 	dstExtents, err := context.mm.ListDestinationExtentsByStatus(dstID, filterBy)
 	if err != nil {
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
-		return nil, err
+		return nil, 0, err
 	}
 
 	dedupMap := make(map[string]struct{})
@@ -475,7 +475,7 @@ func selectNextExtentsToConsume(
 		// is none currently consumed). So pick the
 		// dlq extent and bail out
 
-		return []*m.DestinationExtent{dstDlqExtents[0]}, nil
+		return []*m.DestinationExtent{dstDlqExtents[0]}, nAvailable, nil
 	}
 
 	nZone := 0
@@ -517,24 +517,34 @@ func selectNextExtentsToConsume(
 
 		if nBacklog < maxExtentsToConsume {
 			// No consumable extents for this destination, create one
-			extentID, _, storehosts, e := createExtent(context, dstID, dstDesc.GetIsMultiZone(), m3Scope)
-			if e != nil {
-				context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
-				return nil, e
+			if ext, err := createDestExtent(context, dstDesc, m3Scope); err == nil {
+				result = append(result, ext)
+				nAvailable++ // new extent is 'available'
 			}
-			storeids := make([]string, len(storehosts))
-			for i := 0; i < len(storehosts); i++ {
-				storeids[i] = storehosts[i].UUID
-			}
-			ext := &m.DestinationExtent{
-				ExtentUUID: common.StringPtr(extentID),
-				StoreUUIDs: storeids,
-			}
-			result = append(result, ext)
 		}
 	}
 
-	return result, nil
+	return result, nAvailable, nil
+}
+
+func createDestExtent(context *Context, dstDesc *shared.DestinationDescription, m3Scope int) (ext *m.DestinationExtent, err error) {
+
+	extentID, _, storehosts, e := createExtent(context, dstDesc.GetDestinationUUID(), dstDesc.GetIsMultiZone(), m3Scope)
+	if e != nil {
+		return nil, e
+	}
+
+	storeUUIDs := make([]string, len(storehosts))
+	for i := 0; i < len(storehosts); i++ {
+		storeUUIDs[i] = storehosts[i].UUID
+	}
+
+	ext = &m.DestinationExtent{
+		ExtentUUID: common.StringPtr(extentID),
+		StoreUUIDs: storeUUIDs,
+	}
+
+	return
 }
 
 func refreshCGExtents(context *Context,
@@ -559,7 +569,7 @@ func refreshCGExtents(context *Context,
 		cgExtents.consumed[ext.GetExtentUUID()] = struct{}{}
 	}
 
-	newExtents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, m3Scope)
+	newExtents, _, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, m3Scope)
 	if err != nil {
 		return 0, err
 	}

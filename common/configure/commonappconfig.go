@@ -103,9 +103,7 @@ func (r *AppConfig) GetDefaultServiceConfig() CommonServiceConfig {
 	return r.DefaultServiceConfig
 }
 
-// GetDefaultServiceConfig returns the default service config
+// GetKafkaConfig returns the default service config
 func (r *AppConfig) GetKafkaConfig() CommonKafkaConfig {
 	return r.KafkaConfig
 }
-
-

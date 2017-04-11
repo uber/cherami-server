@@ -32,10 +32,12 @@ type KafkaConfig struct {
 	ClustersConfig         ClustersConfig
 }
 
+// ClustersConfig holds the configuration for the Kafka clusters
 type ClustersConfig struct {
 	Clusters map[string]ClusterConfig `yaml:"clusters"`
 }
 
+// ClusterConfig holds the configuration for a single Kafka cluster
 type ClusterConfig struct {
 	Brokers    []string `yaml:"brokers"`
 	Zookeepers []string `yaml:"zookeepers"`
@@ -52,13 +54,13 @@ func (r *KafkaConfig) GetKafkaClusters() []string {
 	r.loadClusterConfigFileIfNecessary()
 
 	ret := make([]string, 0, len(r.ClustersConfig.Clusters))
-	for key, _ := range r.ClustersConfig.Clusters {
+	for key := range r.ClustersConfig.Clusters {
 		ret = append(ret, key)
 	}
 	return ret
 }
 
-// GetKafkaClusters returns all kafka cluster names
+// GetKafkaClusterConfig returns all kafka cluster names
 func (r *KafkaConfig) GetKafkaClusterConfig(cluster string) (ClusterConfig, bool) {
 	r.loadClusterConfigFileIfNecessary()
 

@@ -22,8 +22,8 @@ package configure
 
 import (
 	"github.com/stretchr/testify/assert"
-	"testing"
 	"sort"
+	"testing"
 )
 
 func TestLoadKafkaConfig(t *testing.T) {

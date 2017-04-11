@@ -396,7 +396,7 @@ func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
 			continue
 		}
 
-		// skip, if laready open
+		// skip, if already open
 		if _, ok := open[extID]; ok {
 			if len(ext.GetConsumerGroupVisibility()) > 0 {
 				nOpenDlqExtents++
@@ -407,7 +407,6 @@ func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
 		// skip, if DLQ and not visibible
 		visibility := ext.GetConsumerGroupVisibility()
 
-		// if DLQ, ensure the extent is visible to the CG
 		if len(visibility) > 0 && visibility != cgUUID {
 			continue
 		}

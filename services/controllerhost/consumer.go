@@ -634,7 +634,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 		}
 
 		// If we shouldn't consume in this zone(for a multi_zone cg), short circuit and return
-		if !ShouldConsumeInZone(context.localZone, cgDesc, cfg) {
+		if !shouldConsumeInZone(context.localZone, cgDesc, cfg) {
 			writeToCache(int64(outputCacheTTL))
 			return outputAddrs, nil
 		}
@@ -691,8 +691,11 @@ func refreshOutputHostsForConsGroup(context *Context,
 	return outputAddrs, err
 }
 
-// ShouldConsumeInZone indicated whether we should consume from this zone for a multi_zone consumer group
-func ShouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, dConfig ControllerDynamicConfig) bool {
+// shouldConsumeInZone indicated whether we should consume from this zone for a multi_zone consumer group
+// If failover mode is enabled in dynamic config, the active zone will be the one specified in dynamic config
+// Otherwise, use the per cg override if it's specified
+// Last, check the active zone in dynamic config. If specified, use it. Otherwise always return true
+func shouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, dConfig ControllerDynamicConfig) bool {
 	if strings.EqualFold(dConfig.FailoverMode, `enabled`) {
 		return strings.EqualFold(zone, dConfig.ActiveZone)
 	}
@@ -701,5 +704,9 @@ func ShouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, d
 		return strings.EqualFold(zone, cgDesc.GetActiveZone())
 	}
 
-	return strings.EqualFold(zone, dConfig.ActiveZone)
+	if len(dConfig.ActiveZone) > 0 {
+		return strings.EqualFold(zone, dConfig.ActiveZone)
+	}
+
+	return true
 }

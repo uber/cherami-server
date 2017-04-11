@@ -47,7 +47,7 @@ func (s *McpSuite) TestCGExtentSelectorWithNoExtents() {
 	cgExtents := newCGExtentsByCategory()
 	extents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(0, len(extents), "Wrong number of next extents")
+	s.Equal(1, len(extents), "Extent not created when no consummable extent available")
 }
 
 func (s *McpSuite) TestCGExtentSelectorWithNoConsumableExtents() {
@@ -92,7 +92,7 @@ func (s *McpSuite) TestCGExtentSelectorWithNoConsumableExtents() {
 
 	extents, err := selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(0, len(extents), "Wrong number of next extents to consume")
+	s.Equal(1, len(extents), "Extent not created when no consummable extent available")
 }
 
 func (s *McpSuite) TestCGExtentSelectorHonorsCreatedTime() {
@@ -225,7 +225,7 @@ func (s *McpSuite) TestCGExtentSelectorHonorsDlqQuota() {
 
 	gotExtents, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, metrics.GetOutputHostsScope)
 	s.Nil(err, "selectNextExtentsToConsume() error")
-	s.Equal(0, len(gotExtents), "DLQ quota not strictly honored")
+	s.Equal(1, len(gotExtents), "Extent not created when no consummable extent available")
 }
 
 func (s *McpSuite) TestCGExtentSelectorHonorsRemoteExtent() {

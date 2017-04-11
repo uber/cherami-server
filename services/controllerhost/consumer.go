@@ -363,9 +363,9 @@ func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string,
 	return
 }
 
-// listConsummableExtents returns the list of extents for the destination that
+// listConsumableExtents returns the list of extents for the destination that
 // are in open or sealed state and can be consumed by the given CG.
-func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
+func listConsumableExtents(context *Context, dstUUID string, cgUUID string,
 	open map[string]struct{}, consumed map[string]struct{}, m3Scope int) ([]*m.DestinationExtent, int, error) {
 
 	// get list of open/sealed extents
@@ -410,7 +410,7 @@ func listConsummableExtents(context *Context, dstUUID string, cgUUID string,
 			continue
 		}
 
-		// add to list of consummable extents
+		// add to list of consumable extents
 		consExtents = append(consExtents, ext)
 	}
 
@@ -480,8 +480,8 @@ func selectNextExtentsToConsume(
 	dstID := dstDesc.GetDestinationUUID()
 	cgID := cgDesc.GetConsumerGroupUUID()
 
-	// get list of extents that are consummable by this CG
-	dstExtents, nCGDlqExtents, err := listConsummableExtents(context, dstID, cgID, cgExtents.open, cgExtents.consumed, m3Scope)
+	// get list of extents that are consumable by this CG
+	dstExtents, nCGDlqExtents, err := listConsumableExtents(context, dstID, cgID, cgExtents.open, cgExtents.consumed, m3Scope)
 	if err != nil {
 		return nil, 0, err
 	}

@@ -819,7 +819,7 @@ func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	var lastSeqRate, availSeqRate float64 = 23.45, 67.89
 	var beginAddr, lastAddr int64 = 0x123456789ABCDE, 0xABCDEF012345678
 	var sizeInBytes int64 = 0x456123789
-	var sizeInBytesRate float64 = 987.67
+	var sizeInBytesRate = 987.67
 
 	stats1 := &shared.ExtentReplicaStats{
 		ExtentUUID:            common.StringPtr(extentUUID),
@@ -877,9 +877,8 @@ func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	timeDifference := func(t0, t1 int64) time.Duration {
 		if t0 > t1 {
 			return time.Unix(0, t0).Sub(time.Unix(0, t1))
-		} else {
-			return time.Unix(0, t1).Sub(time.Unix(0, t0))
 		}
+		return time.Unix(0, t1).Sub(time.Unix(0, t0))
 	}
 	s.True(timeDifference(stats1.GetBeginEnqueueTimeUtc(), stats[0].GetBeginEnqueueTimeUtc()) < time.Millisecond)
 	s.True(timeDifference(stats1.GetLastEnqueueTimeUtc(), stats[0].GetLastEnqueueTimeUtc()) < time.Millisecond)

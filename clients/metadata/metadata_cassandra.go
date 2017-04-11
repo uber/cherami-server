@@ -1210,6 +1210,7 @@ const (
 		` WHERE ` + columnDestinationUUID + `=? and ` + columnName + `=?`
 )
 
+// CreateConsumerGroup creates a consumer group.
 func (s *CassandraMetadataService) CreateConsumerGroup(ctx thrift.Context, request *shared.CreateConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	uuidRequest := shared.NewCreateConsumerGroupUUIDRequest()
 	uuidRequest.Request = request

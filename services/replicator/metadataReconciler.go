@@ -897,7 +897,7 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 	}
 
 	// now add new suspect if there's any
-	for missingExtent, _ := range remoteMissingExtents {
+	for missingExtent := range remoteMissingExtents {
 		if _, ok := r.suspectMissingExtents[missingExtent]; !ok {
 			r.suspectMissingExtents[missingExtent] = missingExtentInfo{
 				destUUID:     destUUID,
@@ -1058,9 +1058,9 @@ func (r *metadataReconciler) cgExistInLocal(cgUUID string) (bool, error) {
 			common.TagCnsm: common.FmtCnsm(cgUUID),
 		}).Error(`cgExistInLocal: failed to call ReadConsumerGroupByUUID`)
 		return false, err
-	} else {
-		return true, nil
 	}
+
+	return true, nil
 }
 
 func (r *metadataReconciler) sealExtentInMetadata(destUUID string, extentUUID string) {

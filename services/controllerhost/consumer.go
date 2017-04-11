@@ -363,10 +363,11 @@ func fetchClassifyOpenCGExtents(context *Context, dstUUID string, cgUUID string,
 	return
 }
 
-// listConsumableExtents returns the list of extents for the destination that
-// are in open or sealed state and can be consumed by the given CG.
-func listConsumableExtents(context *Context, dstUUID string, cgUUID string,
-	open map[string]struct{}, consumed map[string]struct{}, m3Scope int) ([]*m.DestinationExtent, int, error) {
+// findConsumableExtents returns the list of extents for the destination that are
+// consumable by this CG -- this looks at only extents that are in open or sealed
+// state and excludes those that are not already open/consumed by this CG.
+func findConsumableExtents(context *Context, dstUUID, cgUUID string,
+	openCGExtents, consumedCGExtents map[string]struct{}, m3Scope int) ([]*m.DestinationExtent, int, error) {
 
 	// get list of open/sealed extents
 	filterBy := []shared.ExtentStatus{shared.ExtentStatus_SEALED, shared.ExtentStatus_OPEN}
@@ -392,12 +393,12 @@ func listConsumableExtents(context *Context, dstUUID string, cgUUID string,
 		dedup[extID] = struct{}{}
 
 		// skip, if already consumed
-		if !canConsumeDstExtent(context, ext, consumed) {
+		if !canConsumeDstExtent(context, ext, consumedCGExtents) {
 			continue
 		}
 
 		// skip, if already open
-		if _, ok := open[extID]; ok {
+		if _, ok := openCGExtents[extID]; ok {
 			if len(ext.GetConsumerGroupVisibility()) > 0 {
 				nOpenDlqExtents++
 			}
@@ -481,7 +482,7 @@ func selectNextExtentsToConsume(
 	cgID := cgDesc.GetConsumerGroupUUID()
 
 	// get list of extents that are consumable by this CG
-	dstExtents, nCGDlqExtents, err := listConsumableExtents(context, dstID, cgID, cgExtents.open, cgExtents.consumed, m3Scope)
+	dstExtents, nCGDlqExtents, err := findConsumableExtents(context, dstID, cgID, cgExtents.open, cgExtents.consumed, m3Scope)
 	if err != nil {
 		return nil, 0, err
 	}

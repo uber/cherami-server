@@ -793,8 +793,6 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 				continue
 			}
 
-			foundMissingCount = foundMissingCount + 1
-
 			createRequest := &shared.CreateExtentRequest{
 				Extent: &shared.Extent{
 					ExtentUUID:      common.StringPtr(remoteExtentUUID),
@@ -805,10 +803,34 @@ func (r *metadataReconciler) reconcileDestExtent(destUUID string, localExtents m
 				},
 			}
 
-			// if the remote extent has cg visibility set (a merged dlq extent), propagate that field too.
+			// If the remote extent has cg visibility set (a merged dlq extent), only create the extent if
+			// the cg exists in local (i.e. if the cg is a local only cg from remote, we don't need to replicate this extent)
 			if remoteExtentStats.IsSetConsumerGroupVisibility() {
+				exist, err := r.cgExistInLocal(remoteExtentStats.GetConsumerGroupVisibility())
+				if err != nil {
+					r.logger.WithFields(bark.Fields{
+						common.TagErr:      err,
+						common.TagDst:      common.FmtDst(destUUID),
+						common.TagCnsm:     common.FmtCnsm(remoteExtentStats.GetConsumerGroupVisibility()),
+						common.TagExt:      common.FmtExt(remoteExtentUUID),
+						common.TagZoneName: common.FmtZoneName(remoteZone),
+					}).Error(`Failed to decide whether cg exist in local for dlq extent`)
+					continue
+				}
+				if !exist {
+					r.logger.WithFields(bark.Fields{
+						common.TagErr:      err,
+						common.TagDst:      common.FmtDst(destUUID),
+						common.TagCnsm:     common.FmtCnsm(remoteExtentStats.GetConsumerGroupVisibility()),
+						common.TagExt:      common.FmtExt(remoteExtentUUID),
+						common.TagZoneName: common.FmtZoneName(remoteZone),
+					}).Info(`Found missing dlq extent but cg doesn't exist in local`)
+					continue
+				}
 				createRequest.ConsumerGroupVisibility = common.StringPtr(remoteExtentStats.GetConsumerGroupVisibility())
 			}
+
+			foundMissingCount = foundMissingCount + 1
 
 			ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
 			defer cancel()
@@ -1020,6 +1042,24 @@ func (r *metadataReconciler) handleExtentDeletedOrMissingInRemote(destUUID strin
 			common.TagDst: common.FmtDst(destUUID),
 			common.TagExt: common.FmtExt(extentUUID),
 		}).Info(`Extent sealed in store`)
+	}
+}
+
+func (r *metadataReconciler) cgExistInLocal(cgUUID string) (bool, error){
+	_, err := r.mClient.ReadConsumerGroupByUUID(nil, &shared.ReadConsumerGroupRequest{
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+	})
+	if err != nil {
+		if _, ok := err.(*shared.EntityNotExistsError); ok {
+			return false, nil
+		}
+		r.logger.WithFields(bark.Fields{
+			common.TagErr: err,
+			common.TagCnsm: common.FmtCnsm(cgUUID),
+		}).Error(`cgExistInLocal: failed to call ReadConsumerGroupByUUID`)
+		return false, err
+	} else {
+		return true, nil
 	}
 }
 

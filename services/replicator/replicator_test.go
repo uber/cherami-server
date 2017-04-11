@@ -1343,6 +1343,10 @@ func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissingDLQExtent()
 	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
 
 	// setup mock
+	s.mockMeta.On("ReadConsumerGroupByUUID", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.ReadConsumerGroupRequest)
+		s.Equal(cg, req.GetConsumerGroupUUID())
+	})
 	s.mockControllerClient.On("CreateRemoteZoneExtent", mock.Anything, mock.Anything).Return(shared.NewCreateExtentResult_(), nil).Run(func(args mock.Arguments) {
 		req := args.Get(1).(*shared.CreateExtentRequest)
 		s.True(req.IsSetExtent())
@@ -1359,6 +1363,35 @@ func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissingDLQExtent()
 		ConsumerGroupVisibility: common.StringPtr(cg),
 	}
 	reconciler.reconcileDestExtent(dest, localExtents, remoteExtents, remoteZone)
+	s.mockMeta.AssertExpectations(s.T())
+	s.mockControllerClient.AssertExpectations(s.T())
+}
+
+// local zone is missing one dlq destination extent compared to remote, but that dlq extent is only for remote cg. Expect to no creation request
+func (s *ReplicatorSuite) TestDestExtentMetadataReconcileLocalMissingDLQExtentRemoteOnlyCg() {
+	localZone := `zone2`
+	remoteZone := `zone1`
+	missingExtent := uuid.New()
+	dest := uuid.New()
+	cg := uuid.New()
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	// setup mock
+	s.mockMeta.On("ReadConsumerGroupByUUID", mock.Anything, mock.Anything).Return(nil, &shared.EntityNotExistsError{Message: `doesn't exist`}).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.ReadConsumerGroupRequest)
+		s.Equal(cg, req.GetConsumerGroupUUID())
+	})
+
+	localExtents := make(map[string]*shared.ExtentStats)
+	remoteExtents := make(map[string]*shared.ExtentStats)
+	remoteExtents[missingExtent] = &shared.ExtentStats{
+		Status: common.MetadataExtentStatusPtr(shared.ExtentStatus_OPEN),
+		ConsumerGroupVisibility: common.StringPtr(cg),
+	}
+	reconciler.reconcileDestExtent(dest, localExtents, remoteExtents, remoteZone)
+	s.mockMeta.AssertExpectations(s.T())
 	s.mockControllerClient.AssertExpectations(s.T())
 }
 

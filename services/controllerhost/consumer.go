@@ -21,6 +21,7 @@
 package controllerhost
 
 import (
+	"strings"
 	"time"
 
 	"github.com/uber-common/bark"
@@ -620,20 +621,20 @@ func refreshOutputHostsForConsGroup(context *Context,
 	}
 
 	if cgDesc.GetIsMultiZone() {
-		cfgObj, err := context.cfgMgr.Get(common.CommonServiceName, "*", "*", "*")
+		cfgObj, err := context.cfgMgr.Get(common.ControllerServiceName, "*", "*", "*")
 		if err != nil {
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
 			return nil, err
 		}
 
-		cfg, ok := cfgObj.(common.MultiZoneDynamicConfig)
+		cfg, ok := cfgObj.(ControllerDynamicConfig)
 		if !ok {
-			context.log.Fatal("Unexpected type mismatch, cfgObj.(common.MultiZoneDynamicConfig) failed !")
+			context.log.Fatal("Unexpected type mismatch, cfgObj.(ControllerDynamicConfig) failed !")
 		}
 
 		// If we shouldn't consume in this zone(for a multi_zone cg), short circuit and return
-		if !common.ShouldConsumeInZone(context.localZone, cgDesc, cfg) {
+		if !ShouldConsumeInZone(context.localZone, cgDesc, cfg) {
 			writeToCache(int64(outputCacheTTL))
 			return outputAddrs, nil
 		}
@@ -688,4 +689,17 @@ func refreshOutputHostsForConsGroup(context *Context,
 	nConsumable += nAdded
 	writeToCache(failBackoffInterval)
 	return outputAddrs, err
+}
+
+// ShouldConsumeInZone indicated whether we should consume from this zone for a multi_zone consumer group
+func ShouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, dConfig ControllerDynamicConfig) bool {
+	if strings.EqualFold(dConfig.FailoverMode, `enabled`) {
+		return strings.EqualFold(zone, dConfig.ActiveZone)
+	}
+
+	if cgDesc.IsSetActiveZone() {
+		return strings.EqualFold(zone, cgDesc.GetActiveZone())
+	}
+
+	return strings.EqualFold(zone, dConfig.ActiveZone)
 }

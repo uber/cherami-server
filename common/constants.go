@@ -39,8 +39,6 @@ const (
 	CallerHostName = "host-name"
 	// CallerServiceName is the name of thrift context header contains current service name
 	CallerServiceName = "cn"
-	// A fake service name used by dynamic config. It represents common configs among all services
-	CommonServiceName = "cherami-common"
 )
 
 // ServiceToPort is service name to ports mapping

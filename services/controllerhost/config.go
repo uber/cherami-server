@@ -56,6 +56,10 @@ type (
 		NumPublisherExtentsByPath      []string `name:"numPublisherExtentsByPath" default:"/=4"`
 		NumConsumerExtentsByPath       []string `name:"numConsumerExtentsByPath" default:"/=8"`
 		NumRemoteConsumerExtentsByPath []string `name:"numRemoteConsumerExtentsByPath" default:"/=4"`
+
+		// configs for multi_zone consumer group
+		ActiveZone   string `name:"activeZone"`
+		FailoverMode string `name:"failoverMode" default:"disabled"`
 	}
 )
 
@@ -67,7 +71,6 @@ func newConfigManager(mClient m.TChanMetadataService, logger bark.Logger) dconfi
 		common.OutputServiceName:     OutputPlacementConfig{},
 		common.StoreServiceName:      StorePlacementConfig{},
 		common.ControllerServiceName: ControllerDynamicConfig{},
-		common.CommonServiceName:     common.MultiZoneDynamicConfig{},
 	}
 	return dconfig.NewCassandraConfigManager(mClient, cfgTypes, logger)
 }

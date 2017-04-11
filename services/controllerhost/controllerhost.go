@@ -104,6 +104,7 @@ type (
 		localZone       string
 		mm              MetadataMgr
 		rpm             common.RingpopMonitor
+		configUpdater   dconfig.ConfigUpdater
 		failureDetector Dfdd
 		log             bark.Logger
 		dstLock         LockMgr
@@ -147,7 +148,7 @@ type (
 var _ c.TChanController = (*Mcp)(nil)
 
 // NewController creates and returns a new instance of Mcp controller
-func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadataClient m.TChanMetadataService) (*Mcp, []thrift.TChanServer) {
+func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadataClient m.TChanMetadataService, configUpdater dconfig.ConfigUpdater) (*Mcp, []thrift.TChanServer) {
 	hostID := uuid.New()
 
 	instance := new(Mcp)
@@ -169,6 +170,7 @@ func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadat
 	}
 
 	context.localZone, _ = common.GetLocalClusterInfo(strings.ToLower(deploymentName))
+	context.configUpdater = configUpdater
 
 	context.dstLock = lockMgr
 	context.m3Client = metrics.NewClient(instance.Service.GetMetricsReporter(), metrics.Controller)
@@ -203,6 +205,8 @@ func (mcp *Mcp) Start(thriftService []thrift.TChanServer) {
 	context.channel = mcp.GetTChannel()
 	context.rpm = mcp.GetRingpopMonitor()
 
+	context.configUpdater.Start()
+
 	context.eventPipeline = NewEventPipeline(context, nEventPipelineWorkers)
 	context.eventPipeline.Start()
 
@@ -235,6 +239,7 @@ func (mcp *Mcp) Start(thriftService []thrift.TChanServer) {
 // Stop stops the controller service
 func (mcp *Mcp) Stop() {
 	mcp.hostIDHeartbeater.Stop()
+	mcp.context.configUpdater.Stop()
 	mcp.context.extentMonitor.Stop()
 	mcp.context.retMgr.Stop()
 	mcp.context.failureDetector.Stop()

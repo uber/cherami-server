@@ -32,7 +32,8 @@ import (
 	mc "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
-	dconfig "github.com/uber/cherami-server/common/dconfigclient"
+	"github.com/uber/cherami-server/common/dconfig"
+	"github.com/uber/cherami-server/common/dconfigclient"
 	"github.com/uber/cherami-server/test"
 	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	mockreplicator "github.com/uber/cherami-server/test/mocks/replicator"
@@ -106,11 +107,11 @@ func (s *McpSuite) startController() {
 
 	serviceName := common.ControllerServiceName
 	reporter := common.NewMetricReporterWithHostname(configure.NewCommonServiceConfig())
-	dClient := dconfig.NewDconfigClient(serviceConfig, common.ControllerServiceName)
+	dClient := dconfigclient.NewDconfigClient(serviceConfig, common.ControllerServiceName)
 
 	sVice := common.NewService(serviceName, uuid.New(), serviceConfig, common.NewUUIDResolver(s.mClient), common.NewHostHardwareInfoReader(s.mClient), reporter, dClient)
 	//serviceConfig.SetRingHosts(
-	mcp, tc := NewController(s.cfg, sVice, s.mClient)
+	mcp, tc := NewController(s.cfg, sVice, s.mClient, dconfig.NewDummyConfigUpdater())
 	s.mcp = mcp
 
 	context := s.mcp.context

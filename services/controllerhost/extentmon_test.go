@@ -36,7 +36,8 @@ import (
 	mc "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
-	dconfig "github.com/uber/cherami-server/common/dconfigclient"
+	"github.com/uber/cherami-server/common/dconfig"
+	"github.com/uber/cherami-server/common/dconfigclient"
 	"github.com/uber/cherami-server/common/metrics"
 	"github.com/uber/cherami-thrift/.generated/go/admin"
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
@@ -87,11 +88,11 @@ func (s *ExtentStateMonitorSuite) SetupTest() {
 
 	serviceName := common.ControllerServiceName
 	reporter := common.NewMetricReporterWithHostname(configure.NewCommonServiceConfig())
-	dClient := dconfig.NewDconfigClient(serviceConfig, common.ControllerServiceName)
+	dClient := dconfigclient.NewDconfigClient(serviceConfig, common.ControllerServiceName)
 
 	sVice := common.NewService(serviceName, uuid.New(), serviceConfig, common.NewUUIDResolver(s.mClient), common.NewHostHardwareInfoReader(s.mClient), reporter, dClient)
 
-	mcp, _ := NewController(s.cfg, sVice, s.mClient)
+	mcp, _ := NewController(s.cfg, sVice, s.mClient, dconfig.NewDummyConfigUpdater())
 	mcp.context.m3Client = &MockM3Metrics{}
 	s.mcp = mcp
 	ch, err := tchannel.NewChannel("extent-state-monitor-test", nil)

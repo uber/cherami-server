@@ -59,6 +59,10 @@ const (
 var (
 	// ErrTooManyUnHealthy is returned when there are too many open but unhealthy extents for a destination
 	ErrTooManyUnHealthy = &shared.InternalServiceError{Message: "Too many open, but unhealthy extents for destination"}
+	// ErrPublishToKafkaDestination is returned on invoking GetInputHosts on a Kafka destination
+	ErrPublishToKafkaDestination = &shared.BadRequestError{Message: "Cannot publish to Kafka destinations"}
+	// ErrPublishToReceiveOnlyDestination is returned on invoking GetInputHosts on a receive-only destination
+	ErrPublishToReceiveOnlyDestination = &shared.BadRequestError{Message: "Cannot publish to receive-only destinations"}
 )
 
 var (
@@ -175,6 +179,10 @@ func checkCGEExists(context *Context, dstUUID, cgUUID string, extUUID extentUUID
 func validateDstStatus(dstDesc *shared.DestinationDescription) error {
 	switch dstDesc.GetStatus() {
 	case shared.DestinationStatus_ENABLED:
+		fallthrough
+	case shared.DestinationStatus_SENDONLY:
+		fallthrough
+	case shared.DestinationStatus_RECEIVEONLY:
 		return nil
 	case shared.DestinationStatus_DELETED:
 		return ErrDestinationNotExists
@@ -201,6 +209,11 @@ func isEntityError(err error) bool {
 		return true
 	}
 	return false
+}
+
+func isBadRequestError(err error) bool {
+	_, ok := err.(*shared.BadRequestError)
+	return ok
 }
 
 func readDestination(context *Context, dstID string, m3Scope int) (*shared.DestinationDescription, error) {
@@ -238,8 +251,9 @@ func getDstType(desc *shared.DestinationDescription) dstType {
 		return dstTypeTimer
 	case shared.DestinationType_KAFKA:
 		return dstTypeKafka
+	default:
+		return dstTypePlain
 	}
-	return dstTypePlain
 }
 
 func minOpenExtentsForDst(context *Context, dstPath string, dstType dstType) int {
@@ -297,6 +311,7 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 
 	storehosts, err = context.placement.PickStoreHosts(nReplicasPerExtent)
 	if err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrPickStoreHostCounter)
 		return
 	}
@@ -308,6 +323,7 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 
 	inhost, err = context.placement.PickInputHost(storehosts)
 	if err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrPickInHostCounter)
 		return
 	}
@@ -315,6 +331,7 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 	extentUUID = uuid.New()
 	_, err = context.mm.CreateExtent(dstUUID, extentUUID, inhost.UUID, storeids)
 	if err != nil {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
 		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataUpdateCounter)
 		return
 	}
@@ -347,6 +364,7 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 		localReplicator, replicatorErr := context.clientFactory.GetReplicatorClient()
 		if replicatorErr != nil {
 			lclLg.WithField(common.TagErr, replicatorErr).Error("createExtent: GetReplicatorClient failed")
+			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCallReplicatorCounter)
 			return
 		}
@@ -356,6 +374,7 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 		replicatorErr = localReplicator.CreateRemoteExtent(ctx, req)
 		if replicatorErr != nil {
 			lclLg.WithField(common.TagErr, replicatorErr).Error("createExtent: CreateRemoteExtent failed")
+			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCreateExtentCounter)
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrCallReplicatorCounter)
 			return
 		}
@@ -405,6 +424,18 @@ func refreshInputHostsForDst(context *Context, dstUUID string, now int64) ([]str
 	}
 
 	var dstType = getDstType(dstDesc)
+
+	// Fail attempts to publish to Kafka destinations
+	if dstType == dstTypeKafka {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
+		return nil, ErrPublishToKafkaDestination
+	}
+
+	if dstDesc.GetStatus() == shared.DestinationStatus_RECEIVEONLY {
+		context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
+		return nil, ErrPublishToReceiveOnlyDestination
+	}
+
 	var minOpenExtents = minOpenExtentsForDst(context, dstDesc.GetPath(), dstType)
 	var isMultiZoneDest = dstDesc.GetIsMultiZone()
 

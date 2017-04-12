@@ -100,26 +100,27 @@ type (
 	}
 	// Context holds the run-time context for controller
 	Context struct {
-		hostID          string
-		localZone       string
-		mm              MetadataMgr
-		rpm             common.RingpopMonitor
-		failureDetector Dfdd
-		log             bark.Logger
-		dstLock         LockMgr
-		eventPipeline   EventPipeline
-		resultCache     *resultCache
-		extentMonitor   *extentStateMonitor
-		timeSource      common.TimeSource
-		channel         *tchannel.Channel
-		clientFactory   common.ClientFactory
-		retMgr          *retMgrRunner
-		appConfig       configure.CommonAppConfig
-		m3Client        metrics.Client
-		cfgMgr          dconfig.ConfigManager
-		loadMetrics     load.MetricsAggregator
-		placement       Placement
-		extentSeals     struct {
+		hostID              string
+		localZone           string
+		mm                  MetadataMgr
+		rpm                 common.RingpopMonitor
+		zoneFailoverManager common.ZoneFailoverManager
+		failureDetector     Dfdd
+		log                 bark.Logger
+		dstLock             LockMgr
+		eventPipeline       EventPipeline
+		resultCache         *resultCache
+		extentMonitor       *extentStateMonitor
+		timeSource          common.TimeSource
+		channel             *tchannel.Channel
+		clientFactory       common.ClientFactory
+		retMgr              *retMgrRunner
+		appConfig           configure.CommonAppConfig
+		m3Client            metrics.Client
+		cfgMgr              dconfig.ConfigManager
+		loadMetrics         load.MetricsAggregator
+		placement           Placement
+		extentSeals         struct {
 			// set of extents for which seal is in progress
 			// if an extent exist in this set, some worker
 			// is guaranteed to be working on this extent
@@ -147,7 +148,7 @@ type (
 var _ c.TChanController = (*Mcp)(nil)
 
 // NewController creates and returns a new instance of Mcp controller
-func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadataClient m.TChanMetadataService) (*Mcp, []thrift.TChanServer) {
+func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadataClient m.TChanMetadataService, zoneFailoverManager common.ZoneFailoverManager) (*Mcp, []thrift.TChanServer) {
 	hostID := uuid.New()
 
 	instance := new(Mcp)
@@ -169,6 +170,7 @@ func NewController(cfg configure.CommonAppConfig, sVice *common.Service, metadat
 	}
 
 	context.localZone, _ = common.GetLocalClusterInfo(strings.ToLower(deploymentName))
+	context.zoneFailoverManager = zoneFailoverManager
 
 	context.dstLock = lockMgr
 	context.m3Client = metrics.NewClient(instance.Service.GetMetricsReporter(), metrics.Controller)
@@ -203,13 +205,15 @@ func (mcp *Mcp) Start(thriftService []thrift.TChanServer) {
 	context.channel = mcp.GetTChannel()
 	context.rpm = mcp.GetRingpopMonitor()
 
+	context.zoneFailoverManager.Start()
+
 	context.eventPipeline = NewEventPipeline(context, nEventPipelineWorkers)
 	context.eventPipeline.Start()
 
 	context.loadMetrics.Start()
 	context.cfgMgr.Start()
 
-	context.failureDetector = NewDfdd(context)
+	context.failureDetector = NewDfdd(context, common.NewRealTimeSource())
 	context.failureDetector.Start()
 
 	context.retMgr = newRetMgrRunner(&retMgrRunnerContext{
@@ -235,6 +239,7 @@ func (mcp *Mcp) Start(thriftService []thrift.TChanServer) {
 // Stop stops the controller service
 func (mcp *Mcp) Stop() {
 	mcp.hostIDHeartbeater.Stop()
+	mcp.context.zoneFailoverManager.Stop()
 	mcp.context.extentMonitor.Stop()
 	mcp.context.retMgr.Stop()
 	mcp.context.failureDetector.Stop()
@@ -324,11 +329,17 @@ func (mcp *Mcp) GetInputHosts(ctx thrift.Context, inReq *c.GetInputHostsRequest)
 	hostIDs, err := refreshInputHostsForDst(context, dstUUID, now)
 	context.dstLock.Unlock(dstUUID)
 	if err != nil {
-		if isEntityError(err) {
+
+		switch {
+		case isEntityError(err):
 			context.m3Client.IncCounter(metrics.GetInputHostsScope, metrics.ControllerErrBadEntityCounter)
 			return nil, err
+		case isBadRequestError(err):
+			context.m3Client.IncCounter(metrics.GetInputHostsScope, metrics.ControllerErrBadRequestCounter)
+			return nil, err
+		default:
+			return response(&shared.InternalServiceError{Message: err.Error()})
 		}
-		return response(&shared.InternalServiceError{Message: err.Error()})
 	}
 
 	return &c.GetInputHostsResult_{InputHostIds: hostIDs}, nil
@@ -543,6 +554,14 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	}
 	if metrics.IsSetOutgoingBytesCounter() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.BytesOutPerSec, metrics.GetOutgoingBytesCounter(), timestamp)
+	}
+	if metrics.IsSetNodeStatus() && request.IsSetRole() {
+		switch request.GetRole() {
+		case c.Role_IN:
+			context.failureDetector.ReportHostGoingDown(common.InputServiceName, hostID)
+		case c.Role_STORE:
+			context.failureDetector.ReportHostGoingDown(common.StoreServiceName, hostID)
+		}
 	}
 
 	return nil
@@ -1107,7 +1126,7 @@ func (mcp *Mcp) DeleteConsumerGroup(ctx thrift.Context, deleteRequest *shared.De
 			return nil
 		}
 
-		replicatorErr = localReplicator.DeleteConsumerGroup(ctx, deleteRequest)
+		replicatorErr = localReplicator.DeleteRemoteConsumerGroup(ctx, deleteRequest)
 		if replicatorErr != nil {
 			lclLg.WithField(common.TagErr, err).Error("DeleteConsumerGroup: DeleteRemoteConsumerGroup failed")
 			context.m3Client.IncCounter(metrics.ControllerDeleteConsumerGroupScope, metrics.ControllerErrCallReplicatorCounter)
@@ -1161,7 +1180,8 @@ func (mcp *Mcp) CreateRemoteZoneExtent(ctx thrift.Context, createRequest *shared
 	inputHost := common.InputHostForRemoteExtent
 
 	res, err := context.mm.CreateRemoteZoneExtent(createRequest.GetExtent().GetDestinationUUID(),
-		createRequest.GetExtent().GetExtentUUID(), inputHost, storeids, createRequest.GetExtent().GetOriginZone(), remoteExtentPrimaryStore)
+		createRequest.GetExtent().GetExtentUUID(), inputHost, storeids, createRequest.GetExtent().GetOriginZone(),
+		remoteExtentPrimaryStore, createRequest.GetConsumerGroupVisibility())
 	if err != nil {
 		lclLg.WithField(common.TagErr, err).Error("CreateRemoteZoneExtent: metadata CreateRemoteZoneExtent failed")
 		context.m3Client.IncCounter(metrics.ControllerCreateRemoteZoneExtentScope, metrics.ControllerErrMetadataUpdateCounter)

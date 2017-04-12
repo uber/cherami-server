@@ -295,7 +295,7 @@ ReadLoop2:
 	consumerTest.Close()
 }
 
-func (s *NetIntegrationSuiteParallelC) TestWriteEndToEndSuccessWithCassandra() {
+func (s *NetIntegrationSuiteParallelE) TestWriteEndToEndSuccessWithCassandra() {
 	destPath := "/dest/testWriteEndToEndCassandra"
 	cgPath := "/cg/testWriteEndToEndCassandra"
 	testMsgCount := 100
@@ -481,7 +481,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	// Publish messages
 	// Make the doneCh to be a smaller size so that we don't
 	// fill up immediately
-	doneCh := make(chan *client.PublisherReceipt, 50)
+	doneCh := make(chan *client.PublisherReceipt, 500)
 	var wg sync.WaitGroup
 
 	for i := 0; i < testMsgCount; i++ {
@@ -515,7 +515,8 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	drainReq.ExtentUUID = common.StringPtr(receiptParts[0])
 	dReq.Extents = append(dReq.Extents, drainReq)
 
-	err = ih.DrainExtent(nil, dReq)
+	ctx, _ := thrift.NewContext(1 * time.Minute)
+	err = ih.DrainExtent(ctx, dReq)
 	s.Nil(err)
 
 	consumeCount := testMsgCount
@@ -563,7 +564,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 		Path:              destPath,
 		ConsumerGroupName: cgPath,
 		ConsumerName:      "TestConsumerName",
-		PrefetchCount:     1,
+		PrefetchCount:     50,
 		Options:           &client.ClientOptions{Timeout: time.Second * 30}, // this is the thrift context timeout
 	}
 
@@ -571,7 +572,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 	s.NotNil(consumerTest)
 
 	// Open the consumer channel
-	delivery := make(chan client.Delivery, 1)
+	delivery := make(chan client.Delivery, 50)
 	delivery, err = consumerTest.Open(delivery)
 	s.NoError(err)
 

@@ -766,6 +766,35 @@ func (s *CassandraSuite) TestExtentCRU() {
 	}
 }
 
+func (s *CassandraSuite) TestCreateExtentWithCgVisibility() {
+	extentUUID := uuid.New()
+	destUUID := uuid.New()
+	cgUUID := uuid.New()
+	storeIds := []string{uuid.New(), uuid.New(), uuid.New()}
+	extent := &shared.Extent{
+		ExtentUUID:      common.StringPtr(extentUUID),
+		DestinationUUID: common.StringPtr(destUUID),
+		StoreUUIDs:      storeIds,
+		InputHostUUID:   common.StringPtr(uuid.New()),
+	}
+	createRequest := &shared.CreateExtentRequest{
+		Extent:                  extent,
+		ConsumerGroupVisibility: common.StringPtr(cgUUID),
+	}
+	_, err := s.client.CreateExtent(nil, createRequest)
+	s.Nil(err)
+
+	readExtentStats := &m.ReadExtentStatsRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+		ExtentUUID:      common.StringPtr(extentUUID),
+	}
+	extentStats, err := s.client.ReadExtentStats(nil, readExtentStats)
+	s.Nil(err)
+	s.NotNil(extentStats)
+	s.Equal(shared.ExtentStatus_OPEN, extentStats.GetExtentStats().GetStatus())
+	s.Equal(cgUUID, extentStats.GetExtentStats().GetConsumerGroupVisibility())
+}
+
 func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	extentUUID := uuid.New()
 	destUUID := uuid.New()
@@ -790,7 +819,7 @@ func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	var lastSeqRate, availSeqRate float64 = 23.45, 67.89
 	var beginAddr, lastAddr int64 = 0x123456789ABCDE, 0xABCDEF012345678
 	var sizeInBytes int64 = 0x456123789
-	var sizeInBytesRate float64 = 987.67
+	var sizeInBytesRate = 987.67
 
 	stats1 := &shared.ExtentReplicaStats{
 		ExtentUUID:            common.StringPtr(extentUUID),
@@ -848,9 +877,8 @@ func (s *CassandraSuite) TestUpdateStoreExtentReplicaStats() {
 	timeDifference := func(t0, t1 int64) time.Duration {
 		if t0 > t1 {
 			return time.Unix(0, t0).Sub(time.Unix(0, t1))
-		} else {
-			return time.Unix(0, t1).Sub(time.Unix(0, t0))
 		}
+		return time.Unix(0, t1).Sub(time.Unix(0, t0))
 	}
 	s.True(timeDifference(stats1.GetBeginEnqueueTimeUtc(), stats[0].GetBeginEnqueueTimeUtc()) < time.Millisecond)
 	s.True(timeDifference(stats1.GetLastEnqueueTimeUtc(), stats[0].GetLastEnqueueTimeUtc()) < time.Millisecond)
@@ -2387,6 +2415,97 @@ func (s *CassandraSuite) TestSetAckOffset() {
 			s.Nil(s.Alter(), "ALTER table failed")
 		}
 	}
+}
+
+func (s *CassandraSuite) TestSetAckOffsetWithoutOutputAndStore() {
+	assert := s.Require()
+
+	destUUID := uuid.New()
+	cgUUID := uuid.New()
+	extUUID := uuid.New()
+	outputHost := uuid.New()
+	connectedStore := uuid.New()
+	storeUUIDs := make([]string, 0, 3)
+	for i := 0; i < 3; i++ {
+		storeUUIDs = append(storeUUIDs, uuid.New())
+	}
+
+	// First create the cg extent
+	createReq := &shared.CreateConsumerGroupExtentRequest{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ExtentUUID:        common.StringPtr(extUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+		OutputHostUUID:    common.StringPtr(outputHost),
+		StoreUUIDs:        storeUUIDs,
+	}
+
+	err := s.client.CreateConsumerGroupExtent(nil, createReq)
+	assert.Nil(err, "CreateConsumerGroupExtent() call failed")
+
+	// set ack level
+	setAckReq := &shared.SetAckOffsetRequest{
+		ExtentUUID:         common.StringPtr(extUUID),
+		ConsumerGroupUUID:  common.StringPtr(cgUUID),
+		OutputHostUUID:     common.StringPtr(outputHost),
+		ConnectedStoreUUID: common.StringPtr(connectedStore),
+		Status:             common.CheramiConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
+		AckLevelAddress:    common.Int64Ptr(1234),
+		AckLevelSeqNo:      common.Int64Ptr(2345),
+		AckLevelSeqNoRate:  common.Float64Ptr(34.56),
+		ReadLevelAddress:   common.Int64Ptr(4567),
+		ReadLevelSeqNo:     common.Int64Ptr(5678),
+		ReadLevelSeqNoRate: common.Float64Ptr(67.89),
+	}
+
+	err = s.client.SetAckOffset(nil, setAckReq)
+	assert.Nil(err, "SetAckOffset failed")
+
+	expected := &shared.ConsumerGroupExtent{
+		ConsumerGroupUUID:  common.StringPtr(cgUUID),
+		ExtentUUID:         common.StringPtr(extUUID),
+		OutputHostUUID:     common.StringPtr(outputHost),
+		Status:             common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_OPEN),
+		StoreUUIDs:         storeUUIDs,
+		ConnectedStoreUUID: common.StringPtr(connectedStore),
+		AckLevelOffset:     common.Int64Ptr(setAckReq.GetAckLevelAddress()),
+		AckLevelSeqNo:      common.Int64Ptr(setAckReq.GetAckLevelSeqNo()),
+		AckLevelSeqNoRate:  common.Float64Ptr(setAckReq.GetAckLevelSeqNoRate()),
+		ReadLevelOffset:    common.Int64Ptr(setAckReq.GetReadLevelAddress()),
+		ReadLevelSeqNo:     common.Int64Ptr(setAckReq.GetReadLevelSeqNo()),
+		ReadLevelSeqNoRate: common.Float64Ptr(setAckReq.GetReadLevelSeqNoRate()),
+	}
+
+	readReq := &m.ReadConsumerGroupExtentRequest{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ExtentUUID:        common.StringPtr(extUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+	}
+	var got *m.ReadConsumerGroupExtentResult_
+	got, err = s.client.ReadConsumerGroupExtent(nil, readReq)
+	assert.Nil(err, "SetAckOffset failed to update consumer group extent")
+	assertConsumerGroupExtentEqual(s, expected, got.GetExtent())
+
+	// set ack without output host and connected store
+	*setAckReq.AckLevelAddress = 1111
+	setAckReq.OutputHostUUID = nil
+	setAckReq.ConnectedStoreUUID = nil
+	err = s.client.SetAckOffset(nil, setAckReq)
+	assert.Nil(err, "SetAckOffset failed")
+
+	expected.AckLevelOffset = common.Int64Ptr(setAckReq.GetAckLevelAddress())
+	got, err = s.client.ReadConsumerGroupExtent(nil, readReq)
+	assert.Nil(err, "SetAckOffset failed to update consumer group extent")
+	assertConsumerGroupExtentEqual(s, expected, got.GetExtent())
+
+	// set ack again, still without output host and connected store, but only the status
+	setAckReq.Status = common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_CONSUMED)
+	err = s.client.SetAckOffset(nil, setAckReq)
+	assert.Nil(err, "SetAckOffset failed")
+
+	expected.Status = common.MetadataConsumerGroupExtentStatusPtr(shared.ConsumerGroupExtentStatus_CONSUMED)
+	got, err = s.client.ReadConsumerGroupExtent(nil, readReq)
+	assert.Nil(err, "SetAckOffset failed to update consumer group extent")
+	assertConsumerGroupExtentEqual(s, expected, got.GetExtent())
 }
 
 func (s *CassandraSuite) TestGetConsumerGroupExtents() {

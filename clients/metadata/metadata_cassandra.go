@@ -1210,6 +1210,7 @@ const (
 		` WHERE ` + columnDestinationUUID + `=? and ` + columnName + `=?`
 )
 
+// CreateConsumerGroup creates a consumer group.
 func (s *CassandraMetadataService) CreateConsumerGroup(ctx thrift.Context, request *shared.CreateConsumerGroupRequest) (*shared.ConsumerGroupDescription, error) {
 	uuidRequest := shared.NewCreateConsumerGroupUUIDRequest()
 	uuidRequest.Request = request
@@ -1405,7 +1406,7 @@ func (s *CassandraMetadataService) readConsumerGroupByDstUUID(dstUUID string, cg
 		&zoneConfigsData); err != nil {
 		if err == gocql.ErrNotFound {
 			return nil, &shared.EntityNotExistsError{
-				Message: fmt.Sprintf("ConsumerGroup %s of destinationUUID %sdoes not exist", cgName, dstUUID),
+				Message: fmt.Sprintf("ConsumerGroup %s of destinationUUID %s does not exist", cgName, dstUUID),
 			}
 		}
 
@@ -2141,7 +2142,11 @@ func (s *CassandraMetadataService) CreateExtent(ctx thrift.Context, request *sha
 		}
 	}
 
-	epochMillisNow := s.createExtentImpl(extent, shared.ExtentStatus_OPEN, replicaStatsList, nil, batch)
+	var consumerGroupVisibility *string
+	if len(request.GetConsumerGroupVisibility()) > 0 {
+		consumerGroupVisibility = common.StringPtr(request.GetConsumerGroupVisibility())
+	}
+	epochMillisNow := s.createExtentImpl(extent, shared.ExtentStatus_OPEN, replicaStatsList, consumerGroupVisibility, batch)
 	if err := s.session.ExecuteBatch(batch); err != nil {
 		return nil, &shared.InternalServiceError{
 			Message: "CreateExtent: " + err.Error(),
@@ -3443,6 +3448,16 @@ const (
 		columnConnectedStore + `=?` +
 		` WHERE ` + columnConsumerGroupUUID + `=? AND ` + columnExtentUUID + `=?`
 
+	sqlCGUpdateAckOffsetNoOutputAndStore = `UPDATE ` + tableConsumerGroupExtents +
+		` SET ` +
+		columnAckLevelOffset + `=?, ` +
+		columnAckLevelSequence + `=?,` +
+		columnAckLevelSequenceRate + `=?,` +
+		columnReceivedLevelOffset + `=?,` +
+		columnReceivedLevelSequence + `=?,` +
+		columnReceivedLevelSequenceRate + `=?` +
+		` WHERE ` + columnConsumerGroupUUID + `=? AND ` + columnExtentUUID + `=?`
+
 	sqlCGUpdateAckOffsetConsumed = `UPDATE ` + tableConsumerGroupExtents +
 		` SET ` +
 		columnStatus + `=?,` +
@@ -3454,6 +3469,17 @@ const (
 		columnReceivedLevelSequence + `=?,` +
 		columnReceivedLevelSequenceRate + `=?,` +
 		columnConnectedStore + `=?` +
+		` WHERE ` + columnConsumerGroupUUID + `=? AND ` + columnExtentUUID + `=?`
+
+	sqlCGUpdateAckOffsetConsumedNoOutputAndStore = `UPDATE ` + tableConsumerGroupExtents +
+		` SET ` +
+		columnStatus + `=?,` +
+		columnAckLevelOffset + `=?, ` +
+		columnAckLevelSequence + `=?,` +
+		columnAckLevelSequenceRate + `=?,` +
+		columnReceivedLevelOffset + `=?, ` +
+		columnReceivedLevelSequence + `=?,` +
+		columnReceivedLevelSequenceRate + `=?` +
 		` WHERE ` + columnConsumerGroupUUID + `=? AND ` + columnExtentUUID + `=?`
 
 	sqlCGUpdateStatus = `UPDATE ` + tableConsumerGroupExtents + ` SET ` + columnStatus + `=?` +
@@ -3554,37 +3580,72 @@ func (s *CassandraMetadataService) SetAckOffset(ctx thrift.Context, request *sha
 		connectedStore = request.GetConnectedStoreUUID()
 	}
 
+	// check whether output host and stores are set. If not, no need to update these columns
+	updateWithOutputHostAndStore := true
+	if !request.IsSetOutputHostUUID() && !request.IsSetConnectedStoreUUID() {
+		updateWithOutputHostAndStore = false
+	}
+
 	if request.Status != nil && request.GetStatus() == shared.ConsumerGroupExtentStatus_CONSUMED {
-		query := s.session.Query(
-			sqlCGUpdateAckOffsetConsumed,
-			request.GetStatus(),
-			request.GetOutputHostUUID(),
-			request.GetAckLevelAddress(),
-			request.GetAckLevelSeqNo(),
-			request.GetAckLevelSeqNoRate(),
-			request.GetReadLevelAddress(),
-			request.GetReadLevelSeqNo(),
-			request.GetReadLevelSeqNoRate(),
-			connectedStore,
-			request.GetConsumerGroupUUID(),
-			request.GetExtentUUID())
+		var query *gocql.Query
+		if updateWithOutputHostAndStore {
+			query = s.session.Query(
+				sqlCGUpdateAckOffsetConsumed,
+				request.GetStatus(),
+				request.GetOutputHostUUID(),
+				request.GetAckLevelAddress(),
+				request.GetAckLevelSeqNo(),
+				request.GetAckLevelSeqNoRate(),
+				request.GetReadLevelAddress(),
+				request.GetReadLevelSeqNo(),
+				request.GetReadLevelSeqNoRate(),
+				connectedStore,
+				request.GetConsumerGroupUUID(),
+				request.GetExtentUUID())
+		} else {
+			query = s.session.Query(
+				sqlCGUpdateAckOffsetConsumedNoOutputAndStore,
+				request.GetStatus(),
+				request.GetAckLevelAddress(),
+				request.GetAckLevelSeqNo(),
+				request.GetAckLevelSeqNoRate(),
+				request.GetReadLevelAddress(),
+				request.GetReadLevelSeqNo(),
+				request.GetReadLevelSeqNoRate(),
+				request.GetConsumerGroupUUID(),
+				request.GetExtentUUID())
+		}
 		// this query updates the offsets + changes the status of the
 		// extent, prefer mid level conistency
 		query.Consistency(s.midConsLevel)
 		err = query.Exec()
 	} else {
-		query := s.session.Query(
-			sqlCGUpdateAckOffset,
-			request.GetOutputHostUUID(),
-			request.GetAckLevelAddress(),
-			request.GetAckLevelSeqNo(),
-			request.GetAckLevelSeqNoRate(),
-			request.GetReadLevelAddress(),
-			request.GetReadLevelSeqNo(),
-			request.GetReadLevelSeqNoRate(),
-			connectedStore,
-			request.GetConsumerGroupUUID(),
-			request.GetExtentUUID())
+		var query *gocql.Query
+		if updateWithOutputHostAndStore {
+			query = s.session.Query(
+				sqlCGUpdateAckOffset,
+				request.GetOutputHostUUID(),
+				request.GetAckLevelAddress(),
+				request.GetAckLevelSeqNo(),
+				request.GetAckLevelSeqNoRate(),
+				request.GetReadLevelAddress(),
+				request.GetReadLevelSeqNo(),
+				request.GetReadLevelSeqNoRate(),
+				connectedStore,
+				request.GetConsumerGroupUUID(),
+				request.GetExtentUUID())
+		} else {
+			query = s.session.Query(
+				sqlCGUpdateAckOffsetNoOutputAndStore,
+				request.GetAckLevelAddress(),
+				request.GetAckLevelSeqNo(),
+				request.GetAckLevelSeqNoRate(),
+				request.GetReadLevelAddress(),
+				request.GetReadLevelSeqNo(),
+				request.GetReadLevelSeqNoRate(),
+				request.GetConsumerGroupUUID(),
+				request.GetExtentUUID())
+		}
 		query.Consistency(s.lowConsLevel)
 		err = query.Exec()
 	}

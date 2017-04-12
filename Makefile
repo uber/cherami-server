@@ -33,6 +33,11 @@ ALL_SRC := $(shell find . -name "*.go" | grep -v -e Godeps -e vendor \
 	-e ".*/_.*" \
 	-e ".*/mocks.*")
 
+TOUCHED_SRC := $(shell git diff --name-only master | grep "\.go$$" | grep -v -e Godeps -e vendor \
+	-e ".*/\//*" \
+	-e ".*/_.*" \
+	-e ".*/mocks.*")
+
 # all directories with *_test.go files in them
 ALL_TEST_DIRS := $(sort $(dir $(filter %_test.go,$(ALL_SRC))))
 # all tests other than integration test fall into the pkg_test category
@@ -50,7 +55,7 @@ INTEG_TEST_DIRS := $(filter $(INTEG_TEST_ROOT)%,$(ALL_TEST_DIRS))
 #   Packages are specified as import paths.
 GOCOVERPKG_ARG := -coverpkg="$(PROJECT_ROOT)/common/...,$(PROJECT_ROOT)/services/...,$(PROJECT_ROOT)/clients/..."
 
-test: bins
+test: lint bins
 	@for dir in $(ALL_TEST_DIRS); do \
 		go test $(EMBED) "$$dir" $(TEST_NO_RACE_ARG) $(shell glide nv); \
 	done;
@@ -95,7 +100,7 @@ cherami-store-tool: $(DEPS)
 
 bins: cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool
 
-cover_profile: bins
+cover_profile: lint bins
 	@echo Running tests:
 	@mkdir -p $(BUILD)
 	@echo "mode: atomic" > $(BUILD)/cover.out
@@ -122,3 +127,22 @@ clean:
 	rm -f cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool
 	rm -Rf vendor/*
 	rm -Rf $(BUILD)
+
+lint:
+	@lintFail=0; for file in $(TOUCHED_SRC); do \
+		golint -set_exit_status "$$file"; \
+		if [ $$? -eq 1 ]; then lintFail=1; fi; \
+	done; \
+	if [ $$lintFail -eq 1 ]; then exit 1; fi;
+	@echo gofmt -l $(ALL_SRC)
+	@OUTPUT=`gofmt -l $(ALL_SRC) 2>&1`; \
+	if [ "$$OUTPUT" ]; then \
+		echo "Run 'make fmt'. gofmt must be run on the following files:"; \
+		echo "$$OUTPUT"; \
+		exit 1; \
+	fi
+	go tool vet -all -printfuncs=Info,Infof,Debug,Debugf,Warn,Warnf,Panic,Panicf $(ALL_TEST_DIRS)
+
+fmt:
+	gofmt -w $(ALL_SRC)
+

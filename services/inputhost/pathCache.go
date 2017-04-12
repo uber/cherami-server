@@ -537,7 +537,7 @@ func (pathCache *inPathCache) getState() *admin.DestinationState {
 	return destState
 }
 
-func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, drainWG *sync.WaitGroup) {
+func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, drainWG *sync.WaitGroup, drainTimeout time.Duration) {
 	defer drainWG.Done()
 	pathCache.RLock()
 
@@ -559,6 +559,9 @@ func (pathCache *inPathCache) drainExtent(extUUID string, updateUUID string, dra
 		pathCache.RUnlock()
 		// do best effort waiting to notify all connections here
 		common.AwaitWaitGroup(&connDrainWG, connWGTimeout)
-		extCache.connection.stopWrite()
+		extCache.connection.stopWrite(drainTimeout)
+	} else {
+		// we need to unlock the lock held above
+		pathCache.RUnlock()
 	}
 }

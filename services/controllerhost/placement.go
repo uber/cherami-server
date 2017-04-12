@@ -265,6 +265,10 @@ func (p *DistancePlacement) getHealthyHosts(service string) ([]*common.HostInfo,
 		}
 		result = append(result, h)
 	}
+
+	if len(result) == 0 {
+		return nil, errNoHosts
+	}
 	return result, nil
 }
 

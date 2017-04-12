@@ -645,8 +645,6 @@ func selectNextExtentsToConsumeKafka(
 		return nil, 0, err
 	}
 
-	nAvailable := len(dstExtents)
-
 	// all open non-dlq extents should be Kafka phantom extents
 	nKafkaOpen := common.MaxInt(0, len(cgExtents.open)-nDlqOpen)
 
@@ -665,8 +663,10 @@ func selectNextExtentsToConsumeKafka(
 		}
 
 		addExtents = append(addExtents, ext)
-		nAvailable++
 	}
+
+	// compute number of available extents
+	nAvailable := len(dstExtents) + len(addExtents)
 
 	// fill out rest of the available capacity with unassigned DLQ extents
 	maxExtentsToConsume := maxExtentsToConsumeForDst(context, dstDesc.GetPath(), cgDesc.GetConsumerGroupName(), getDstType(dstDesc), dstDesc.GetZoneConfigs())
@@ -681,21 +681,21 @@ func selectNextExtentsToConsumeKafka(
 			`new-kafka-extents`:              len(addExtents),
 		}).Errorf("selectNextExtentsToConsumeKafka: extents allocated over capacity")
 
-	} else {
+		return addExtents, nAvailable, nil
+	}
 
-		availCap = common.MinInt(availCap, len(dstExtents))
+	// pick as many dlq-extents from the consumable list to fill in available capacity
+	availCap = common.MinInt(availCap, len(dstExtents))
 
-		// pick as many dlq-extents from the consumable list to fill in available capacity
-		for _, ext := range dstExtents {
+	for _, ext := range dstExtents {
 
-			if availCap == 0 {
-				break
-			}
+		if availCap == 0 {
+			break
+		}
 
-			if len(ext.GetConsumerGroupVisibility()) > 0 {
-				addExtents = append(addExtents, ext)
-				availCap--
-			}
+		if len(ext.GetConsumerGroupVisibility()) > 0 {
+			addExtents = append(addExtents, ext)
+			availCap--
 		}
 	}
 
@@ -732,7 +732,6 @@ func refreshCGExtents(context *Context,
 		if err != nil {
 			return 0, err
 		}
-
 	default:
 		newExtents, _, err = selectNextExtentsToConsume(context, dstDesc, cgDesc, cgExtents, m3Scope)
 		if err != nil {

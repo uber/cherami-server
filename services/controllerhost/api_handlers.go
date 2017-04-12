@@ -119,12 +119,10 @@ func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
 	}
 
 	for _, id := range storeIDs {
-
 		if context.rpm.IsHostHealthy(common.StoreServiceName, id) {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -381,29 +379,6 @@ func createExtent(context *Context, dstUUID string, isMultiZoneDest bool, m3Scop
 
 		lclLg.Info("Called replicator to Create Extent")
 	}
-
-	return
-}
-
-func createPhantomExtent(context *Context, dstUUID string, inputhostUUID string, storeUUIDs []string, m3Scope int) (extentUUID string, err error) {
-
-	extentUUID = uuid.New()
-
-	// create a 'phantom' extent and assign given inputhost/stores
-	if _, err = context.mm.CreateExtent(dstUUID, extentUUID, inputhostUUID, storeUUIDs); err != nil {
-		context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataUpdateCounter)
-		return
-	}
-
-	lclLg := context.log.WithFields(bark.Fields{
-		common.TagDst: common.FmtDst(dstUUID),
-		common.TagExt: common.FmtExt(extentUUID),
-	})
-
-	lclLg.WithFields(bark.Fields{
-		common.TagIn:   inputhostUUID,
-		common.TagStor: storeUUIDs,
-	}).Info("Extent (for Kafka destination) created locally")
 
 	return
 }

@@ -385,7 +385,7 @@ func (mcp *Mcp) GetOutputHosts(ctx thrift.Context, inReq *c.GetOutputHostsReques
 			context.m3Client.IncCounter(metrics.GetOutputHostsScope, metrics.ControllerFailures)
 			return nil, err
 		}
-		return &c.GetOutputHostsResult_{OutputHostIds: result.cachedResult}, nil
+		return &c.GetOutputHostsResult_{OutputHostIds: outputHostIDs}, nil
 	}
 
 	var now = context.timeSource.Now().UnixNano()

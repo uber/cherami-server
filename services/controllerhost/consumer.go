@@ -838,7 +838,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 	// A this point, we do a full refresh i.e we will scan the destination extents,
 	// not just existing consumer group extents. This is a 'full scan'
 	nAdded, _ := refreshCGExtents(context, dstDesc, cgDesc, cgExtents, outputHosts, m3Scope)
-	nConsumable += nAdded // FIXME: redundnat, remove?
+	nConsumable += nAdded
 	writeToCache(failBackoffInterval)
 	return outputAddrs, err
 }

@@ -124,7 +124,7 @@ func NewKafkaCommitter(
 	outputHostUUID string,
 	cgUUID string,
 	logger bark.Logger,
-	client **sc.Consumer) *kafkaCommitter {
+	client **sc.Consumer) *KafkaCommitter {
 	now := time.Now()
 
 	meta := KafkaOffsetMetadata{
@@ -136,7 +136,7 @@ func NewKafkaCommitter(
 	}
 
 	metaJSON, _ := json.Marshal(meta)
-	return &kafkaCommitter{
+	return &KafkaCommitter{
 		OffsetStash:         sc.NewOffsetStash(),
 		metadataString:      string(metaJSON),
 		KafkaOffsetMetadata: meta,

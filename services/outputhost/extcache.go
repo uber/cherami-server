@@ -573,10 +573,6 @@ func getKafkaGroupIDForCheramiConsumerGroupName(cgName string) string {
 }
 
 func getKafkaBrokersForCluster(cluster string) []string {
-	// TODO: replace with clusters.yaml config
-	s := strings.Split(os.Getenv(`CHERAMI_KAFKA_BROKERS`), `,`)
-	if s[0] == `` {
-		panic(`CHERAMI_KAFKA_BROKERS must be set`)
-	}
-	return s
+	cfg, _ := thisOutputHost.kafkaCfg.GetKafkaClusterConfig(cluster)
+	return cfg.Brokers
 }

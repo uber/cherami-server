@@ -35,6 +35,7 @@ import (
 	"github.com/Shopify/sarama"
 	ccommon "github.com/uber/cherami-client-go/common"
 	"github.com/uber/cherami-server/common"
+	"github.com/uber/cherami-server/common/configure"
 	cassDconfig "github.com/uber/cherami-server/common/dconfig"
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
 	mm "github.com/uber/cherami-server/common/metadata"
@@ -90,6 +91,7 @@ type (
 		ackMgrUnloadCh    chan uint32
 		hostMetrics       *load.HostMetrics
 		cfgMgr            cassDconfig.ConfigManager
+		kafkaCfg          configure.CommonKafkaConfig
 		common.SCommon
 	}
 
@@ -745,7 +747,14 @@ func (h *OutputHost) SetFrontendClient(frontendClient ccherami.TChanBFrontend) {
 }
 
 // NewOutputHost is the constructor for BOut
-func NewOutputHost(serviceName string, sVice common.SCommon, metadataClient metadata.TChanMetadataService, frontendClient ccherami.TChanBFrontend, opts *OutOptions) (*OutputHost, []thrift.TChanServer) {
+func NewOutputHost(
+	serviceName string,
+	sVice common.SCommon,
+	metadataClient metadata.TChanMetadataService,
+	frontendClient ccherami.TChanBFrontend,
+	opts *OutOptions,
+	kafkaCfg configure.CommonKafkaConfig,
+) (*OutputHost, []thrift.TChanServer) {
 
 	// Get the deployment name for logger field
 	deploymentName := sVice.GetConfig().GetDeploymentName()
@@ -762,6 +771,7 @@ func NewOutputHost(serviceName string, sVice common.SCommon, metadataClient meta
 		ackMgrUnloadCh: make(chan uint32, defaultAckMgrMapChSize),
 		ackMgrIDGen:    common.NewHostAckIDGenerator(defaultAckMgrIDStartFrom),
 		hostMetrics:    load.NewHostMetrics(),
+		kafkaCfg:       kafkaCfg,
 	}
 
 	sarama.Logger = NewSaramaLoggerFromBark(bs.logger, `sarama`)

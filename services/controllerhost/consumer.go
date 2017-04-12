@@ -21,6 +21,7 @@
 package controllerhost
 
 import (
+	"strings"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -763,6 +764,7 @@ func refreshOutputHostsForConsGroup(context *Context,
 	}
 
 	var nConsumable int
+	var maxExtentsToConsume int
 	var dstType = getDstType(dstDesc)
 	var outputAddrs []string
 	var outputIDs []string
@@ -778,8 +780,6 @@ func refreshOutputHostsForConsGroup(context *Context,
 		return nil, err
 	}
 
-	var maxExtentsToConsume = maxExtentsToConsumeForDst(context, dstDesc.GetPath(), cgDesc.GetConsumerGroupName(), dstType, dstDesc.GetZoneConfigs())
-
 	writeToCache := func(ttl int64) {
 
 		outputIDs, outputAddrs = hostInfoMapToSlice(outputHosts)
@@ -793,6 +793,23 @@ func refreshOutputHostsForConsGroup(context *Context,
 				expiry:     now + ttl,
 			})
 	}
+
+	if cgDesc.GetIsMultiZone() {
+		cfg, err := getControllerDynamicConfig(context)
+		if err != nil {
+			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
+			context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
+			return nil, err
+		}
+
+		// If we shouldn't consume in this zone(for a multi_zone cg), short circuit and return
+		if !shouldConsumeInZone(context.localZone, cgDesc, cfg) {
+			writeToCache(int64(outputCacheTTL))
+			return outputAddrs, nil
+		}
+	}
+
+	maxExtentsToConsume = maxExtentsToConsumeForDst(context, dstDesc.GetPath(), cgDesc.GetConsumerGroupName(), dstType, dstDesc.GetZoneConfigs())
 
 	cgExtents, outputHosts, err := fetchClassifyOpenCGExtents(context, dstID, cgID, m3Scope)
 	if err != nil {
@@ -841,4 +858,38 @@ func refreshOutputHostsForConsGroup(context *Context,
 	nConsumable += nAdded
 	writeToCache(failBackoffInterval)
 	return outputAddrs, err
+}
+
+// shouldConsumeInZone indicated whether we should consume from this zone for a multi_zone consumer group
+// If failover mode is enabled in dynamic config, the active zone will be the one specified in dynamic config
+// Otherwise, use the per cg override if it's specified
+// Last, check the active zone in dynamic config. If specified, use it. Otherwise always return true
+func shouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, dConfig ControllerDynamicConfig) bool {
+	if strings.EqualFold(dConfig.FailoverMode, `enabled`) {
+		return strings.EqualFold(zone, dConfig.ActiveZone)
+	}
+
+	if cgDesc.IsSetActiveZone() {
+		return strings.EqualFold(zone, cgDesc.GetActiveZone())
+	}
+
+	if len(dConfig.ActiveZone) > 0 {
+		return strings.EqualFold(zone, dConfig.ActiveZone)
+	}
+
+	return true
+}
+
+func getControllerDynamicConfig(context *Context) (ControllerDynamicConfig, error) {
+	cfgObj, err := context.cfgMgr.Get(common.ControllerServiceName, "*", "*", "*")
+	if err != nil {
+		return ControllerDynamicConfig{}, err
+	}
+
+	cfg, ok := cfgObj.(ControllerDynamicConfig)
+	if !ok {
+		context.log.Fatal("Unexpected type mismatch, cfgObj.(ControllerDynamicConfig) failed !")
+	}
+
+	return cfg, nil
 }

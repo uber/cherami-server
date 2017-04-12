@@ -30,6 +30,7 @@ type saramaLogger struct {
 	l bark.Logger
 }
 
+// NewSaramaLoggerFromBark provides a logger suitable for Sarama from a given bark logger
 func NewSaramaLoggerFromBark(l bark.Logger, module string) sarama.StdLogger {
 	return &saramaLogger{
 		l: l.WithField(`module`, module),
@@ -83,5 +84,5 @@ func trim(v ...interface{}) []interface{} {
 	if s, ok := v[0].(string); ok {
 		v[0] = strings.TrimSpace(s)
 	}
-	return v	
+	return v
 }

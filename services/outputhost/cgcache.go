@@ -394,7 +394,7 @@ func (cgCache *consumerGroupCache) loadExtentCache(ctx thrift.Context, destType 
 			cgCache.metaClient,
 			cge,
 		)
-		
+
 		// now notify the outputhost
 		cgCache.ackMgrLoadCh <- ackMgrLoadMsg{uint32(extCache.ackMgr.ackMgrID), extCache.ackMgr}
 	}

@@ -141,7 +141,7 @@ func NewKafkaCommitter(
 		metadataString:      string(metaJSON),
 		KafkaOffsetMetadata: meta,
 		logger:              logger,
-		consumer:              client,
+		consumer:            client,
 	}
 }
 

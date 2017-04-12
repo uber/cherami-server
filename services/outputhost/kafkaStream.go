@@ -120,8 +120,8 @@ func (k *kafkaStream) convertKafkaMessageToCherami(m *s.ConsumerMessage, logger 
 	c.Message.Message = &store.AppendMessage{
 		SequenceNumber: common.Int64Ptr(atomic.AddInt64(&k.seqNo, 1)),
 	}
-	
-	if ! m.Timestamp.IsZero() { // only set if kafka is version 0.10+
+
+	if !m.Timestamp.IsZero() { // only set if kafka is version 0.10+
 		c.Message.Message.EnqueueTimeUtc = common.Int64Ptr(m.Timestamp.UnixNano())
 	}
 

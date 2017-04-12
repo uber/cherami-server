@@ -779,7 +779,7 @@ func getDrainTimeout(ctx thrift.Context) time.Duration {
 	return defaultDrainTimeout
 }
 
-// DrainExtents is the implementation of the thrift handler for the inputhost
+// DrainExtent is the implementation of the thrift handler for the inputhost
 func (h *InputHost) DrainExtent(ctx thrift.Context, request *admin.DrainExtentsRequest) (err error) {
 	defer atomic.AddInt32(&h.loadShutdownRef, -1)
 	sw := h.m3Client.StartTimer(metrics.DrainExtentsScope, metrics.InputhostLatencyTimer)
@@ -981,7 +981,15 @@ func (h *InputHost) RegisterWSHandler() *http.ServeMux {
 	return mux
 }
 
-//
+// UpgradeHandler implements the upgrade end point
+func (h *InputHost) UpgradeHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "Upgrade endpoint called on inputhost\n")
+	// perform upgrade here
+	// 1. Report the node as going down to controller
+	// 2. go drain everything in the pathCache
+}
+
 // NewInputHost is the constructor for BIn
 func NewInputHost(serviceName string, sVice common.SCommon, mClient metadata.TChanMetadataService, opts *InOptions) (*InputHost, []thrift.TChanServer) {
 

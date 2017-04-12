@@ -31,7 +31,6 @@ import (
 	"github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
-	"github.com/uber/cherami-server/common/dconfig"
 	"github.com/uber/cherami-server/common/dconfigclient"
 	"github.com/uber/cherami-server/services/controllerhost"
 	"github.com/uber/cherami-server/services/frontendhost"
@@ -100,7 +99,7 @@ func StartControllerService() {
 	reporter := common.NewMetricReporterWithHostname(cfg.GetServiceConfig(serviceName))
 	dClient := dconfigclient.NewDconfigClient(cfg.GetServiceConfig(serviceName), serviceName)
 	sVice := common.NewService(serviceName, uuid.New(), cfg.GetServiceConfig(serviceName), common.NewUUIDResolver(meta), hwInfoReader, reporter, dClient)
-	mcp, tc := controllerhost.NewController(cfg, sVice, meta, dconfig.NewDummyConfigUpdater())
+	mcp, tc := controllerhost.NewController(cfg, sVice, meta, common.NewDummyZoneFailoverManager())
 	mcp.Start(tc)
 	common.ServiceLoop(cfg.GetServiceConfig(serviceName).GetPort()+diagnosticPortOffset, cfg, mcp.Service)
 }

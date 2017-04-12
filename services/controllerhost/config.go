@@ -58,7 +58,7 @@ type (
 		NumRemoteConsumerExtentsByPath []string `name:"numRemoteConsumerExtentsByPath" default:"/=4"`
 
 		// configs for multi_zone consumer group
-		ActiveZone   string `name:"activeZone"`
+		ActiveZone   string `name:"activeZone" default:""`
 		FailoverMode string `name:"failoverMode" default:"disabled"`
 	}
 )

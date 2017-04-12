@@ -660,16 +660,11 @@ func refreshOutputHostsForConsGroup(context *Context,
 	}
 
 	if cgDesc.GetIsMultiZone() {
-		cfgObj, err := context.cfgMgr.Get(common.ControllerServiceName, "*", "*", "*")
+		cfg, err := getControllerDynamicConfig(context)
 		if err != nil {
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerErrMetadataReadCounter)
 			context.m3Client.IncCounter(m3Scope, metrics.ControllerFailures)
 			return nil, err
-		}
-
-		cfg, ok := cfgObj.(ControllerDynamicConfig)
-		if !ok {
-			context.log.Fatal("Unexpected type mismatch, cfgObj.(ControllerDynamicConfig) failed !")
 		}
 
 		// If we shouldn't consume in this zone(for a multi_zone cg), short circuit and return
@@ -748,4 +743,18 @@ func shouldConsumeInZone(zone string, cgDesc *shared.ConsumerGroupDescription, d
 	}
 
 	return true
+}
+
+func getControllerDynamicConfig(context *Context) (ControllerDynamicConfig, error) {
+	cfgObj, err := context.cfgMgr.Get(common.ControllerServiceName, "*", "*", "*")
+	if err != nil {
+		return ControllerDynamicConfig{}, err
+	}
+
+	cfg, ok := cfgObj.(ControllerDynamicConfig)
+	if !ok {
+		context.log.Fatal("Unexpected type mismatch, cfgObj.(ControllerDynamicConfig) failed !")
+	}
+
+	return cfg, nil
 }

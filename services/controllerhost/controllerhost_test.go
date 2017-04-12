@@ -791,6 +791,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 	outputCacheTTL = time.Microsecond
 
 	// verify GetOutputHosts returns valid outputhosts
+	outputHosts.clear()
 	resp, err := s.mcp.GetOutputHosts(nil, &c.GetOutputHostsRequest{DestinationUUID: common.StringPtr(dstUUID), ConsumerGroupUUID: common.StringPtr(cgUUID)})
 	s.Nil(err, fmt.Sprintf("GetOutputHosts() failed on a new consumer group: %v", err))
 	s.True(len(resp.GetOutputHostIds()) <= numKafkaExtentsForDstKafka, "GetOutputHosts() returned more than expected number of outhosts")
@@ -802,6 +803,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 	}
 
 	// verify GetOutputHosts created phantom extents
+	cgOutputHosts.clear()
 	cge, err := s.mClient.ReadConsumerGroupExtents(nil,
 		&shared.ReadConsumerGroupExtentsRequest{
 			DestinationUUID:   common.StringPtr(dstUUID),
@@ -830,7 +832,6 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 
 	// - do GetOutputHosts, that triggers assignment of the newly available DLQ extent
 	outputHosts.clear()
-
 	resp, err = s.mcp.GetOutputHosts(nil, &c.GetOutputHostsRequest{DestinationUUID: common.StringPtr(dstUUID), ConsumerGroupUUID: common.StringPtr(cgUUID)})
 	s.Nil(err, fmt.Sprintf("GetOutputHosts() failed on a new consumer group: %v", err))
 	s.True(len(resp.GetOutputHostIds()) <= maxExtentsToConsumeForDstKafka, "GetOutputHosts() returned more than expected number of outhosts")
@@ -842,6 +843,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 	}
 
 	// - do ReadConsumerGroupExtents to update map of assigned cg-extents
+	cgOutputHosts.clear()
 	cge, err = s.mClient.ReadConsumerGroupExtents(nil,
 		&shared.ReadConsumerGroupExtentsRequest{
 			DestinationUUID:   common.StringPtr(dstUUID),
@@ -883,7 +885,6 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 
 	// - do GetOutputHosts, that triggers assignment of the newly available DLQ extent
 	outputHosts.clear()
-
 	resp, err = s.mcp.GetOutputHosts(nil, &c.GetOutputHostsRequest{DestinationUUID: common.StringPtr(dstUUID), ConsumerGroupUUID: common.StringPtr(cgUUID)})
 	s.Nil(err, fmt.Sprintf("GetOutputHosts() failed on a new consumer group: %v", err))
 	s.True(len(resp.GetOutputHostIds()) <= maxExtentsToConsumeForDstKafka, "GetOutputHosts() returned more than expected number of outhosts")
@@ -895,6 +896,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 	}
 
 	// - do ReadConsumerGroupExtents to update map of assigned cg-extents
+	cgOutputHosts.clear()
 	cge, err = s.mClient.ReadConsumerGroupExtents(nil,
 		&shared.ReadConsumerGroupExtentsRequest{
 			DestinationUUID:   common.StringPtr(dstUUID),
@@ -955,6 +957,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 	}
 
 	// - do ReadConsumerGroupExtents to update map of assigned cg-extents
+	cgOutputHosts.clear()
 	cge, err = s.mClient.ReadConsumerGroupExtents(nil,
 		&shared.ReadConsumerGroupExtentsRequest{
 			DestinationUUID:   common.StringPtr(dstUUID),
@@ -984,6 +987,7 @@ func (s *McpSuite) TestGetOutputHostsKafka() {
 
 	s.Equal(numKafkaExtentsForDstKafka, nPhantom, "Did not create/assign expected phanom extents")
 	s.Equal(maxDlqExtentsForDstKafka, nDlq, "Did not assign all possible DLQ extents")
+	s.True(outputHosts.subset(cgOutputHosts), "invalid outputhost returned")
 
 	outputCacheTTL = originOutputCacheTTL
 }

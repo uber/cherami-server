@@ -102,6 +102,7 @@ func (s *ExtentStateMonitorSuite) SetupTest() {
 	s.mcp.context.eventPipeline = NewEventPipeline(s.mcp.context, 2)
 	s.mcp.context.eventPipeline.Start()
 	s.mcp.context.extentMonitor = newExtentStateMonitor(s.mcp.context)
+	s.mcp.context.failureDetector = NewDfdd(s.mcp.context, common.NewRealTimeSource())
 	s.mcp.context.m3Client = metrics.NewClient(common.NewMetricReporterWithHostname(configure.NewCommonServiceConfig()), metrics.Controller)
 }
 

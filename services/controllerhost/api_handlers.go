@@ -109,6 +109,13 @@ func isInputGoingDown(context *Context, hostID string) bool {
 	return state == dfddHostStateGoingDown
 }
 
+// isStoreGoingDown returns true if the specified store host
+// is going down for planned maintenance or deployment
+func isStoreGoingDown(context *Context, hostID string) bool {
+	state, _ := context.failureDetector.GetHostState(common.StoreServiceName, hostID)
+	return state == dfddHostStateGoingDown
+}
+
 func getLockTimeout(result *resultCacheReadResult) time.Duration {
 	if len(result.cachedResult) < 1 {
 		return time.Second
@@ -143,11 +150,20 @@ func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool 
 	}
 
 	for _, h := range storeIDs {
+
+		status := "up"
 		if !context.rpm.IsHostHealthy(common.StoreServiceName, h) {
+			status = "down"
+		} else if isStoreGoingDown(context, h) {
+			status = "goingDown"
+		}
+
+		if status != "up" {
 			context.log.WithFields(bark.Fields{
 				common.TagExt:  common.FmtExt(extent.GetExtentUUID()),
 				common.TagStor: common.FmtStor(h),
-			}).Info("Found unhealthy extent, store unhealthy")
+				`hoststatus`:   status,
+			}).Info("found extent with unhealthy store")
 			return false
 		}
 	}

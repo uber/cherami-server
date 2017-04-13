@@ -77,7 +77,7 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	}
 	for i, h := range storeIDs {
 		s.rpm.NotifyListeners(common.StoreServiceName, h, common.HostAddedEvent)
-		if i == len(storeIDs) -1 {
+		if i == len(storeIDs)-1 {
 			s.dfdd.ReportHostGoingDown(common.StoreServiceName, h)
 		} else {
 			s.rpm.NotifyListeners(common.StoreServiceName, h, common.HostRemovedEvent)

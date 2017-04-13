@@ -1010,7 +1010,7 @@ ReadLoop2:
 	consumerTest.Close()
 }
 
-func (s *NetIntegrationSuiteParallelC) TestDLQWithCassandra() {
+func (s *NetIntegrationSuiteParallelA) TestDLQWithCassandra() {
 	const (
 		destPath                = `/test.runner.SmartRetry/TestDLQWithCassandra` // This path ensures that throttling is limited for this test
 		cgPath                  = `/test.runner.SmartRetry/TestDLQWithCassandraCG`

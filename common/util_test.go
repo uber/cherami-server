@@ -240,7 +240,7 @@ func (s *UtilSuite) TestHandleSignal() {
 		close(waitCh)
 	}
 	// register the signal handler
-	HandleSignal(testSignal, testHostPort, testEndpoint, testTimeout, handleHupSig)
+	SetupSignalHandler(testSignal, testHostPort, testEndpoint, testTimeout, handleHupSig)
 
 	// send SIGHUP
 	syscall.Kill(syscall.Getpid(), testSignal)

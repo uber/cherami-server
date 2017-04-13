@@ -34,7 +34,7 @@ import (
 
 var (
 	// ErrLoadReportThrottled is the error returned by LoadReporter when it runs out of tokens to serve the request
-	ErrLoadReportThrottled = errors.New("Too many load reports from the host.")
+	ErrLoadReportThrottled = errors.New("too many load reports from the host")
 )
 
 type (

@@ -774,8 +774,8 @@ func StringSetEqual(a, b []string) bool {
 	return StringSetEqual(b, a) // Above we checked only that all A are in B; check all B in A
 }
 
-// HandleSignal handles the passed in signal and calls the appropriate callback
-func HandleSignal(sig os.Signal, hostPort string, endpoint string, timeout time.Duration, handleFunc HandleSignalFunc) {
+// SetupSignalHandler handles the passed in signal and calls the appropriate callback
+func SetupSignalHandler(sig os.Signal, hostPort string, endpoint string, timeout time.Duration, handleFunc HandleSignalFunc) {
 	lcLg := GetDefaultLogger()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, sig)

@@ -528,7 +528,7 @@ func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() {
 			log.Infof("client: acking id %s", receipt.Receipt)
 			if receipt.Error != nil {
 				s.InDelta(testMsgCount, i, 500)
-				consumeCount = i + 1
+				consumeCount = i + 2 // we read one message above and we start from 0 here as well
 			} else {
 				break
 			}

@@ -135,13 +135,15 @@ func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
 
 func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool {
 
+	storeIDs := extent.GetStoreUUIDs()
+
 	// special-case Kafka destinations that do not really have a physical
 	// store (in Cherami), and use a 'phantom' store instead.
 	if len(storeIDs) == 1 && storeIDs[0] == kafkaPhantomStoreUUID {
 		return true
 	}
 
-	for _, h := range extent.GetStoreUUIDs() {
+	for _, h := range storeIDs {
 		if !context.rpm.IsHostHealthy(common.StoreServiceName, h) {
 			context.log.WithFields(bark.Fields{
 				common.TagExt:  common.FmtExt(extent.GetExtentUUID()),

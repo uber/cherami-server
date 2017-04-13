@@ -324,8 +324,8 @@ func interpretTimeNanos(ts int64, log bark.Logger) int64 {
 	// 'now' in unix-nanos
 	now := time.Now().UnixNano()
 
-	log.Errorf("interpretTimeNanos: FindNearestInt: now=%d tsNanos=%d tsMicros=%d tsMillis=%d tsSeconds=%d",
-		now, tsNanos, tsMicros, tsMillis, tsSeconds)
+	// log.Errorf("interpretTimeNanos: FindNearestInt: now=%d tsNanos=%d tsMicros=%d tsMillis=%d tsSeconds=%d",
+	// 	now, tsNanos, tsMicros, tsMillis, tsSeconds)
 
 	// the time that is nearest to 'now' (in nanoseconds), would be the most
 	// reasonable interpretation of 'ts'
@@ -335,11 +335,10 @@ func interpretTimeNanos(ts int64, log bark.Logger) int64 {
 // convertCreateCGRequestToInternal converts Cherami CreateConsumerGroupRequest to internal shared CreateConsumerGroupRequest
 func convertCreateCGRequestToInternal(createRequest *c.CreateConsumerGroupRequest, log bark.Logger) (*shared.CreateConsumerGroupRequest, error) {
 
-	log.Errorf("convertCreateCGRequestToInternal: GetStartFrom: %v", createRequest.GetStartFrom())
 	// detect and correct the units for 'startFrom' (expected internally to be in nanoseconds)
 	startFrom := interpretTimeNanos(createRequest.GetStartFrom(), log)
 
-	log.Errorf("convertCreateCGRequestToInternal: interpretTimeNanos: %v", startFrom)
+	log.Errorf("convertCreateCGRequestToInternal: GetStartFrom: %v interpretTimeNanos: %v", createRequest.GetStartFrom(), startFrom)
 
 	minuteFromNow := time.Now().Add(time.Minute)
 

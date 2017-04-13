@@ -309,7 +309,7 @@ func convertCGZoneConfigToInternal(cgZoneCfg *c.ConsumerGroupZoneConfig) *shared
 
 // interpretTimeNanos converts the given timestamp to nanosecond units after
 // interpreting its units based on what yields the nearest time to 'now'.
-func interpretTimeNanos(ts int64) int64 {
+func interpretTimeNanos(ts int64, log bark.Logger) int64 {
 
 	// tsNanos, tsMicros, tsMillis and tsSeconds are what 'ts' would be
 	// would be if it were assumed to be in {nano,micro,milli,}seconds
@@ -324,20 +324,29 @@ func interpretTimeNanos(ts int64) int64 {
 	// 'now' in unix-nanos
 	now := time.Now().UnixNano()
 
+	log.Errorf("interpretTimeNanos: FindNearestInt: now=%d tsNanos=%d tsMicros=%d tsMillis=%d tsSeconds=%d",
+		now, tsNanos, tsMicros, tsMillis, tsSeconds)
+
 	// the time that is nearest to 'now' (in nanoseconds), would be the most
 	// reasonable interpretation of 'ts'
 	return common.FindNearestInt(now, tsNanos, tsMicros, tsMillis, tsSeconds)
 }
 
 // convertCreateCGRequestToInternal converts Cherami CreateConsumerGroupRequest to internal shared CreateConsumerGroupRequest
-func convertCreateCGRequestToInternal(createRequest *c.CreateConsumerGroupRequest) (*shared.CreateConsumerGroupRequest, error) {
+func convertCreateCGRequestToInternal(createRequest *c.CreateConsumerGroupRequest, log bark.Logger) (*shared.CreateConsumerGroupRequest, error) {
 
+	log.Errorf("convertCreateCGRequestToInternal: GetStartFrom: %v", createRequest.GetStartFrom())
 	// detect and correct the units for 'startFrom' (expected internally to be in nanoseconds)
-	startFrom := interpretTimeNanos(createRequest.GetStartFrom())
+	startFrom := interpretTimeNanos(createRequest.GetStartFrom(), log)
+
+	log.Errorf("convertCreateCGRequestToInternal: interpretTimeNanos: %v", startFrom)
+
+	minuteFromNow := time.Now().Add(time.Minute)
 
 	// if the start-from time is more than a minute into the future, then
 	// reject it.  we allow a minute to account for any time skews.
-	if time.Unix(0, startFrom).After(time.Now().Add(time.Minute)) {
+	if time.Unix(0, startFrom).After(minuteFromNow) {
+		log.Errorf("convertCreateCGRequestToInternal: startFrom=%d > minuteFromNow=%v", startFrom, minuteFromNow.UnixNano())
 		return nil, &c.BadRequestError{
 			Message: fmt.Sprintf("StartFrom(=%x) cannot be in the future", startFrom),
 		}
@@ -1077,7 +1086,7 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		return nil, err
 	}
 
-	_createRequest, err := convertCreateCGRequestToInternal(createRequest)
+	_createRequest, err := convertCreateCGRequestToInternal(createRequest, h.logger)
 	if err != nil {
 		return nil, err
 	}

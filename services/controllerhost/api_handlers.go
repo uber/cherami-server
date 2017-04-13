@@ -90,8 +90,7 @@ func isUUIDLengthValid(uuid string) bool {
 
 func isInputHealthy(context *Context, extent *m.DestinationExtent) bool {
 
-	// if this is a Kafka phantom extent, then assume "input" is healthy; otherwise
-	// check to see if the inputhost is healty
+	// if this is a Kafka phantom extent, then assume "input" is healthy
 	if extent.GetInputHostUUID() == kafkaPhantomInputUUID {
 		return true
 	}
@@ -119,8 +118,8 @@ func getLockTimeout(result *resultCacheReadResult) time.Duration {
 
 func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
 
-	// special-case Kafka destinations that do not really have a physical
-	// store (in Cherami), and use a 'phantom' store instead.
+	// special-case Kafka phantom extents that do not really have a physical
+	// store (in Cherami) and use a placeholder 'phantom' store instead.
 	if len(storeIDs) == 1 && storeIDs[0] == kafkaPhantomStoreUUID {
 		return true
 	}
@@ -137,8 +136,8 @@ func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool 
 
 	storeIDs := extent.GetStoreUUIDs()
 
-	// special-case Kafka destinations that do not really have a physical
-	// store (in Cherami), and use a 'phantom' store instead.
+	// special-case Kafka phantom extents that do not really have a physical
+	// store (in Cherami) and use a placeholder 'phantom' store instead.
 	if len(storeIDs) == 1 && storeIDs[0] == kafkaPhantomStoreUUID {
 		return true
 	}

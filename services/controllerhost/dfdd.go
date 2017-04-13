@@ -307,6 +307,12 @@ func (dfdd *dfddImpl) handleHostGoingDownEvent(service string, event *common.Rin
 	copy := deepCopyMap(hosts)
 	copy[event.Key] = newDFDDHost(dfddHostStateGoingDown, dfdd.timeSource)
 	dfdd.putHosts(service, copy)
+
+	if service == common.StoreServiceName {
+		if !dfdd.context.eventPipeline.Add(NewStoreHostFailedEvent(event.Key)) {
+			dfdd.context.log.WithField(common.TagEvent, event).Error("failed to enqueue event after store reported as GoingDown")
+		}
+	}
 }
 
 func (dfdd *dfddImpl) handleListenerEvent(service string, event *common.RingpopListenerEvent) {

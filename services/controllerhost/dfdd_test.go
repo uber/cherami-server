@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
+	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 )
 
 type (
@@ -74,9 +75,13 @@ func (s *DfddTestSuite) TestFailureDetection() {
 		s.rpm.NotifyListeners(common.InputServiceName, h, common.HostAddedEvent)
 		s.rpm.NotifyListeners(common.InputServiceName, h, common.HostRemovedEvent)
 	}
-	for _, h := range storeIDs {
+	for i, h := range storeIDs {
 		s.rpm.NotifyListeners(common.StoreServiceName, h, common.HostAddedEvent)
-		s.rpm.NotifyListeners(common.StoreServiceName, h, common.HostRemovedEvent)
+		if i == len(storeIDs) -1 {
+			s.dfdd.ReportHostGoingDown(common.StoreServiceName, h)
+		} else {
+			s.rpm.NotifyListeners(common.StoreServiceName, h, common.HostRemovedEvent)
+		}
 	}
 
 	cond := func() bool {
@@ -87,6 +92,8 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	succ := common.SpinWaitOnCondition(cond, 10*time.Second)
 	s.True(succ, "Dfdd failed to detect failure within timeout")
 	s.Equal(0, s.eventPipeline.numStoreRemoteExtentReplicatorDownEvents(), "unexpected events generated")
+
+	s.rpm.NotifyListeners(common.StoreServiceName, storeIDs[2], common.HostRemovedEvent)
 
 	for _, h := range inHostIDs {
 		state, _ := s.dfdd.GetHostState(common.InputServiceName, h)
@@ -131,6 +138,21 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.context.failureDetector = s.dfdd
 	succ = isInputGoingDown(s.context, inHostIDs[0])
 	s.True(succ, "isInputGoingDown() failed")
+
+	succ = isStoreGoingDown(s.context, storeIDs[0])
+	s.True(succ, "isStoreGoingDown() failed")
+
+	dstExtent := &m.DestinationExtent{
+		ExtentUUID: common.StringPtr(uuid.New()),
+		StoreUUIDs: []string{storeIDs[0]},
+	}
+
+	succ = areExtentStoresHealthy(s.context, dstExtent)
+	s.False(succ, "areExtentStoresHealthy check failed")
+
+	dstExtent.StoreUUIDs = []string{storeIDs[1]}
+	succ = areExtentStoresHealthy(s.context, dstExtent)
+	s.False(succ, "areExtentStoresHealthy check failed")
 
 	s.dfdd.Stop()
 	stateMachineTickerInterval = oldStateMachineInterval

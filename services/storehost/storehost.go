@@ -1628,11 +1628,11 @@ func (t *StoreHost) UpgradeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetNodeStatus is the current status of this host
-func (h *StoreHost) GetNodeStatus() controller.NodeStatus {
-	return h.nodeStatus.Load().(controller.NodeStatus)
+func (t *StoreHost) GetNodeStatus() controller.NodeStatus {
+	return t.nodeStatus.Load().(controller.NodeStatus)
 }
 
 // SetNodeStatus sets the status of this host
-func (h *StoreHost) SetNodeStatus(status controller.NodeStatus) {
-	h.nodeStatus.Store(status)
+func (t *StoreHost) SetNodeStatus(status controller.NodeStatus) {
+	t.nodeStatus.Store(status)
 }

@@ -350,11 +350,9 @@ func convertCreateCGRequestToInternal(createRequest *c.CreateConsumerGroupReques
 	// detect and correct the units for 'startFrom' (expected internally to be in nanoseconds)
 	startFrom := interpretTimeNanos(createRequest.GetStartFrom())
 
-	minuteFromNow := time.Now().Add(time.Minute)
-
 	// if the start-from time is more than a minute into the future, then
 	// reject it.  we allow a minute to account for any time skews.
-	if time.Unix(0, startFrom).After(minuteFromNow) {
+	if time.Unix(0, startFrom).After(time.Now().Add(time.Minute)) {
 		return nil, &c.BadRequestError{
 			Message: fmt.Sprintf("StartFrom(=%x) cannot be in the future", startFrom),
 		}

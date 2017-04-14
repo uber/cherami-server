@@ -1618,11 +1618,8 @@ func (t *StoreHost) UpgradeHandler(w http.ResponseWriter, r *http.Request) {
 	t.reportHostMetric(reporter, 1)
 
 	// wait for upgrade timeout
-	upgradeTimer := common.NewTimer(common.DefaultUpgradeTimeout)
-	defer upgradeTimer.Stop()
-	select {
-	case <-upgradeTimer.C:
-	}
+	time.Sleep(common.DefaultUpgradeTimeout)
+
 	// at this point, we have marked ourself as down and waited for the timeout period. Exit since we are no longer useful
 	os.Exit(0)
 }

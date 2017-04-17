@@ -122,7 +122,6 @@ func (s *DfddTestSuite) TestFailureDetection() {
 		succ := common.SpinWaitOnCondition(cond, time.Second*10)
 		s.True(succ, "dfdd failed to remove store host entry after downToForgottenDuration")
 	}
-
 	// now test hostGoingDown state
 	s.rpm.NotifyListeners(common.InputServiceName, inHostIDs[0], common.HostAddedEvent)
 	s.rpm.NotifyListeners(common.StoreServiceName, storeIDs[0], common.HostAddedEvent)

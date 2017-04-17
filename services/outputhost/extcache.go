@@ -153,7 +153,7 @@ var kafkaLogSetup sync.Once
 const extentLoadReportingInterval = 2 * time.Second
 
 // kafkaDefaultRetention is the default value of log.retention.hours in the Kafka system
-const kafkaDefaultRetention = common.UnixNanoTime(time.Hour*24*7)
+const kafkaDefaultRetention = common.UnixNanoTime(time.Hour * 24 * 7)
 
 func (extCache *extentCache) load(
 	outputHostUUID,
@@ -363,7 +363,7 @@ func (extCache *extentCache) loadKafkaStream(
 	// TODO: Use Sarama GetMetadata to get the list of partitions, then build the offset request
 	// to use with GetAvailableOffsets, and then "somehow" manually commit it so that sarama-cluster
 	// starts from the right place
-	if common.Now()-startFrom > kafkaDefaultRetention / 2 {
+	if common.Now()-startFrom > kafkaDefaultRetention/2 {
 		cfg.Config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
 

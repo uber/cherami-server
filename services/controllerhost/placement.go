@@ -120,17 +120,22 @@ func (p *DistancePlacement) pickHostsWithFallback(service string, minDistance, m
 		if maxDistance <= minDistance {
 			maxDistance = distance.InfiniteDistance
 		}
-		if h, e := p.pickHosts(service, hosts, storeHosts, 1, minDistance, maxDistance); e == nil {
-			return h[0], nil
-		}
-		if minFallback < minDistance || maxFallback > maxDistance {
-			if maxFallback <= minFallback {
-				maxFallback = distance.InfiniteDistance
-			}
-			if h, e := p.pickHosts(service, hosts, storeHosts, 1, minFallback, maxFallback); e == nil {
+
+		// if no storehosts are available, fall through and pick a random host from pool
+		if storeHosts != nil {
+			if h, e := p.pickHosts(service, hosts, storeHosts, 1, minDistance, maxDistance); e == nil {
 				return h[0], nil
 			}
+			if minFallback < minDistance || maxFallback > maxDistance {
+				if maxFallback <= minFallback {
+					maxFallback = distance.InfiniteDistance
+				}
+				if h, e := p.pickHosts(service, hosts, storeHosts, 1, minFallback, maxFallback); e == nil {
+					return h[0], nil
+				}
+			}
 		}
+
 		if cnt := len(hosts); cnt >= 1 {
 			return hosts[rand.Intn(cnt)], nil
 		}
@@ -264,6 +269,11 @@ func (p *DistancePlacement) getHealthyHosts(service string) ([]*common.HostInfo,
 			continue
 		}
 		result = append(result, h)
+	}
+
+	// if no hosts are found error out; could happen if all the hosts are "going down"
+	if len(result) == 0 {
+		return nil, errNoHosts
 	}
 	return result, nil
 }

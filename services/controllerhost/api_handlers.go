@@ -42,15 +42,18 @@ const (
 )
 
 const (
-	minOpenExtentsForDstDLQ                      = 1
-	maxExtentsToConsumeForDstDLQ                 = 2
-	minOpenExtentsForDstTimer                    = 2
 	defaultMinOpenPublishExtents                 = 2 // Only used if the extent configuration can't be retrieved
 	defaultRemoteExtents                         = 2
 	defaultMinConsumeExtents                     = defaultMinOpenPublishExtents * 2
-	maxExtentsToConsumeForDstTimer               = 64 // timer dst need to consume from all open extents
-	minExtentsToConsumeForSingleCGVisibleExtents = 1
 	replicatorCallTimeout                        = 20 * time.Second
+	minOpenExtentsForDstDLQ                      = 1
+	maxExtentsToConsumeForDstDLQ                 = 2
+	minOpenExtentsForDstTimer                    = 2
+	maxExtentsToConsumeForDstTimer               = 64 // timer dst need to consume from all open extents
+	numKafkaExtentsForDstKafka                   = 2
+	maxDlqExtentsForDstKafka                     = 2
+	maxExtentsToConsumeForDstKafka               = numKafkaExtentsForDstKafka + maxDlqExtentsForDstKafka
+	minExtentsToConsumeForSingleCGVisibleExtents = 1
 )
 
 var (
@@ -86,6 +89,12 @@ func isUUIDLengthValid(uuid string) bool {
 }
 
 func isInputHealthy(context *Context, extent *m.DestinationExtent) bool {
+
+	// if this is a Kafka phantom extent, then assume "input" is healthy
+	if common.IsKafkaPhantomInput(extent.GetInputHostUUID()) {
+		return true
+	}
+
 	return context.rpm.IsHostHealthy(common.InputServiceName, extent.GetInputHostUUID())
 }
 
@@ -108,6 +117,13 @@ func getLockTimeout(result *resultCacheReadResult) time.Duration {
 }
 
 func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
+
+	// special-case Kafka phantom extents that do not really have a physical
+	// store (in Cherami) and use a placeholder 'phantom' store instead.
+	if common.AreKafkaPhantomStores(storeIDs) {
+		return true
+	}
+
 	for _, id := range storeIDs {
 		if context.rpm.IsHostHealthy(common.StoreServiceName, id) {
 			return true
@@ -117,7 +133,16 @@ func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
 }
 
 func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool {
-	for _, h := range extent.GetStoreUUIDs() {
+
+	storeIDs := extent.GetStoreUUIDs()
+
+	// special-case Kafka phantom extents that do not really have a physical
+	// store (in Cherami) and use a placeholder 'phantom' store instead.
+	if common.AreKafkaPhantomStores(storeIDs) {
+		return true
+	}
+
+	for _, h := range storeIDs {
 		if !context.rpm.IsHostHealthy(common.StoreServiceName, h) {
 			context.log.WithFields(bark.Fields{
 				common.TagExt:  common.FmtExt(extent.GetExtentUUID()),

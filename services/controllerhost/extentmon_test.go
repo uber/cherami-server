@@ -317,12 +317,18 @@ func (s *ExtentStateMonitorSuite) TestExtentMonitor() {
 	s.mClient.DeleteDestination(nil, &shared.DeleteDestinationRequest{Path: common.StringPtr(destinations[1].GetPath())})
 
 	rpm := common.NewMockRingpopMonitor()
+	dfdd := s.mcp.context.failureDetector.(*dfddImpl)
 
 	stores := make([]*MockStoreService, len(storeIDs))
 	for i := 0; i < len(storeIDs)-1; i++ {
 		stores[i] = NewMockStoreService()
 		stores[i].Start()
 		rpm.Add(common.StoreServiceName, storeIDs[i], stores[i].hostPort)
+		event := &common.RingpopListenerEvent{
+			Key:  storeIDs[i],
+			Type: common.HostAddedEvent,
+		}
+		dfdd.handleHostAddedEvent(common.StoreServiceName, event)
 	}
 
 	inputService := NewMockInputOutputService("inputhost")
@@ -330,6 +336,11 @@ func (s *ExtentStateMonitorSuite) TestExtentMonitor() {
 	inputService.Start(common.InputServiceName, thriftService)
 
 	rpm.Add(common.InputServiceName, inHostIDs[0], inputService.hostPort)
+	event := &common.RingpopListenerEvent{
+		Key:  inHostIDs[0],
+		Type: common.HostAddedEvent,
+	}
+	dfdd.handleHostAddedEvent(common.InputServiceName, event)
 
 	outputService := NewMockInputOutputService("outputhost")
 	thriftService = admin.NewTChanOutputHostAdminServer(outputService)

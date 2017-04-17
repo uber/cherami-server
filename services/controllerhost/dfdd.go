@@ -93,7 +93,16 @@ const (
 	dfddHostStateGoingDown
 	dfddHostStateDown
 	dfddHostStateForgotten
+	numDfddStates // must be the last member
 )
+
+var dfddStateNames = [numDfddStates]string{
+	"unknown",
+	"up",
+	"goingDown",
+	"down",
+	"forgotten",
+}
 
 // state that represents that the host is about to
 // go down for planned deployment or maintenance
@@ -309,6 +318,12 @@ func (dfdd *dfddImpl) handleHostGoingDownEvent(service string, event *common.Rin
 	dfdd.putHosts(service, copy)
 
 	if service == common.StoreServiceName {
+		// When a store host is about to go down for deployment,
+		// we need to trigger draining of every OPEN extent. However,
+		// the store is still not *considered* down until its down
+		// in ringpop. Ideally, we need a StoreGoingDownEvent, but
+		// since the behavior is going to be the same as StoreFailedEvent,
+		// we simply enqueue a storeFailedEvent
 		if !dfdd.context.eventPipeline.Add(NewStoreHostFailedEvent(event.Key)) {
 			dfdd.context.log.WithField(common.TagEvent, event).Error("failed to enqueue event after store reported as GoingDown")
 		}
@@ -348,11 +363,30 @@ func (dfdd *dfddImpl) putHosts(service string, hosts map[string]dfddHost) {
 	}
 }
 
+func isDfddHostStatusUP(dfdd Dfdd, service string, hostID string) (dfddHostState, bool) {
+	state, _ := dfdd.GetHostState(service, hostID)
+	ok := (state != dfddHostStateDown && state != dfddHostStateUnknown)
+	return state, ok
+}
+
+func isDfddHostStatusDownOrGoingDown(dfdd Dfdd, service string, hostID string) (dfddHostState, bool) {
+	state, _ := dfdd.GetHostState(service, hostID)
+	ok := (state == dfddHostStateUnknown || state == dfddHostStateDown || state == dfddHostStateGoingDown)
+	return state, ok
+}
+
 func newDFDDHost(state dfddHostState, timeSource common.TimeSource) dfddHost {
 	return dfddHost{
 		state:               state,
 		lastStateChangeTime: timeSource.Now().UnixNano(),
 	}
+}
+
+func (state dfddHostState) String() string {
+	if state < 0 || state >= numDfddStates {
+		return "invalid"
+	}
+	return dfddStateNames[state]
 }
 
 // creates a new map and copies the key/values from the

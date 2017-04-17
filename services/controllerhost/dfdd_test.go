@@ -93,7 +93,14 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.True(succ, "Dfdd failed to detect failure within timeout")
 	s.Equal(0, s.eventPipeline.numStoreRemoteExtentReplicatorDownEvents(), "unexpected events generated")
 
+	// async, not guaranteed to change state immediately
 	s.rpm.NotifyListeners(common.StoreServiceName, storeIDs[2], common.HostRemovedEvent)
+	cond = func() bool {
+		s, _ := s.dfdd.GetHostState(common.StoreServiceName, storeIDs[2])
+		return s == dfddHostStateDown
+	}
+	succ = common.SpinWaitOnCondition(cond, 10*time.Second)
+	s.True(succ, "dfdd failed to mark host as down")
 
 	for _, h := range inHostIDs {
 		state, _ := s.dfdd.GetHostState(common.InputServiceName, h)
@@ -136,11 +143,13 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.True(succ, "dfdd failed to discover new hosts")
 
 	s.context.failureDetector = s.dfdd
-	succ = isInputGoingDown(s.context, inHostIDs[0])
+	state, succ := isDfddHostStatusDownOrGoingDown(s.context.failureDetector, common.InputServiceName, inHostIDs[0])
 	s.True(succ, "isInputGoingDown() failed")
+	s.Equal(dfddHostStateGoingDown, state, "wrong dfdd state")
 
-	succ = isStoreGoingDown(s.context, storeIDs[0])
+	state, succ = isDfddHostStatusDownOrGoingDown(s.context.failureDetector, common.StoreServiceName, storeIDs[0])
 	s.True(succ, "isStoreGoingDown() failed")
+	s.Equal(dfddHostStateGoingDown, state, "wrong dfdd state")
 
 	dstExtent := &m.DestinationExtent{
 		ExtentUUID: common.StringPtr(uuid.New()),
@@ -156,6 +165,34 @@ func (s *DfddTestSuite) TestFailureDetection() {
 
 	s.dfdd.Stop()
 	stateMachineTickerInterval = oldStateMachineInterval
+}
+
+func (s *DfddTestSuite) TestDfddStateToString() {
+	states := []dfddHostState{
+		dfddHostStateUnknown,
+		dfddHostStateUP,
+		dfddHostStateGoingDown,
+		dfddHostStateDown,
+		dfddHostStateForgotten,
+		dfddHostState(-1),
+		dfddHostState(128),
+	}
+	for _, st := range states {
+		switch st {
+		case dfddHostStateUnknown:
+			s.Equal("unknown", st.String())
+		case dfddHostStateUP:
+			s.Equal("up", st.String())
+		case dfddHostStateGoingDown:
+			s.Equal("goingDown", st.String())
+		case dfddHostStateDown:
+			s.Equal("down", st.String())
+		case dfddHostStateForgotten:
+			s.Equal("forgotten", st.String())
+		default:
+			s.Equal("invalid", st.String())
+		}
+	}
 }
 
 type testEventPipelineImpl struct {

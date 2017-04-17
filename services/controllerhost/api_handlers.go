@@ -89,31 +89,17 @@ func isUUIDLengthValid(uuid string) bool {
 }
 
 func isInputHealthy(context *Context, extent *m.DestinationExtent) bool {
-
+	inputID := extent.GetInputHostUUID()
 	// if this is a Kafka phantom extent, then assume "input" is healthy
 	if common.IsKafkaPhantomInput(extent.GetInputHostUUID()) {
 		return true
 	}
-
-	return context.rpm.IsHostHealthy(common.InputServiceName, extent.GetInputHostUUID())
+	_, ok := isDfddHostStatusUP(context.failureDetector, common.InputServiceName, inputID)
+	return ok
 }
 
 func isExtentBeingSealed(context *Context, extentID string) bool {
 	return context.extentSeals.inProgress.Contains(extentID) || context.extentSeals.failed.Contains(extentID)
-}
-
-// isInputGoingDown returns true if the specified input host
-// is going down for planned maintenance or deployment
-func isInputGoingDown(context *Context, hostID string) bool {
-	state, _ := context.failureDetector.GetHostState(common.InputServiceName, hostID)
-	return state == dfddHostStateGoingDown
-}
-
-// isStoreGoingDown returns true if the specified store host
-// is going down for planned maintenance or deployment
-func isStoreGoingDown(context *Context, hostID string) bool {
-	state, _ := context.failureDetector.GetHostState(common.StoreServiceName, hostID)
-	return state == dfddHostStateGoingDown
 }
 
 func getLockTimeout(result *resultCacheReadResult) time.Duration {
@@ -124,15 +110,13 @@ func getLockTimeout(result *resultCacheReadResult) time.Duration {
 }
 
 func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
-
 	// special-case Kafka phantom extents that do not really have a physical
 	// store (in Cherami) and use a placeholder 'phantom' store instead.
 	if common.AreKafkaPhantomStores(storeIDs) {
 		return true
 	}
-
 	for _, id := range storeIDs {
-		if context.rpm.IsHostHealthy(common.StoreServiceName, id) {
+		if _, ok := isDfddHostStatusUP(context.failureDetector, common.StoreServiceName, id); ok {
 			return true
 		}
 	}
@@ -150,19 +134,12 @@ func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool 
 	}
 
 	for _, h := range storeIDs {
-
-		status := "up"
-		if !context.rpm.IsHostHealthy(common.StoreServiceName, h) {
-			status = "down"
-		} else if isStoreGoingDown(context, h) {
-			status = "goingDown"
-		}
-
-		if status != "up" {
+		state, isDown := isDfddHostStatusDownOrGoingDown(context.failureDetector, common.StoreServiceName, h)
+		if isDown {
 			context.log.WithFields(bark.Fields{
 				common.TagExt:  common.FmtExt(extent.GetExtentUUID()),
 				common.TagStor: common.FmtStor(h),
-				`hoststatus`:   status,
+				`dfddState`:    state.String(),
 			}).Info("found extent with unhealthy store")
 			return false
 		}
@@ -313,21 +290,26 @@ func minOpenExtentsForDst(context *Context, dstPath string, dstType dstType) int
 }
 
 func getInputAddrIfExtentIsWritable(context *Context, extent *m.DestinationExtent, m3Scope int) (string, error) {
+
+	state, isDown := isDfddHostStatusDownOrGoingDown(context.failureDetector, common.InputServiceName, extent.GetInputHostUUID())
+	if isDown {
+		context.log.
+			WithField(common.TagExt, common.FmtExt(extent.GetExtentUUID())).
+			WithField(common.TagIn, common.FmtIn(extent.GetInputHostUUID())).
+			WithField(`dfddState`, state.String()).
+			Info("input host is down or going down in dfdd, treating extent as unwritable")
+		return "", errNoInputHosts
+	}
+
 	inputhost, err := context.rpm.ResolveUUID(common.InputServiceName, extent.GetInputHostUUID())
 	if err != nil {
 		context.log.
 			WithField(common.TagExt, common.FmtExt(extent.GetExtentUUID())).
 			WithField(common.TagIn, common.FmtIn(extent.GetInputHostUUID())).
-			Info("Found unhealthy extent, input unhealthy")
+			Info("found unhealthy extent, cannot resolve input uuid")
 		return "", err
 	}
-	if isInputGoingDown(context, extent.GetInputHostUUID()) {
-		context.log.
-			WithField(common.TagExt, common.FmtExt(extent.GetExtentUUID())).
-			WithField(common.TagIn, common.FmtIn(extent.GetInputHostUUID())).
-			Info("input host is in going down state, treating extent as unwritable")
-		return "", errNoInputHosts
-	}
+
 	if !areExtentStoresHealthy(context, extent) {
 		return "", errNoStoreHosts
 	}

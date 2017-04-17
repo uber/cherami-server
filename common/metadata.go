@@ -39,6 +39,5 @@ func IsDLQDestinationPath(path string) bool {
 
 // IsKafkaConsumerGroupExtent determines if a consumer group extent is a Kafka consumption assignment
 func IsKafkaConsumerGroupExtent(e *shared.ConsumerGroupExtent) bool {
-	l := len(e.GetStoreUUIDs()) // TODO: Replace this heuristic when CGE metadata has been updated
-	return l == 0 || (l == 1 && e.GetStoreUUIDs()[0] == `00000000-0000-0000-0000-000000000000`)
+	return AreKafkaPhantomStores(e.GetStoreUUIDs())
 }

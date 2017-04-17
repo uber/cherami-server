@@ -152,6 +152,9 @@ var kafkaLogSetup sync.Once
 // metrics are reported to the controller
 const extentLoadReportingInterval = 2 * time.Second
 
+// kafkaDefaultRetention is the default value of log.retention.hours in the Kafka system
+const kafkaDefaultRetention = common.UnixNanoTime(time.Hour*24*7)
+
 func (extCache *extentCache) load(
 	outputHostUUID,
 	cgUUID,
@@ -352,11 +355,15 @@ func (extCache *extentCache) loadKafkaStream(
 	// Get the notifications channel; we will just log it
 	cfg.Group.Return.Notifications = true
 
-	// Older startFroms (e.g. 0, >1 weeks back) are considered to want the oldest offset
+	// Older startFroms (e.g. 0, >3.5 days back) are considered to want the oldest offset
+	// The logic here is that the default Kafka retention is 7 days, so we just decide whether
+	// the oldest or newest offset is likely to be 'closer' to the desired startFrom time
+	// Obviously, startFrom = 0 always works perfectly, and startFrom = now also works, as long
+	// as the consumer group is used within 3.5 days of creation.
 	// TODO: Use Sarama GetMetadata to get the list of partitions, then build the offset request
 	// to use with GetAvailableOffsets, and then "somehow" manually commit it so that sarama-cluster
 	// starts from the right place
-	if common.Now()-startFrom > common.UnixNanoTime(time.Hour*24*7) {
+	if common.Now()-startFrom > kafkaDefaultRetention / 2 {
 		cfg.Config.Consumer.Offsets.Initial = sarama.OffsetOldest
 	}
 

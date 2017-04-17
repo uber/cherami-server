@@ -1306,7 +1306,7 @@ func (s *McpSuite) TestKafkaPhantomExtentChecks() {
 
 	context := s.mcp.context
 
-	// setup a Kafka extent with 'phatom' input/stores
+	// setup a Kafka extent with 'phantom' input/stores
 	inputUUID := common.KafkaPhantomExtentInputhost
 	storeUUIDs := []string{common.KafkaPhantomExtentStorehost}
 

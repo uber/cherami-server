@@ -828,6 +828,15 @@ func (event *ExtentDownEvent) Handle(context *Context) error {
 			}
 			event.inputID = stats.GetExtent().GetInputHostUUID()
 			event.storeIDs = stats.GetExtent().GetStoreUUIDs()
+
+			// if this is a Kafka phantom extent (with phantom stores/input), skip over
+			// input/store operations and jump directly to sealing extent in metadata
+			if common.IsKafkaPhantomInput(event.inputID) &&
+				common.AreKafkaPhantomStores(event.storeIDs) {
+				event.state = updateMetadataState
+				continue
+			}
+
 			event.state = drainExtentState
 
 		case drainExtentState:

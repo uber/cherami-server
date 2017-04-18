@@ -109,6 +109,7 @@ type (
 
 	destinationInfo struct {
 		id            destinationID
+		destType      shared.DestinationType
 		status        shared.DestinationStatus
 		extents       []*extentInfo
 		softRetention int32 // in seconds
@@ -124,6 +125,7 @@ type (
 		storehosts         []storehostID
 		singleCGVisibility consumerGroupID
 		originZone         string
+		kafkaPhantomExtent bool
 		// destID  destinationID
 		// dest    *destinationInfo
 	}
@@ -442,25 +444,29 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 	return true
 }
 
+func isKafkaPhantomExtent(dest *destinationInfo, ext *extentInfo) bool {
+
+	if dest.destType != shared.DestinationType_KAFKA {
+		return false
+	}
+
+	// convert from '[]storehostID' to '[]string'
+	storeIDs := make([]string, len(ext.storehosts))
+
+	for _, s := range ext.storehosts {
+		storeIDs = append(storeIDs, string(s))
+	}
+
+	return common.AreKafkaPhantomStores(storeIDs)
+}
+
 func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) {
 
 	dest := job.dest
 	ext := job.ext
 
-	if ext.status == shared.ExtentStatus_CONSUMED {
-
-		// keep extent in "consumed" state until 'ExtentDeleteDeferPeriod' has
-		// elapsed, only then "delete" the extent. this extra time helps ensure
-		// that any consumer-group extents that were just placed, will also
-		// move into "consumed" state, when they read from store.
-		if time.Since(ext.statusUpdatedTime) >= t.ExtentDeleteDeferPeriod {
-			job.retentionAddr = store.ADDR_SEAL // delete extent from the stores
-			job.deleteExtent = true             // delete extent from metadata
-		}
-		return
-	}
-
-	if dest.status == shared.DestinationStatus_DELETING && ext.status == shared.ExtentStatus_SEALED {
+	if dest.status == shared.DestinationStatus_DELETING &&
+		ext.status == shared.ExtentStatus_SEALED {
 
 		// When the destination is being deleted and all the consumer groups have
 		// gone away for a SEALED extent, then we can short-circuit and decide to
@@ -479,6 +485,19 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 			job.deleteExtent = true
 			return
 		}
+	}
+
+	if ext.status == shared.ExtentStatus_CONSUMED {
+
+		// keep extent in "consumed" state until 'ExtentDeleteDeferPeriod' has
+		// elapsed, only then "delete" the extent. this extra time helps ensure
+		// that any consumer-group extents that were just placed, will also
+		// move into "consumed" state, when they read from store.
+		if time.Since(ext.statusUpdatedTime) >= t.ExtentDeleteDeferPeriod {
+			job.retentionAddr = store.ADDR_SEAL // delete extent from the stores
+			job.deleteExtent = true             // delete extent from metadata
+		}
+		return
 	}
 
 	// -- step 1: take a snapshot of the current time and compute retention timestamps -- //
@@ -520,33 +539,35 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var hardRetentionAddr = int64(store.ADDR_BEGIN)
 	var hardRetentionConsumed bool
 
-	for i := range ext.storehosts {
+	if !ext.kafkaPhantomExtent {
+		for i := range ext.storehosts {
 
-		storeID := ext.storehosts[i]
+			storeID := ext.storehosts[i]
 
-		getAddressStartTime := time.Now()
-		addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, hardRetentionTime)
-		t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
+			getAddressStartTime := time.Now()
+			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, hardRetentionTime)
+			t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
 
-		if err != nil {
-			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
+			if err != nil {
+				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
 
-			log.WithFields(bark.Fields{
-				common.TagStor:      storeID,
-				`hardRetentionTime`: hardRetentionTime,
-				common.TagErr:       err,
-			}).Error(`computeRetention: hardRetention GetAddressFromTimestamp error`)
-			continue
-		}
-		t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
+				log.WithFields(bark.Fields{
+					common.TagStor:      storeID,
+					`hardRetentionTime`: hardRetentionTime,
+					common.TagErr:       err,
+				}).Error(`computeRetention: hardRetention GetAddressFromTimestamp error`)
+				continue
+			}
+			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
 
-		// find the max address and use that as the hardRetentionAddr
-		if addr > hardRetentionAddr {
-			hardRetentionAddr = addr
-		}
+			// find the max address and use that as the hardRetentionAddr
+			if addr > hardRetentionAddr {
+				hardRetentionAddr = addr
+			}
 
-		if consumed {
-			hardRetentionConsumed = true
+			if consumed {
+				hardRetentionConsumed = true
+			}
 		}
 	}
 
@@ -569,33 +590,35 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var softRetentionAddr = int64(store.ADDR_BEGIN)
 	var softRetentionConsumed bool
 
-	for i := range ext.storehosts {
+	if !ext.kafkaPhantomExtent {
+		for i := range ext.storehosts {
 
-		storeID := ext.storehosts[i]
+			storeID := ext.storehosts[i]
 
-		getAddressStartTime := time.Now()
-		addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, softRetentionTime)
-		t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
+			getAddressStartTime := time.Now()
+			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, softRetentionTime)
+			t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
 
-		if err != nil {
-			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
+			if err != nil {
+				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
 
-			log.WithFields(bark.Fields{
-				common.TagStor:      storeID,
-				`softRetentionTime`: softRetentionTime,
-				common.TagErr:       err,
-			}).Error(`computeRetention: softRetention GetAddressFromTimestamp error`)
-			continue
-		}
-		t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
+				log.WithFields(bark.Fields{
+					common.TagStor:      storeID,
+					`softRetentionTime`: softRetentionTime,
+					common.TagErr:       err,
+				}).Error(`computeRetention: softRetention GetAddressFromTimestamp error`)
+				continue
+			}
+			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
 
-		// find the max address and use that as the softRetentionAddr
-		if addr > softRetentionAddr {
-			softRetentionAddr = addr
-		}
+			// find the max address and use that as the softRetentionAddr
+			if addr > softRetentionAddr {
+				softRetentionAddr = addr
+			}
 
-		if consumed {
-			softRetentionConsumed = true
+			if consumed {
+				softRetentionConsumed = true
+			}
 		}
 	}
 
@@ -623,49 +646,51 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var minAckAddr = int64(store.ADDR_END)
 	var allHaveConsumed = true // start by assuming this is all-consumed
 
-	for _, cgInfo := range job.consumers {
+	if !ext.kafkaPhantomExtent {
+		for _, cgInfo := range job.consumers {
 
-		if cgInfo.status == shared.ConsumerGroupStatus_DELETED {
-			// don't include deleted consumer groups in the
-			// soft retention based delete calculation
-			continue
-		}
-
-		// Skip non-matching CGs for single CG visible extents
-		if len(ext.singleCGVisibility) > 0 {
-			if cgInfo.id != ext.singleCGVisibility {
+			if cgInfo.status == shared.ConsumerGroupStatus_DELETED {
+				// don't include deleted consumer groups in the
+				// soft retention based delete calculation
 				continue
 			}
 
-			log.Debug("calculating minAckAddr for DLQ merged extent")
-		}
+			// Skip non-matching CGs for single CG visible extents
+			if len(ext.singleCGVisibility) > 0 {
+				if cgInfo.id != ext.singleCGVisibility {
+					continue
+				}
 
-		ackAddr, err := t.metadata.GetAckLevel(dest.id, ext.id, cgInfo.id)
+				log.Debug("calculating minAckAddr for DLQ merged extent")
+			}
 
-		if err != nil {
-			// if we got an error, go ahead with 'ADDR_BEGIN'
+			ackAddr, err := t.metadata.GetAckLevel(dest.id, ext.id, cgInfo.id)
 
-			log.WithFields(bark.Fields{
-				common.TagCnsmID: cgInfo.id,
-				common.TagErr:    err,
-			}).Error(`computeRetention: minAckAddr GetAckLevel failed`)
+			if err != nil {
+				// if we got an error, go ahead with 'ADDR_BEGIN'
 
-			minAckAddr = store.ADDR_BEGIN
-			allHaveConsumed = false
-			break
-		}
+				log.WithFields(bark.Fields{
+					common.TagCnsmID: cgInfo.id,
+					common.TagErr:    err,
+				}).Error(`computeRetention: minAckAddr GetAckLevel failed`)
 
-		// check if all CGs have consumed this extent
-		if ackAddr != store.ADDR_SEAL {
-			allHaveConsumed = false
-		}
+				minAckAddr = store.ADDR_BEGIN
+				allHaveConsumed = false
+				break
+			}
 
-		// update minAckAddr, if ackAddr is less than the current value
-		if (minAckAddr == store.ADDR_END) ||
-			(minAckAddr == store.ADDR_SEAL) || // -> consumers we have seen so far have completely consumed this extent
-			(ackAddr != store.ADDR_SEAL && ackAddr < minAckAddr) {
+			// check if all CGs have consumed this extent
+			if ackAddr != store.ADDR_SEAL {
+				allHaveConsumed = false
+			}
 
-			minAckAddr = ackAddr
+			// update minAckAddr, if ackAddr is less than the current value
+			if (minAckAddr == store.ADDR_END) ||
+				(minAckAddr == store.ADDR_SEAL) || // -> consumers we have seen so far have completely consumed this extent
+				(ackAddr != store.ADDR_SEAL && ackAddr < minAckAddr) {
+
+				minAckAddr = ackAddr
+			}
 		}
 	}
 
@@ -716,13 +741,15 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	//         time has "consumed" the extent)
 	// B. or, the hard-retention has reached the end of the sealed extent,
 	// 	in which case we will force the extent to be "consumed"
+	// C. or, this is a kafka 'phantom' extent, which is sealed only when
+	//      the destination is deleted.
 	// NB: if there was an error querying either the hard/soft retention addresses,
 	// {soft,hard}RetentionConsumed would be set to 'false'; if there was an error
 	// querying ack-addr, then allHaveConsumed will be false. therefore errors in
 	// either of the conditions would cause the extent to *not* be moved to the
 	// CONSUMED state, and would cause it to be retried on the next iteration.
 	if (ext.status == shared.ExtentStatus_SEALED) &&
-		((allHaveConsumed && softRetentionConsumed) || hardRetentionConsumed) {
+		((allHaveConsumed && softRetentionConsumed) || hardRetentionConsumed || ext.kafkaPhantomExtent) {
 
 		log.WithFields(bark.Fields{
 			`retentionAddr`:         job.retentionAddr,
@@ -811,30 +838,32 @@ workerLoop:
 
 			// -- step 8: send out command to storage nodes to purge messages until the retention address -- //
 
-			for _, storehost := range ext.storehosts {
+			if !ext.kafkaPhantomExtent {
+				for _, storehost := range ext.storehosts {
 
-				// TODO: create a separate worker pool to do this, since this is potentially the
-				// part of the processing that might take the most time.
-				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesRequestCounter)
+					// TODO: create a separate worker pool to do this, since this is potentially the
+					// part of the processing that might take the most time.
+					t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesRequestCounter)
 
-				purgeStartTime := time.Now()
-				addr, e := t.storehost.PurgeMessages(storehost, ext.id, job.retentionAddr)
-				t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesLatency, time.Since(purgeStartTime))
+					purgeStartTime := time.Now()
+					addr, e := t.storehost.PurgeMessages(storehost, ext.id, job.retentionAddr)
+					t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesLatency, time.Since(purgeStartTime))
 
-				log.WithFields(bark.Fields{
-					common.TagStor: storehost,
-					`purgeAddr`:    job.retentionAddr,
-					`doneAddr`:     addr,
-					common.TagErr:  e,
-				}).Debug(`retentionWorker: PurgeMessages output`)
+					log.WithFields(bark.Fields{
+						common.TagStor: storehost,
+						`purgeAddr`:    job.retentionAddr,
+						`doneAddr`:     addr,
+						common.TagErr:  e,
+					}).Debug(`retentionWorker: PurgeMessages output`)
 
-				if e != nil && job.deleteExtent {
-					// FIXME: if the failure was because the extent was already deleted,
-					// treat it as a "success". Or, change storehost to return success in
-					// if it could not find the extent. For now, assume these errors are because
-					// the extent was missing.
-					// job.deleteExtent = false
-					job.err = e
+					if e != nil && job.deleteExtent {
+						// FIXME: if the failure was because the extent was already deleted,
+						// treat it as a "success". Or, change storehost to return success in
+						// if it could not find the extent. For now, assume these errors are because
+						// the extent was missing.
+						// job.deleteExtent = false
+						job.err = e
+					}
 				}
 			}
 

@@ -444,22 +444,6 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 	return true
 }
 
-func isKafkaPhantomExtent(dest *destinationInfo, ext *extentInfo) bool {
-
-	if dest.destType != shared.DestinationType_KAFKA {
-		return false
-	}
-
-	// convert from '[]storehostID' to '[]string'
-	storeIDs := make([]string, len(ext.storehosts))
-
-	for _, s := range ext.storehosts {
-		storeIDs = append(storeIDs, string(s))
-	}
-
-	return common.AreKafkaPhantomStores(storeIDs)
-}
-
 func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) {
 
 	dest := job.dest
@@ -540,6 +524,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var hardRetentionConsumed bool
 
 	if !ext.kafkaPhantomExtent {
+
 		for i := range ext.storehosts {
 
 			storeID := ext.storehosts[i]
@@ -591,6 +576,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var softRetentionConsumed bool
 
 	if !ext.kafkaPhantomExtent {
+
 		for i := range ext.storehosts {
 
 			storeID := ext.storehosts[i]
@@ -647,6 +633,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var allHaveConsumed = true // start by assuming this is all-consumed
 
 	if !ext.kafkaPhantomExtent {
+
 		for _, cgInfo := range job.consumers {
 
 			if cgInfo.status == shared.ConsumerGroupStatus_DELETED {
@@ -749,7 +736,9 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	// either of the conditions would cause the extent to *not* be moved to the
 	// CONSUMED state, and would cause it to be retried on the next iteration.
 	if (ext.status == shared.ExtentStatus_SEALED) &&
-		((allHaveConsumed && softRetentionConsumed) || hardRetentionConsumed || ext.kafkaPhantomExtent) {
+		((allHaveConsumed && softRetentionConsumed) ||
+			hardRetentionConsumed ||
+			ext.kafkaPhantomExtent) {
 
 		log.WithFields(bark.Fields{
 			`retentionAddr`:         job.retentionAddr,

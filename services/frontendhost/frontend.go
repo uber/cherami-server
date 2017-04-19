@@ -151,7 +151,13 @@ func NewFrontendHost(serviceName string, sVice common.SCommon, metadataClient m.
 	bs.dClient = sVice.GetDConfigClient()
 	bs.dynamicConfigManage()
 
-	return &bs, []thrift.TChanServer{c.NewTChanBFrontendServer(&bs)}
+	// TODO inject Authorizer via configuration
+	chanServer := &common.TChanAuthorizerFilter{
+		ChanServer: c.NewTChanBFrontendServer(&bs),
+		Authorizer: common.NewBypassAuthorizer(),
+	}
+
+	return &bs, []thrift.TChanServer{chanServer}
 	//, clientgen.NewTChanBFrontendServer(&bs)}
 }
 

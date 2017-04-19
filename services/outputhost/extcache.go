@@ -164,6 +164,7 @@ func (extCache *extentCache) load(
 	startFrom common.UnixNanoTime,
 	metaClient metadata.TChanMetadataService,
 	cge *shared.ConsumerGroupExtent,
+	metricsClient metrics.Client,
 ) (err error) {
 	// it is ok to take the local lock for this extent which will not affect
 	// others
@@ -177,7 +178,7 @@ func (extCache *extentCache) load(
 
 	if common.IsKafkaConsumerGroupExtent(cge) {
 		extCache.connectedStoreUUID = kafkaConnectedStoreUUID
-		extCache.connection, err = extCache.loadKafkaStream(cgName, outputHostUUID, startFrom, kafkaCluster, kafkaTopics)
+		extCache.connection, err = extCache.loadKafkaStream(cgName, outputHostUUID, startFrom, kafkaCluster, kafkaTopics, metricsClient)
 	} else {
 		extCache.connection, extCache.pickedIndex, err =
 			extCache.loadReplicaStream(cge.GetAckLevelOffset(), common.SequenceNumber(cge.GetAckLevelSeqNo()), rand.Intn(len(extCache.storeUUIDs)))
@@ -339,6 +340,7 @@ func (extCache *extentCache) loadKafkaStream(
 	startFrom common.UnixNanoTime,
 	kafkaCluster string,
 	kafkaTopics []string,
+	metricsClient metrics.Client,
 ) (repl *replicaConnection, err error) {
 	groupID := getKafkaGroupIDForCheramiConsumerGroupName(cgName)
 
@@ -371,6 +373,21 @@ func (extCache *extentCache) loadKafkaStream(
 	cfg.Config.ClientID = `cherami_` + groupID
 
 	// TODO: Sarama metrics registry
+	cfg.Config.MetricRegistry = metrics.NewGoMetricsExporter(
+		metricsClient,
+		metrics.ConsConnectionScope,
+		map[string]int{
+			`incoming-byte-rate`:    metrics.OutputhostCGKafkaIncomingBytes,
+			`outgoing-byte-rate`:    metrics.OutputhostCGKafkaOutgoingBytes,
+			`request-rate`:          metrics.OutputhostCGKafkaRequestSent,
+			`request-size`:          metrics.OutputhostCGKafkaRequestSize,
+			`request-latency-in-ms`: metrics.OutputhostCGKafkaRequestLatency,
+			`response-rate`:         metrics.OutputhostCGKafkaResponseReceived,
+			`response-size`:         metrics.OutputhostCGKafkaResponseSize,
+		},
+		extCache.logger,
+		extCache.closeChannel,
+	)
 
 	// Build the Kafka client. Note that we would ideally like to have a factory for this, but the client
 	// has consumer-group-specific changes to its configuration

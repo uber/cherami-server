@@ -386,6 +386,9 @@ func (mcp *Mcp) GetOutputHosts(ctx thrift.Context, inReq *c.GetOutputHostsReques
 
 	response := func(outputHostIDs []string, err error) (*c.GetOutputHostsResult_, error) {
 		if len(outputHostIDs) < 1 {
+			err = ErrUnavailable
+		}
+		if err != nil {
 			// only count as failure if our answer contains no endpoints at all
 			context.m3Client.IncCounter(metrics.GetOutputHostsScope, metrics.ControllerFailures)
 			return nil, err

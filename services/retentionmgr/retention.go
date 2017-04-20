@@ -519,34 +519,31 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var hardRetentionAddr = int64(store.ADDR_BEGIN)
 	var hardRetentionConsumed bool
 
-	if !ext.kafkaPhantomExtent {
+	for _, storeID := range ext.storehosts {
 
-		for _, storeID := range ext.storehosts {
+		getAddressStartTime := time.Now()
+		addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, hardRetentionTime)
+		t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
 
-			getAddressStartTime := time.Now()
-			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, hardRetentionTime)
-			t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
+		if err != nil {
+			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
 
-			if err != nil {
-				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
+			log.WithFields(bark.Fields{
+				common.TagStor:      storeID,
+				`hardRetentionTime`: hardRetentionTime,
+				common.TagErr:       err,
+			}).Error(`computeRetention: hardRetention GetAddressFromTimestamp error`)
+			continue
+		}
+		t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
 
-				log.WithFields(bark.Fields{
-					common.TagStor:      storeID,
-					`hardRetentionTime`: hardRetentionTime,
-					common.TagErr:       err,
-				}).Error(`computeRetention: hardRetention GetAddressFromTimestamp error`)
-				continue
-			}
-			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
+		// find the max address and use that as the hardRetentionAddr
+		if addr > hardRetentionAddr {
+			hardRetentionAddr = addr
+		}
 
-			// find the max address and use that as the hardRetentionAddr
-			if addr > hardRetentionAddr {
-				hardRetentionAddr = addr
-			}
-
-			if consumed {
-				hardRetentionConsumed = true
-			}
+		if consumed {
+			hardRetentionConsumed = true
 		}
 	}
 
@@ -569,34 +566,31 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var softRetentionAddr = int64(store.ADDR_BEGIN)
 	var softRetentionConsumed bool
 
-	if !ext.kafkaPhantomExtent {
+	for _, storeID := range ext.storehosts {
 
-		for _, storeID := range ext.storehosts {
+		getAddressStartTime := time.Now()
+		addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, softRetentionTime)
+		t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
 
-			getAddressStartTime := time.Now()
-			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, softRetentionTime)
-			t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerGetAddressLatency, time.Since(getAddressStartTime))
+		if err != nil {
+			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
 
-			if err != nil {
-				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressFailedCounter)
+			log.WithFields(bark.Fields{
+				common.TagStor:      storeID,
+				`softRetentionTime`: softRetentionTime,
+				common.TagErr:       err,
+			}).Error(`computeRetention: softRetention GetAddressFromTimestamp error`)
+			continue
+		}
+		t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
 
-				log.WithFields(bark.Fields{
-					common.TagStor:      storeID,
-					`softRetentionTime`: softRetentionTime,
-					common.TagErr:       err,
-				}).Error(`computeRetention: softRetention GetAddressFromTimestamp error`)
-				continue
-			}
-			t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerGetAddressCompletedCounter)
+		// find the max address and use that as the softRetentionAddr
+		if addr > softRetentionAddr {
+			softRetentionAddr = addr
+		}
 
-			// find the max address and use that as the softRetentionAddr
-			if addr > softRetentionAddr {
-				softRetentionAddr = addr
-			}
-
-			if consumed {
-				softRetentionConsumed = true
-			}
+		if consumed {
+			softRetentionConsumed = true
 		}
 	}
 
@@ -624,6 +618,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 	var minAckAddr = int64(store.ADDR_END)
 	var allHaveConsumed = true // start by assuming this is all-consumed
 
+	// skip 'minAckAddr' queries for kafka phantom extents
 	if !ext.kafkaPhantomExtent {
 
 		for _, cgInfo := range job.consumers {
@@ -692,19 +687,16 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 
 	// -- step 5: compute retention address -- //
 
-	if !ext.kafkaPhantomExtent {
+	//** retentionAddr = max( hardRetentionAddr, min( softRetentionAddr, minAckAddr ) ) **//
 
-		//** retentionAddr = max( hardRetentionAddr, min( softRetentionAddr, minAckAddr ) ) **//
+	if softRetentionAddr == store.ADDR_SEAL || (minAckAddr != store.ADDR_SEAL && minAckAddr < softRetentionAddr) {
+		softRetentionAddr = minAckAddr
+	}
 
-		if softRetentionAddr == store.ADDR_SEAL || (minAckAddr != store.ADDR_SEAL && minAckAddr < softRetentionAddr) {
-			softRetentionAddr = minAckAddr
-		}
-
-		if softRetentionAddr == store.ADDR_SEAL || (hardRetentionAddr != store.ADDR_SEAL && softRetentionAddr > hardRetentionAddr) {
-			job.retentionAddr = softRetentionAddr
-		} else {
-			job.retentionAddr = hardRetentionAddr
-		}
+	if softRetentionAddr == store.ADDR_SEAL || (hardRetentionAddr != store.ADDR_SEAL && softRetentionAddr > hardRetentionAddr) {
+		job.retentionAddr = softRetentionAddr
+	} else {
+		job.retentionAddr = hardRetentionAddr
 	}
 
 	log.WithFields(bark.Fields{
@@ -823,33 +815,30 @@ workerLoop:
 
 			// -- step 8: send out command to storage nodes to purge messages until the retention address -- //
 
-			if !ext.kafkaPhantomExtent {
+			for _, storehost := range ext.storehosts {
 
-				for _, storehost := range ext.storehosts {
+				// TODO: create a separate worker pool to do this, since this is potentially the
+				// part of the processing that might take the most time.
+				t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesRequestCounter)
 
-					// TODO: create a separate worker pool to do this, since this is potentially the
-					// part of the processing that might take the most time.
-					t.m3Client.IncCounter(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesRequestCounter)
+				purgeStartTime := time.Now()
+				addr, e := t.storehost.PurgeMessages(storehost, ext.id, job.retentionAddr)
+				t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesLatency, time.Since(purgeStartTime))
 
-					purgeStartTime := time.Now()
-					addr, e := t.storehost.PurgeMessages(storehost, ext.id, job.retentionAddr)
-					t.m3Client.RecordTimer(metrics.RetentionMgrScope, metrics.ControllerPurgeMessagesLatency, time.Since(purgeStartTime))
+				log.WithFields(bark.Fields{
+					common.TagStor: storehost,
+					`purgeAddr`:    job.retentionAddr,
+					`doneAddr`:     addr,
+					common.TagErr:  e,
+				}).Debug(`retentionWorker: PurgeMessages output`)
 
-					log.WithFields(bark.Fields{
-						common.TagStor: storehost,
-						`purgeAddr`:    job.retentionAddr,
-						`doneAddr`:     addr,
-						common.TagErr:  e,
-					}).Debug(`retentionWorker: PurgeMessages output`)
-
-					if e != nil && job.deleteExtent {
-						// FIXME: if the failure was because the extent was already deleted,
-						// treat it as a "success". Or, change storehost to return success in
-						// if it could not find the extent. For now, assume these errors are because
-						// the extent was missing.
-						// job.deleteExtent = false
-						job.err = e
-					}
+				if e != nil && job.deleteExtent {
+					// FIXME: if the failure was because the extent was already deleted,
+					// treat it as a "success". Or, change storehost to return success in
+					// if it could not find the extent. For now, assume these errors are because
+					// the extent was missing.
+					// job.deleteExtent = false
+					job.err = e
 				}
 			}
 

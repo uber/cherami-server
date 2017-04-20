@@ -692,9 +692,6 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 
 	// -- step 5: compute retention address -- //
 
-	job.retentionAddr = store.ADDR_BEGIN
-	job.deleteExtent = false
-
 	if !ext.kafkaPhantomExtent {
 
 		//** retentionAddr = max( hardRetentionAddr, min( softRetentionAddr, minAckAddr ) ) **//
@@ -708,18 +705,6 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 		} else {
 			job.retentionAddr = hardRetentionAddr
 		}
-
-	} else {
-
-		// if this is a Kafka phantom extent and it is 'sealed' (which is done only
-		// when the destination is being deleted), then delete this extent.
-
-		if ext.status == shared.ExtentStatus_SEALED ||
-			ext.status == shared.ExtentStatus_CONSUMED {
-
-			job.retentionAddr = store.ADDR_SEAL
-			job.deleteExtent = true
-		}
 	}
 
 	log.WithFields(bark.Fields{
@@ -727,7 +712,6 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 		`softRetentionAddr`: softRetentionAddr,
 		`minAckAddr`:        minAckAddr,
 		`retentionAddr`:     job.retentionAddr,
-		`deleteExtent`:      job.deleteExtent,
 	}).Debug("computed retentionAddr")
 
 	// -- step 6: check to see if the extent status can be updated to 'consumed' -- //

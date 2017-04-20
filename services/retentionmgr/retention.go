@@ -708,18 +708,6 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 		} else {
 			job.retentionAddr = hardRetentionAddr
 		}
-
-	} else {
-
-		// if this is a Kafka phantom extent and it is 'sealed' (which is done only
-		// when the destination is being deleted), then delete this extent.
-
-		if ext.status == shared.ExtentStatus_SEALED ||
-			ext.status == shared.ExtentStatus_CONSUMED {
-
-			job.retentionAddr = store.ADDR_SEAL
-			job.deleteExtent = true
-		}
 	}
 
 	log.WithFields(bark.Fields{
@@ -840,6 +828,7 @@ workerLoop:
 			// -- step 8: send out command to storage nodes to purge messages until the retention address -- //
 
 			if !ext.kafkaPhantomExtent {
+
 				for _, storehost := range ext.storehosts {
 
 					// TODO: create a separate worker pool to do this, since this is potentially the

@@ -306,9 +306,7 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 	var totalJobs int64
 
 	// populate each destination-info with extents and consumer-groups information
-	for i := range destList {
-
-		dest := destList[i]
+	for _, dest := range destList {
 
 		if dest.status == shared.DestinationStatus_DELETED {
 			continue
@@ -377,7 +375,7 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 	scheduleAt := time.Now() // schedule first job 'now'
 
 	// for every destination, for every extent, compute and enforce retention
-	for i := range destList {
+	for _, dest := range destList {
 
 		// check if we have been asked to stop
 		select {
@@ -387,8 +385,6 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 		default:
 			// continue to schedule next job
 		}
-
-		dest := destList[i]
 
 		// skip deleted destinations
 		if dest.status == shared.DestinationStatus_DELETED {
@@ -525,9 +521,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 
 	if !ext.kafkaPhantomExtent {
 
-		for i := range ext.storehosts {
-
-			storeID := ext.storehosts[i]
+		for _, storeID := range ext.storehosts {
 
 			getAddressStartTime := time.Now()
 			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, hardRetentionTime)
@@ -577,9 +571,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 
 	if !ext.kafkaPhantomExtent {
 
-		for i := range ext.storehosts {
-
-			storeID := ext.storehosts[i]
+		for _, storeID := range ext.storehosts {
 
 			getAddressStartTime := time.Now()
 			addr, consumed, err := t.storehost.GetAddressFromTimestamp(storeID, ext.id, softRetentionTime)

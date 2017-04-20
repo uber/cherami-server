@@ -363,17 +363,9 @@ func (dfdd *dfddImpl) putHosts(service string, hosts map[string]dfddHost) {
 	}
 }
 
-func isDfddHostStatusUP(dfdd Dfdd, service string, hostID string) (dfddHostState, bool) {
+func isDfddHostStatusGoingDown(dfdd Dfdd, service string, hostID string) bool {
 	state, _ := dfdd.GetHostState(service, hostID)
-	// GoingDown means host is still UP, but its about to go down shortly
-	ok := (state == dfddHostStateUP || state == dfddHostStateGoingDown)
-	return state, ok
-}
-
-func isDfddHostStatusDownOrGoingDown(dfdd Dfdd, service string, hostID string) (dfddHostState, bool) {
-	state, _ := dfdd.GetHostState(service, hostID)
-	ok := (state == dfddHostStateUnknown || state == dfddHostStateDown || state == dfddHostStateGoingDown)
-	return state, ok
+	return state == dfddHostStateGoingDown
 }
 
 func newDFDDHost(state dfddHostState, timeSource common.TimeSource) dfddHost {

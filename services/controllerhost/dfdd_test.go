@@ -142,13 +142,11 @@ func (s *DfddTestSuite) TestFailureDetection() {
 	s.True(succ, "dfdd failed to discover new hosts")
 
 	s.context.failureDetector = s.dfdd
-	state, succ := isDfddHostStatusDownOrGoingDown(s.context.failureDetector, common.InputServiceName, inHostIDs[0])
+	succ = isDfddHostStatusGoingDown(s.context.failureDetector, common.InputServiceName, inHostIDs[0])
 	s.True(succ, "isInputGoingDown() failed")
-	s.Equal(dfddHostStateGoingDown, state, "wrong dfdd state")
 
-	state, succ = isDfddHostStatusDownOrGoingDown(s.context.failureDetector, common.StoreServiceName, storeIDs[0])
+	succ = isDfddHostStatusGoingDown(s.context.failureDetector, common.StoreServiceName, storeIDs[0])
 	s.True(succ, "isStoreGoingDown() failed")
-	s.Equal(dfddHostStateGoingDown, state, "wrong dfdd state")
 
 	dstExtent := &m.DestinationExtent{
 		ExtentUUID: common.StringPtr(uuid.New()),

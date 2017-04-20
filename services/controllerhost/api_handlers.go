@@ -94,8 +94,7 @@ func isInputHealthy(context *Context, extent *m.DestinationExtent) bool {
 	if common.IsKafkaPhantomInput(extent.GetInputHostUUID()) {
 		return true
 	}
-	_, ok := isDfddHostStatusUP(context.failureDetector, common.InputServiceName, inputID)
-	return ok
+	return context.rpm.IsHostHealthy(common.InputServiceName, inputID)
 }
 
 func isExtentBeingSealed(context *Context, extentID string) bool {
@@ -116,7 +115,7 @@ func isAnyStoreHealthy(context *Context, storeIDs []string) bool {
 		return true
 	}
 	for _, id := range storeIDs {
-		if _, ok := isDfddHostStatusUP(context.failureDetector, common.StoreServiceName, id); ok {
+		if context.rpm.IsHostHealthy(common.StoreServiceName, id) {
 			return true
 		}
 	}
@@ -134,12 +133,13 @@ func areExtentStoresHealthy(context *Context, extent *m.DestinationExtent) bool 
 	}
 
 	for _, h := range storeIDs {
-		state, isDown := isDfddHostStatusDownOrGoingDown(context.failureDetector, common.StoreServiceName, h)
-		if isDown {
+		isDown := !context.rpm.IsHostHealthy(common.StoreServiceName, h)
+		isGoingDown := !isDown && isDfddHostStatusGoingDown(context.failureDetector, common.StoreServiceName, h)
+		if isDown || isGoingDown {
 			context.log.WithFields(bark.Fields{
-				common.TagExt:  common.FmtExt(extent.GetExtentUUID()),
-				common.TagStor: common.FmtStor(h),
-				`dfddState`:    state.String(),
+				common.TagExt:     common.FmtExt(extent.GetExtentUUID()),
+				common.TagStor:    common.FmtStor(h),
+				"isHostGoingDown": isGoingDown,
 			}).Info("found extent with unhealthy store")
 			return false
 		}
@@ -291,13 +291,12 @@ func minOpenExtentsForDst(context *Context, dstPath string, dstType dstType) int
 
 func getInputAddrIfExtentIsWritable(context *Context, extent *m.DestinationExtent, m3Scope int) (string, error) {
 
-	state, isDown := isDfddHostStatusDownOrGoingDown(context.failureDetector, common.InputServiceName, extent.GetInputHostUUID())
-	if isDown {
+	isGoingDown := isDfddHostStatusGoingDown(context.failureDetector, common.InputServiceName, extent.GetInputHostUUID())
+	if isGoingDown {
 		context.log.
 			WithField(common.TagExt, common.FmtExt(extent.GetExtentUUID())).
 			WithField(common.TagIn, common.FmtIn(extent.GetInputHostUUID())).
-			WithField(`dfddState`, state.String()).
-			Info("input host is down or going down in dfdd, treating extent as unwritable")
+			Info("input host is going down in dfdd, treating extent as unwritable")
 		return "", errNoInputHosts
 	}
 

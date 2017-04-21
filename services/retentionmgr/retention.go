@@ -734,6 +734,7 @@ func (t *RetentionManager) computeRetention(job *retentionJob, log bark.Logger) 
 			`minAckAddr`:            minAckAddr,
 			`softRetentionConsumed`: softRetentionConsumed,
 			`hardRetentionConsumed`: hardRetentionConsumed,
+			`kafkaPhantomExtent`:    ext.kafkaPhantomExtent,
 		}).Info("computeRetention: marking extent consumed")
 
 		e := t.metadata.MarkExtentConsumed(dest.id, ext.id)

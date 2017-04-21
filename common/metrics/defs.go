@@ -119,13 +119,10 @@ var GoRuntimeMetrics = map[MetricName]MetricType{
 
 // Scope enum
 const (
-	// -- Operation scopes for ZoneFailoverManager (common) --
-	ZoneFailoverMgrScope = iota
-
 	// -- Operation scopes for Metadata (common) --
 
 	// MetadataListEntityOpsScope defines scope for an operation on metadata
-	MetadataListEntityOpsScope
+	MetadataListEntityOpsScope = iota
 	// MetadataHostAddrToUUIDScope defines scope for an operation on metadata
 	MetadataHostAddrToUUIDScope
 	// MetadataListAllConsumerGroupsScope defines scope for an operation on metadata
@@ -224,6 +221,9 @@ const (
 	MetadataUpdateHostInfoScope
 	// MetadataUpdateStoreExtentReplicaStatsScope defines scope for an operation on metadata
 	MetadataUpdateStoreExtentReplicaStatsScope
+
+	// -- Operation scopes for ZoneFailoverManager (common) --
+	ZoneFailoverMgrScope
 
 	// -- Operation scopes for InputHost --
 
@@ -461,8 +461,6 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 
 	// Common operation tag values (shared by all services)
 	Common: {
-		ZoneFailoverMgrScope: {operation: "ZoneFailoverMgr"},
-
 		// Metadata operation tag values as seen by the Metrics backend
 		MetadataListEntityOpsScope:                     {operation: "MetadataListEntityOps"},
 		MetadataHostAddrToUUIDScope:                    {operation: "MetadataHostAddrToUUID"},
@@ -514,6 +512,8 @@ var scopeDefs = map[ServiceIdx]map[int]scopeDefinition{
 		MetadataUpdateExtentStatsScope:                 {operation: "MetadataUpdateExtentStats"},
 		MetadataUpdateHostInfoScope:                    {operation: "MetadataUpdateHostInfo"},
 		MetadataUpdateStoreExtentReplicaStatsScope:     {operation: "MetadataUpdateStoreExtentReplicaStats"},
+
+		ZoneFailoverMgrScope: {operation: "ZoneFailoverMgr"},
 	},
 
 	// Frontend operation tag values as seen by the Metrics backend
@@ -666,21 +666,21 @@ const (
 
 	// -- Common metrics -- //
 
-	// ZoneFailoverMgrRunSuccess indicates a success run
-	ZoneFailoverMgrRunSuccess = iota
-	// ZoneFailoverMgrRunFailToDetectActiveZone indicates failure to detect active zone
-	ZoneFailoverMgrRunFailToDetectActiveZone
-	// ZoneFailoverMgrRunFailToWriteMetadata indicates failure to write metadata
-	ZoneFailoverMgrRunFailToWriteMetadata
-	// ZoneFailoverMgrRunFailToWriteMetadata indicates a failed run
-	ZoneFailoverMgrRunFailure
-
 	// MetadataRequests is the count of requests to metadata
 	MetadataRequests = iota
 	// MetadataFailures is the count of requests to metadata that have failed
 	MetadataFailures
 	// MetadataLatency is the latency of requests to metadata
 	MetadataLatency
+
+	// ZoneFailoverMgrRunSuccess indicates a success run
+	ZoneFailoverMgrRunSuccess
+	// ZoneFailoverMgrRunFailToDetectActiveZone indicates failure to detect active zone
+	ZoneFailoverMgrRunFailToDetectActiveZone
+	// ZoneFailoverMgrRunFailToWriteMetadata indicates failure to write metadata
+	ZoneFailoverMgrRunFailToWriteMetadata
+	// ZoneFailoverMgrRunFailToWriteMetadata indicates a failed run
+	ZoneFailoverMgrRunFailure
 
 	// --Inputhost metrics -- //
 
@@ -1093,13 +1093,13 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 
 	// definition for Common metrics (for all services)
 	Common: {
+		MetadataRequests:                         {Counter, "metadata.requests"},
+		MetadataFailures:                         {Counter, "metadata.failures"},
+		MetadataLatency:                          {Timer, "metadata.latency"},
 		ZoneFailoverMgrRunSuccess:                {Gauge, "ZoneFailoverMgr.run-success"},
 		ZoneFailoverMgrRunFailToDetectActiveZone: {Gauge, "ZoneFailoverMgr.run-fail-detect-active-zone"},
 		ZoneFailoverMgrRunFailToWriteMetadata:    {Gauge, "ZoneFailoverMgr.run-fail-write-metadata"},
 		ZoneFailoverMgrRunFailure:                {Gauge, "ZoneFailoverMgr.run-failure"},
-		MetadataRequests:                         {Counter, "metadata.requests"},
-		MetadataFailures:                         {Counter, "metadata.failures"},
-		MetadataLatency:                          {Timer, "metadata.latency"},
 	},
 
 	// definitions for Inputhost metrics

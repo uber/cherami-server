@@ -155,9 +155,9 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 								log.Panicf("%v: timer fired earlier than expected: tNow=%x tTarget=%x tETA=%x", extent[i], tNow, tTarget, tETA)
 							}
 
-							log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (drift:%v)",
-								extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
-								time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
+							// log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (drift:%v)",
+							// 	extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
+							// 	time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
 
 							rnd.Int63() // 'pull' a random number (corresponding to the 'wait')
 						}
@@ -194,12 +194,12 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 						in.sendC <- appMsg
 
-						tETA := appMsg.GetEnqueueTimeUtc() + int64(appMsg.GetPayload().GetDelayMessageInSeconds())*time.Second.Nanoseconds()
+						// tETA := appMsg.GetEnqueueTimeUtc() + int64(appMsg.GetPayload().GetDelayMessageInSeconds())*time.Second.Nanoseconds()
 
 						wait := minRandWait + rnd.Intn(maxRandWait-minRandWait+1)
 
-						log.Debugf("%v: sent msg: seq:%d delay:%d tETA:%x (wait:%dms)",
-							extent[i], appMsg.GetSequenceNumber(), appMsg.GetPayload().GetDelayMessageInSeconds(), tETA, wait)
+						// log.Debugf("%v: sent msg: seq:%d delay:%d tETA:%x (wait:%dms)",
+						// 	extent[i], appMsg.GetSequenceNumber(), appMsg.GetPayload().GetDelayMessageInSeconds(), tETA, wait)
 
 						time.Sleep(time.Duration(wait) * time.Millisecond)
 					}
@@ -340,12 +340,12 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 
 						in.sendC <- appMsg
 
-						tETA := appMsg.GetEnqueueTimeUtc() + int64(appMsg.GetPayload().GetDelayMessageInSeconds())*time.Second.Nanoseconds()
+						// tETA := appMsg.GetEnqueueTimeUtc() + int64(appMsg.GetPayload().GetDelayMessageInSeconds())*time.Second.Nanoseconds()
 
 						wait := minRandWait + rnd.Intn(maxRandWait-minRandWait+1)
 
-						log.Debugf("%v: sent msg: seq:%d delay:%d tETA:%x (wait:%dms)",
-							extent[i], appMsg.GetSequenceNumber(), appMsg.GetPayload().GetDelayMessageInSeconds(), tETA, wait)
+						// log.Debugf("%v: sent msg: seq:%d delay:%d tETA:%x (wait:%dms)",
+						// 	extent[i], appMsg.GetSequenceNumber(), appMsg.GetPayload().GetDelayMessageInSeconds(), tETA, wait)
 
 						time.Sleep(time.Duration(wait) * time.Millisecond)
 					}
@@ -427,9 +427,9 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 								log.Panicf("%v: timer fired earlier than expected: tNow=%x tTarget=%x tETA=%x", extent[i], tNow, tTarget, tETA)
 							}
 
-							log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (drift:%v)",
-								extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
-								time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
+							// log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (drift:%v)",
+							// 	extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
+							// 	time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
 						}
 
 						s.True(waitFor(10000, func() bool { return out.msgsRecv() == numMessages }), "msgsRecv != numMessages")
@@ -561,9 +561,9 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteWithRead() {
 								s.Fail("corrupted data")
 							}
 
-							log.Debugf("%v: recv msg: seq:%d enq:%x delay:%ds (latency:%v)",
-								extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
-								time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
+							// log.Debugf("%v: recv msg: seq:%d enq:%x delay:%ds (latency:%v)",
+							// 	extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
+							// 	time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
 						}
 
 						s.True(waitFor(10000, func() bool { return out.msgsRecv() == numMessages }), "msgRecv != numMessages")
@@ -597,9 +597,9 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteWithRead() {
 
 						wait := minRandWait + rnd.Intn(maxRandWait-minRandWait+1)
 
-						log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
-							extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
-							appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
+						// log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
+						// 	extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
+						// 	appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
 
 						time.Sleep(time.Duration(wait) * time.Millisecond)
 					}
@@ -714,9 +714,9 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenRead() {
 
 						wait := minRandWait + rnd.Intn(maxRandWait-minRandWait+1)
 
-						log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
-							extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
-							appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
+						// log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
+						// 	extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
+						// 	appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
 
 						time.Sleep(time.Duration(wait) * time.Millisecond)
 					}
@@ -772,9 +772,9 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenRead() {
 								s.Fail("corrupted data")
 							}
 
-							log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (latency:%v)",
-								extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
-								time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
+							// log.Debugf("%v: recv msg: seq:%d tETA:%x delay:%d (latency:%v)",
+							// 	extent[i], appMsg.GetSequenceNumber(), tETA, appMsg.GetPayload().GetDelayMessageInSeconds(),
+							// 	time.Unix(0, tNow).Sub(time.Unix(0, tETA)))
 						}
 
 						s.True(waitFor(10000, func() bool { return out.msgsRecv() == numMessages }), "msgsRecv != numMessages")
@@ -893,9 +893,9 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenDoReadMessages() {
 
 						wait := minRandWait + rnd.Intn(maxRandWait-minRandWait+1)
 
-						log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
-							extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
-							appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
+						// log.Debugf("%v: sent msg: seq:%d enq:%x delay:%ds (wait:%dms)",
+						// 	extent[i], appMsg.GetSequenceNumber(), appMsg.GetEnqueueTimeUtc(),
+						// 	appMsg.GetPayload().GetDelayMessageInSeconds(), wait)
 
 						time.Sleep(time.Duration(wait) * time.Millisecond)
 					}
@@ -978,7 +978,7 @@ func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteThenDoReadMessages() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostSealExtent() {
+func (s *StoreHostSuite) _TestStoreHostSealExtent() {
 
 	mode := AppendOnly // AppendOnly
 	// numExtents := 1
@@ -1203,7 +1203,7 @@ func (s *StoreHostSuite) TestStoreHostSealExtent() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostSealExtentThrottling() {
+func (s *StoreHostSuite) _TestStoreHostSealExtentThrottling() {
 
 	totalRequests := 1000
 
@@ -1247,7 +1247,7 @@ func (s *StoreHostSuite) TestStoreHostSealExtentThrottling() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostPurgeMessages() {
+func (s *StoreHostSuite) _TestStoreHostPurgeMessages() {
 
 	mode := AppendOnly // TimerQueue
 	// numExtents := 1
@@ -1417,7 +1417,7 @@ func (s *StoreHostSuite) TestStoreHostPurgeMessages() {
 	s.True(waitFor(3000, func() bool { return isDone(out2ErrC) }))
 }
 
-func (s *StoreHostSuite) TestStoreHostConcurrency() {
+func (s *StoreHostSuite) _TestStoreHostConcurrency() {
 
 	mode := AppendOnly
 	numExtents := 3
@@ -1589,7 +1589,7 @@ func (s *StoreHostSuite) TestStoreHostConcurrency() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostMaxSeqNum() {
+func (s *StoreHostSuite) _TestStoreHostMaxSeqNum() {
 
 	mode := AppendOnly // TimerQueue
 	// numExtents := 1
@@ -1708,7 +1708,7 @@ func (s *StoreHostSuite) TestStoreHostManyManyExtents() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
+func (s *StoreHostSuite) _TestStoreHostReplicateExtent() {
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024
@@ -1883,7 +1883,7 @@ func (s *StoreHostSuite) TestStoreHostReplicateExtent() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostReplicateExtentResume() {
+func (s *StoreHostSuite) _TestStoreHostReplicateExtentResume() {
 
 	mode := AppendOnly // TimerQueue
 	dataSize := 1024

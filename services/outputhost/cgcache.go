@@ -393,7 +393,7 @@ func (cgCache *consumerGroupCache) loadExtentCache(ctx thrift.Context, destType 
 			common.UnixNanoTime(cgCache.cachedCGDesc.GetStartFrom()),
 			cgCache.metaClient,
 			cge,
-			cgCache.m3Client,
+			cgCache.consumerM3Client,
 		)
 
 		// now notify the outputhost

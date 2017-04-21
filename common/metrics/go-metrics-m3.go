@@ -57,13 +57,14 @@ func NewGoMetricsExporter(
 ) gometrics.Registry {
 	registry := gometrics.NewRegistry()
 	r := &goMetricsExporter{
-		c:                  c,
-		scope:              scope,
-		registry:           registry,
-		metricNameToMetric: metricNameToMetric,
-		l:                  l,
-		lastLogDump:        time.Now().Add(-1 * delayBetweenLogDumps).Add(delayToFirstLogDump),
-		closeCh:            closeCh,
+		c:                   c,
+		scope:               scope,
+		registry:            registry,
+		metricNameToMetric:  metricNameToMetric,
+		l:                   l,
+		lastLogDump:         time.Now().Add(-1 * delayBetweenLogDumps).Add(delayToFirstLogDump),
+		closeCh:             closeCh,
+		metricNameToLastVal: make(map[string]int64),
 	}
 	go r.run()
 	return registry
@@ -93,8 +94,12 @@ func (r *goMetricsExporter) export() {
 				// The timer metric type most closely approximates the histogram type. Milliseconds is the default unit, so
 				// we scale our values as such. Extract the values from the registry, since we aggregate on our own.
 				for _, v := range metric.Snapshot().Sample().Values() {
+					if v == 0 { // Zero values are sometimes emitted, due to an issue with go-metrics
+						continue
+					}
 					r.c.RecordTimer(r.scope, metricID, time.Duration(v)*time.Millisecond)
 				}
+
 				metric.Clear()
 			case gometrics.Meter:
 				// Nominally, the meter is a rate-type metric, but we can extract the underlying count and let our reporter aggregate

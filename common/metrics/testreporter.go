@@ -189,6 +189,5 @@ func (r *TestReporter) StartTimer(name string, tags map[string]string) Stopwatch
 
 // RecordTimer should be used for measuring latency when you cannot start the stop watch.
 func (r *TestReporter) RecordTimer(name string, tags map[string]string, d time.Duration) {
-	// Record the time as counter of time in milliseconds
-	// not implemented
+	r.executeHandler(name, tags, int64(d))
 }

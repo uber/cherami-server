@@ -1312,7 +1312,7 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 		OutputhostCGKafkaRequestSent:      {Counter, "outputhost.kafka.request.cg"},
 		OutputhostCGKafkaRequestSize:      {Timer, "outputhost.kafka.request.size.cg"}, // Histograms are respresented in M3 as timers, per documentation
 		OutputhostCGKafkaRequestLatency:   {Timer, "outputhost.kafka.request.latency.cg"},
-		OutputhostCGKafkaResponseReceived: {Counter, "outputhost.kafka.request.received.cg"},
+		OutputhostCGKafkaResponseReceived: {Counter, "outputhost.kafka.response.received.cg"},
 		OutputhostCGKafkaResponseSize:     {Timer, "outputhost.kafka.response.size.cg"},
 	},
 

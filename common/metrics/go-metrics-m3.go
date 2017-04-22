@@ -29,25 +29,29 @@ import (
 )
 
 const (
-	delayToFirstLogDump  = time.Second * 15 // PLACEHOLDER
-	delayBetweenLogDumps = time.Minute * 1  // PLACEHOLDER
+	delayToFirstLogDump  = time.Minute * 15
+	delayBetweenLogDumps = time.Minute * 60
 	delayBetweenExports  = time.Second * 10
 )
 
-// goMetricsExporter allows an rcrowley/go-metrics registry to be periodically exported to the Cherami metrics system
+// goMetricsExporter allows an rcrowley/go-metrics registry to be
+// periodically exported to the Cherami metrics system
 type goMetricsExporter struct {
-	registry            gometrics.Registry // Registry to be exported
-	metricNameToMetric  map[string]int     // maps a metric name to the metric symbol, e.g. "request-rate" -> OutputhostCGKafkaRequestRate
-	metricNameToLastVal map[string]int64
-	c                   Client
-	scope               int
-	l                   bark.Logger
-	lastLogDump         time.Time
+	c     Client
+	scope int
+
+	// metricNameToMetric maps a metric name to the metric symbol,
+	// e.g. "request-rate" -> OutputhostCGKafkaRequestRate
+	metricNameToMetric  map[string]int
 	closeCh             <-chan struct{}
+	metricNameToLastVal map[string]int64
+	l                   bark.Logger
+	registry            gometrics.Registry // Registry to be exported
+	lastLogDump         time.Time
 }
 
-// NewGoMetricsExporter starts the exporter loop to export go-metrics to the Cherami metrics system and returns the go-metrics
-// registry that should be used
+// NewGoMetricsExporter starts the exporter loop to export go-metrics to the Cherami
+// metrics system and returns the go-metrics registry that should be used
 func NewGoMetricsExporter(
 	c Client,
 	scope int,
@@ -55,6 +59,7 @@ func NewGoMetricsExporter(
 	l bark.Logger,
 	closeCh <-chan struct{},
 ) gometrics.Registry {
+	// Make a new registy and give it to the caller. This allows the exporters to operate independently
 	registry := gometrics.NewRegistry()
 	r := &goMetricsExporter{
 		c:                   c,
@@ -62,9 +67,11 @@ func NewGoMetricsExporter(
 		registry:            registry,
 		metricNameToMetric:  metricNameToMetric,
 		l:                   l,
-		lastLogDump:         time.Now().Add(-1 * delayBetweenLogDumps).Add(delayToFirstLogDump),
 		closeCh:             closeCh,
 		metricNameToLastVal: make(map[string]int64),
+
+		// Calculate the time to provide the delayToFirstLogDump in export()
+		lastLogDump: time.Now().Add(-1 * delayBetweenLogDumps).Add(delayToFirstLogDump),
 	}
 	go r.run()
 	return registry
@@ -97,21 +104,28 @@ func (r *goMetricsExporter) export() {
 					if v == 0 { // Zero values are sometimes emitted, due to an issue with go-metrics
 						continue
 					}
+
+					// Default unit for our timers is milliseconds, so this prevents a need to scale the metric for display
 					r.c.RecordTimer(r.scope, metricID, time.Duration(v)*time.Millisecond)
 				}
 
 				metric.Clear()
 			case gometrics.Meter:
-				// Nominally, the meter is a rate-type metric, but we can extract the underlying count and let our reporter aggregate
-				// Last value is needed because our Cherami counter is incremental only
+				// Nominally, the meter is a rate-type metric, but we can extract the
+				// underlying count and let our reporter aggregate
 				count := metric.Snapshot().Count()
+
+				// Last value is needed because our Cherami counter is incremental only
 				lastVal := r.metricNameToLastVal[name]
 				r.metricNameToLastVal[name] = count
+
 				r.c.AddCounter(r.scope, metricID, count-lastVal)
 			default:
 				r.l.WithField(`type`, fmt.Sprintf("%T", i)).Error("unable to record metric")
 			}
 		} else {
+			// Unexported metrics are periodically reported here. This is reasonable for metrics
+			// that have excessive cardinality, such as the broker-specific Kafka metrics
 			if time.Since(r.lastLogDump) >= delayBetweenLogDumps {
 				r.lastLogDump = time.Now()
 				switch metric := i.(type) {

@@ -372,7 +372,7 @@ func (extCache *extentCache) loadKafkaStream(
 	// This is an ID that may appear in Kafka logs or metadata
 	cfg.Config.ClientID = `cherami_` + groupID
 
-	// TODO: Sarama metrics registry
+	// Configure a metrics registry and start the exporter
 	cfg.Config.MetricRegistry = metrics.NewGoMetricsExporter(
 		metricsClient,
 		metrics.ConsConnectionScope,
@@ -390,7 +390,7 @@ func (extCache *extentCache) loadKafkaStream(
 	)
 
 	// Build the Kafka client. Note that we would ideally like to have a factory for this, but the client
-	// has consumer-group-specific changes to its configuration
+	// has consumer-group-specific changes to its configuration (e.g. startFrom)
 	extCache.kafkaClient, err = sc.NewConsumer(
 		getKafkaBrokersForCluster(kafkaCluster),
 		groupID,

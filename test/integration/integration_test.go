@@ -1018,7 +1018,7 @@ func (s *NetIntegrationSuiteParallelA) TestDLQWithCassandra() {
 		cgLockTimeout           = 1
 		cgExpectedDeliveryCount = cgMaxDeliveryCount + 1
 		cgVerifyLoopTimeout     = time.Minute * 2
-		cgVerifyLoopTicker      = (cgLockTimeout * time.Second)/2
+		cgVerifyLoopTicker      = (cgLockTimeout * time.Second) / 2
 		cnsmrPrefetch           = 10
 		publisherPubInterval    = 150
 

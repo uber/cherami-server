@@ -108,48 +108,6 @@ func (s *StoreHostSuite) RunLong() bool {
 	return *runLong
 }
 
-type CommonAppConfigOverride struct {
-	*configure.AppConfig
-	level  string
-	stdout bool
-}
-
-func NewCommonAppConfigOverride(appCfg *configure.AppConfig, level string, stdout bool) *CommonAppConfigOverride {
-
-	return &CommonAppConfigOverride{
-		AppConfig: appCfg,
-		// AppConfig: configure.NewCommonAppConfig().(*configure.AppConfig),
-		level:  level,
-		stdout: stdout,
-	}
-}
-
-func (t *CommonAppConfigOverride) GetLoggingConfig() interface{} {
-
-	logCfg := configure.NewCommonLogConfig()
-
-	logCfg.Level = t.level
-	logCfg.Stdout = t.stdout
-
-	return logCfg
-}
-
-type CommonConfigureOverride struct {
-	configure.Configure // *configure.CommonConfigure
-}
-
-func NewCommonConfigureOverride(level string, stdout bool) *CommonConfigureOverride {
-
-	cfg := configure.NewCommonConfigure()
-	// FIXME: following causes a panic -- needs some refactoring in the
-	// 'configure' package to get this to work
-	// cfg.AppConfig = NewCommonAppConfigOverride(cfg.AppConfig, level, stdout) // replace AppConfig
-
-	return &CommonConfigureOverride{
-		Configure: cfg,
-	}
-}
-
 // SetupSuite will run once before any of the tests in the suite are run
 func (s *StoreHostSuite) SetupSuite() {
 
@@ -157,21 +115,13 @@ func (s *StoreHostSuite) SetupSuite() {
 
 	s.TestCluster.SetupTestCluster()
 
-	var commonConfigure configure.Configure
+	s.cfg = common.SetupServerConfig(configure.NewCommonConfigure())
 
 	if *runVeryVerbose {
-		commonConfigure = NewCommonConfigureOverride("debug", true) // debug level logs to stdout
 
 		log.SetLevel(log.DebugLevel) // test logs at debug level
 		log.SetOutput(os.Stdout)     // test output to stdout
-	} else {
-		commonConfigure = NewCommonConfigureOverride("error", false) // error level logs; no stdout
-
-		log.SetLevel(log.ErrorLevel) // test logs at error level
-		log.SetOutput(os.Stdout)     // test output to stdout
 	}
-
-	s.cfg = common.SetupServerConfig(commonConfigure)
 
 	testBaseDir, _ := ioutil.TempDir("", "storehost-test")
 	s.testBase = newTestBase(testBaseDir)

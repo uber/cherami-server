@@ -41,6 +41,8 @@ import (
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
+	log.SetOutput(os.Stdout) // test output to stdout
+
 	var numIterations int            // number of iterations of the whole test
 	var numExtents int               // number of concurrent extents to use in each iteration
 	var minMessages, maxMessages int // number of messages to send (randomly picked from range, per extent)
@@ -252,9 +254,13 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 			log.Debugf("[%d] %v: latency=%v drift=%v", i, extent[i], statsLatency[i].timeString(), statsDrift[i].timeString())
 		}
 	}
+
+	log.SetOutput(ioutil.Discard) // no output
 }
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
+
+	log.SetOutput(os.Stdout) // test output to stdout
 
 	var numIterations int            // number of iterations of the whole test
 	var numExtents int               // number of concurrent extents
@@ -461,6 +467,8 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 			log.Debugf("[%d] %v: latency=%v drift=%v", i, extent[i], statsLatency[i].timeString(), statsDrift[i].timeString())
 		}
 	}
+
+	log.SetOutput(ioutil.Discard) // no output
 }
 
 func (s *StoreHostSuite) TestStoreHostAppendOnlyWriteWithRead() {

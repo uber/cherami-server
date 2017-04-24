@@ -151,13 +151,7 @@ func NewFrontendHost(serviceName string, sVice common.SCommon, metadataClient m.
 	bs.dClient = sVice.GetDConfigClient()
 	bs.dynamicConfigManage()
 
-	// TODO inject Authorizer via configuration
-	chanServer := &common.TChanAuthorizerFilter{
-		ChanServer: c.NewTChanBFrontendServer(&bs),
-		Authorizer: common.NewBypassAuthorizer(),
-	}
-
-	return &bs, []thrift.TChanServer{chanServer}
+	return &bs, []thrift.TChanServer{c.NewTChanBFrontendServer(&bs)}
 	//, clientgen.NewTChanBFrontendServer(&bs)}
 }
 
@@ -584,6 +578,14 @@ func (h *Frontend) HostPort(ctx thrift.Context) (string, error) {
 
 // CreateDestination implements TChanBFrontendServer::CreateDestination
 func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.CreateDestinationRequest) (destDesc *c.DestinationDescription, err error) {
+	// TODO compose url like: cherami://sjc1/prod/destination_path
+	authResource := fmt.Sprintf("%v", createRequest.Path)
+	authErr := h.GetAuthManager().Authorize(ctx, common.OperationCreate, common.Resource(authResource))
+	if authErr != nil {
+		// TODO add metrics
+		return nil, authErr
+	}
+
 	sw := h.m3Client.StartTimer(metrics.CreateDestinationScope, metrics.FrontendLatencyTimer)
 	defer func() { sw.Stop(); h.epilog(metrics.CreateDestinationScope, destDesc, &err) }()
 	if _, err = h.prolog(ctx, createRequest); err != nil {

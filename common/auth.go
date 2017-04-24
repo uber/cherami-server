@@ -22,44 +22,42 @@ package common
 
 import (
 	"context"
-	"errors"
+)
+
+const (
+	// OperationCreate indicates Create
+	OperationCreate Operation = "Create"
+	// OperationRead indicates Read
+	OperationRead Operation = "Read"
+	// OperationUpdate indicates Update
+	OperationUpdate Operation = "Update"
+	// OperationDelete indicates Delete
+	OperationDelete Operation = "Delete"
 )
 
 type (
 	// Operation is type for an user operation, e.g. CreateDestination, PublishDestination
 	Operation string
 
-	// Resource is type for a Cherami resource, e.g. Destination, ConsumerGroup
-	Resource struct {
-		Type string
-		Name string
+	// Resource is type for a Cherami resource, e.g. destination, consumer group
+	Resource string
+
+	// AuthManager is interface to do auth
+	AuthManager interface {
+		Authorize(ctx context.Context, operation Operation, resource Resource) error
 	}
 
-	// Authorizer is interface to do authorization
-	Authorizer interface {
-		Authorize(ctx context.Context, operation Operation, resource Resource) (bool, error)
-	}
-
-	// BypassAuthorizerImpl is a dummy implementation for Authorizer
-	BypassAuthorizerImpl struct {
+	// BypassAuthManager is a dummy implementation
+	BypassAuthManager struct {
 	}
 )
 
-// EmptyResource is an empty resource which is used when authorization does not need resource
-var EmptyResource = Resource{
-	Type: "",
-	Name: "",
-}
-
-// ErrorUnauthorized is an error for unahorized
-var ErrorUnauthorized = errors.New("Unauthorized")
-
-// NewBypassAuthorizer creates a BypassAuthorizerImpl instance
-func NewBypassAuthorizer() Authorizer {
-	return &BypassAuthorizerImpl{}
+// NewBypassAuthManager creates a dummy instance
+func NewBypassAuthManager() AuthManager {
+	return &BypassAuthManager{}
 }
 
 // Authorize authorizes user
-func (a *BypassAuthorizerImpl) Authorize(ctx context.Context, operation Operation, resource Resource) (bool, error) {
-	return true, nil
+func (a *BypassAuthManager) Authorize(ectx context.Context, operation Operation, resource Resource) error {
+	return nil
 }

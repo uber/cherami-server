@@ -57,6 +57,7 @@ func NewService(serviceName string, uuid string, cfg configure.CommonServiceConf
 		mReporter:              reporter,
 		runtimeMetricsReporter: metrics.NewRuntimeMetricsReporter(reporter, time.Minute, cfg.GetLogger()),
 		dClient:                dClient,
+		authManager:            NewBypassAuthManager(), // TODO make this configurable
 	}
 
 	// Get the host name and set it on the service.  This is used for emitting metric with a tag for hostname
@@ -247,6 +248,11 @@ func (h *Service) Report(reporter LoadReporter) {
 // UpgradeHandler is used to implement the upgrade endpoint
 func (h *Service) UpgradeHandler(w http.ResponseWriter, r *http.Request) {
 	// register service specific upgrade handler
+}
+
+// GetDConfigClient returns the dconfig client
+func (h *Service) GetAuthManager() AuthManager {
+	return h.authManager
 }
 
 // IsDevelopmentEnvironment detects if we are running in a development environment

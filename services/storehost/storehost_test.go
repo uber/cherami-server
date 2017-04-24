@@ -42,7 +42,8 @@ import (
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
-	log.SetOutput(os.Stdout) // test output to stdout
+	log.SetLevel(log.InfoLevel) // test logs at debug level
+	log.SetOutput(os.Stdout)    // test output to stdout
 
 	var numIterations int            // number of iterations of the whole test
 	var numExtents int               // number of concurrent extents to use in each iteration
@@ -261,7 +262,8 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 
-	log.SetOutput(os.Stdout) // test output to stdout
+	log.SetLevel(log.InfoLevel) // test logs at debug level
+	log.SetOutput(os.Stdout)    // test output to stdout
 
 	var numIterations int            // number of iterations of the whole test
 	var numExtents int               // number of concurrent extents

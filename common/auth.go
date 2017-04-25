@@ -25,10 +25,10 @@ import (
 )
 
 const (
-	// EntityTypeEmployee indiciates Employee
-	EntityTypeEmployee string = "Employee"
-	// EntityTypeService indiciates Service
-	EntityTypeService string = "Service"
+	// SubjectTypeEmployee indiciates Employee
+	SubjectTypeEmployee string = "Employee"
+	// SubjectTypeService indiciates Service
+	SubjectTypeService string = "Service"
 
 	// OperationCreate indicates Create
 	OperationCreate Operation = "Create"
@@ -41,11 +41,11 @@ const (
 )
 
 type (
-	// Entity is entity like employee, service
-	Entity struct {
-		// Type allowes values like EMPLOYEE, SERVICE
+	// Subject is the entity like employee, service
+	Subject struct {
+		// Type is the entity type like Employee, Service
 		Type string
-		// Name is entity name
+		// Name is the entity name
 		Name string
 	}
 
@@ -57,8 +57,8 @@ type (
 
 	// AuthManager is interface to do auth
 	AuthManager interface {
-		Authenticate(ctx context.Context) (Entity, error)
-		Authorize(entity Entity, operation Operation, resource Resource) error
+		Authenticate(ctx context.Context) (Subject, error)
+		Authorize(subject Subject, operation Operation, resource Resource) error
 	}
 
 	// BypassAuthManager is a dummy implementation
@@ -72,15 +72,15 @@ func NewBypassAuthManager() AuthManager {
 }
 
 // Authenticate authenticates user
-func (a *BypassAuthManager) Authenticate(ctx context.Context) (Entity, error) {
-	entity := Entity{
-		Type: EntityTypeEmployee,
+func (a *BypassAuthManager) Authenticate(ctx context.Context) (Subject, error) {
+	subject := Subject{
+		Type: SubjectTypeEmployee,
 		Name: "bypass_auth_user",
 	}
-	return entity, nil
+	return subject, nil
 }
 
 // Authorize authorizes user
-func (a *BypassAuthManager) Authorize(entity Entity, operation Operation, resource Resource) error {
+func (a *BypassAuthManager) Authorize(subject Subject, operation Operation, resource Resource) error {
 	return nil
 }

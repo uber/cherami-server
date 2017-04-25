@@ -590,14 +590,14 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 	zone, tenancy := common.GetLocalClusterInfo(strings.ToLower(deploymentName))
 	// Compose resource url, e.g. dst://sjc1a/staging
 	authResource := fmt.Sprintf("dst://%v/%v", zone, tenancy)
-	authEntity, err := h.GetAuthManager().Authenticate(ctx)
+	authSubject, err := h.GetAuthManager().Authenticate(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.GetAuthManager().Authorize(authEntity, common.OperationCreate, common.Resource(authResource))
+	err = h.GetAuthManager().Authorize(authSubject, common.OperationCreate, common.Resource(authResource))
 	if err != nil {
-		lclLg.WithField("entity", authEntity).WithField("resource", authResource).Warn("Not allowed to create destination")
+		lclLg.WithField("subject", authSubject).WithField("resource", authResource).Warn("Not allowed to create destination")
 		// TODO add metrics
 		return nil, err
 	}

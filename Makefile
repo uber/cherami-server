@@ -99,12 +99,12 @@ cover_profile: lint bins
 	@mkdir -p $(BUILD)
 	@echo "mode: atomic" > $(BUILD)/cover.out
 
-	# @echo Running integration tests:
-	# @time for dir in $(INTEG_TEST_DIRS); do \
-	# 	mkdir -p $(BUILD)/"$$dir"; \
-	# 	go test $(EMBED) "$$dir" $(TEST_ARG) $(GOCOVERPKG_ARG) -coverprofile=$(BUILD)/"$$dir"/coverage.out || exit 1; \
-	# 	cat $(BUILD)/"$$dir"/coverage.out | grep -v "mode: atomic" >> $(BUILD)/cover.out; \
-	# done
+	@echo Running integration tests:
+	@time for dir in $(INTEG_TEST_DIRS); do \
+		mkdir -p $(BUILD)/"$$dir"; \
+		go test $(EMBED) "$$dir" $(TEST_ARG) $(GOCOVERPKG_ARG) -coverprofile=$(BUILD)/"$$dir"/coverage.out || exit 1; \
+		cat $(BUILD)/"$$dir"/coverage.out | grep -v "mode: atomic" >> $(BUILD)/cover.out; \
+	done
 
 	@echo Running tests:
 	@time for dir in $(PKG_TEST_DIRS); do \

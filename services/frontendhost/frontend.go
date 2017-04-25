@@ -597,7 +597,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	err = h.GetAuthManager().Authorize(authSubject, common.OperationCreate, common.Resource(authResource))
 	if err != nil {
-		lclLg.WithField("subject", authSubject).WithField("resource", authResource).Warn("Not allowed to create destination")
+		lclLg.WithField(common.TagSubject, authSubject).WithField(common.TagResource, authResource).Warn("Not allowed to create destination")
 		// TODO add metrics
 		return nil, err
 	}

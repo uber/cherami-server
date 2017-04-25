@@ -25,6 +25,11 @@ import (
 )
 
 const (
+	// EntityTypeEmployee indiciates Employee
+	EntityTypeEmployee string = "Employee"
+	// EntityTypeService indiciates Service
+	EntityTypeService string = "Service"
+
 	// OperationCreate indicates Create
 	OperationCreate Operation = "Create"
 	// OperationRead indicates Read
@@ -36,6 +41,14 @@ const (
 )
 
 type (
+	// Entity is entity like employee, service
+	Entity struct {
+		// Type allowes values like EMPLOYEE, SERVICE
+		Type string
+		// Name is entity name
+		Name string
+	}
+
 	// Operation is type for an user operation, e.g. CreateDestination, PublishDestination
 	Operation string
 
@@ -44,7 +57,8 @@ type (
 
 	// AuthManager is interface to do auth
 	AuthManager interface {
-		Authorize(ctx context.Context, operation Operation, resource Resource) error
+		Authenticate(ctx context.Context) (Entity, error)
+		Authorize(entity Entity, operation Operation, resource Resource) error
 	}
 
 	// BypassAuthManager is a dummy implementation
@@ -57,7 +71,16 @@ func NewBypassAuthManager() AuthManager {
 	return &BypassAuthManager{}
 }
 
+// Authenticate authenticates user
+func (a *BypassAuthManager) Authenticate(ctx context.Context) (Entity, error) {
+	entity := Entity{
+		Type: EntityTypeEmployee,
+		Name: "bypass_auth_user",
+	}
+	return entity, nil
+}
+
 // Authorize authorizes user
-func (a *BypassAuthManager) Authorize(ectx context.Context, operation Operation, resource Resource) error {
+func (a *BypassAuthManager) Authorize(entity Entity, operation Operation, resource Resource) error {
 	return nil
 }

@@ -578,14 +578,6 @@ func (h *Frontend) HostPort(ctx thrift.Context) (string, error) {
 
 // CreateDestination implements TChanBFrontendServer::CreateDestination
 func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.CreateDestinationRequest) (destDesc *c.DestinationDescription, err error) {
-	// TODO compose url like: cherami://sjc1/prod/destination_path
-	authResource := fmt.Sprintf("%v", createRequest.Path)
-	authErr := h.GetAuthManager().Authorize(ctx, common.OperationCreate, common.Resource(authResource))
-	if authErr != nil {
-		// TODO add metrics
-		return nil, authErr
-	}
-
 	sw := h.m3Client.StartTimer(metrics.CreateDestinationScope, metrics.FrontendLatencyTimer)
 	defer func() { sw.Stop(); h.epilog(metrics.CreateDestinationScope, destDesc, &err) }()
 	if _, err = h.prolog(ctx, createRequest); err != nil {
@@ -593,6 +585,22 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 	}
 
 	lclLg := h.logger.WithField(common.TagDstPth, common.FmtDstPth(createRequest.GetPath()))
+
+	deploymentName := h.SCommon.GetConfig().GetDeploymentName()
+	zone, tenancy := common.GetLocalClusterInfo(strings.ToLower(deploymentName))
+	// Compose resource url, e.g. dst://sjc1a/staging
+	authResource := fmt.Sprintf("dst://%v/%v", zone, tenancy)
+	authEntity, err := h.GetAuthManager().Authenticate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = h.GetAuthManager().Authorize(authEntity, common.OperationCreate, common.Resource(authResource))
+	if err != nil {
+		lclLg.WithField("entity", authEntity).WithField("resource", authResource).Warn("Not allowed to create destination")
+		// TODO add metrics
+		return nil, err
+	}
 
 	// Verify that Kafka configuration is valid
 	if createRequest.GetType() == c.DestinationType_KAFKA {

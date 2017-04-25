@@ -451,10 +451,9 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 					out.sendC <- newControlFlow(numMessages)
 
 					log.Debugf("%v: waiting for OpenReadStream to complete", extent[i])
-					timedOut := !common.AwaitWaitGroup(&wgReader, 25*time.Second)
-					if timedOut {
+					if !common.AwaitWaitGroup(&wgReader, 25*time.Second) {
 						atomic.AddInt32(&readerTimeout, 1)
-						fmt.Printf("WgReader wait timeout for extent %d, iter %d\n", i, iter)
+						fmt.Printf("wgReader timed out: (%d, %d) extent=%v (recv=%d msgs=%d)\n", iter, i, extent[i], out.msgsRecv(), numMessages)
 					}
 
 					log.Infof("[%d] %v: done", i, extent[i])

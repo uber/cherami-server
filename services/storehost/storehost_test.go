@@ -240,7 +240,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 
 				if !common.AwaitWaitGroup(&wgReader, 60*time.Second) {
 					atomic.AddInt32(&readerTimeout, 1)
-					fmt.Printf("wgReader timed out: (%d, %d) extent=%v (recv=%d msgs=%d)\n", iter, i, extent[i], out.msgsRecv(), numMessages)
+					fmt.Printf("wgReader timed out: (%d, %d) extent=%v\n", iter, i, extent[i])
 				}
 
 				log.Infof("[%d] %v: done", i, extent[i])

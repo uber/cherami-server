@@ -115,6 +115,49 @@ func New(opts *Opts, log bark.Logger) (*ManyRocks, error) {
 	}, nil
 }
 
+// OpenExtentDB gets a handle to the raw extent DB
+func OpenExtentDB(id s.ExtentUUID, path string, logger bark.Logger) (*Rock, error) {
+
+	// setup RocksDB options
+	opts := gorocksdb.NewDefaultOptions()
+
+	opts.SetCreateIfMissing(false)
+
+	db, err := gorocksdb.OpenDb(opts, path)
+	if err != nil {
+		return nil, err
+	}
+
+	// setup read/write options used with IO
+	readOpts := gorocksdb.NewDefaultReadOptions()
+
+	writeOpts := gorocksdb.NewDefaultWriteOptions()
+
+	return &Rock{
+		id:         id,
+		path:       path,
+		keyPattern: s.IncreasingKeys,
+		notify:     func(key s.Key, addr s.Address) {},
+		db:         db,
+		opts:       opts,
+		readOpts:   readOpts,
+		writeOpts:  writeOpts,
+		store:      &ManyRocks{logger: logger},
+	}, nil
+}
+
+// CloseExtentDB closes the handle to the raw extent DB
+func (t *Rock) CloseExtentDB() error {
+
+	t.writeOpts.Destroy()
+	t.readOpts.Destroy()
+	t.db.Close()
+	t.opts.Destroy()
+	t.notify = nil
+
+	return nil
+}
+
 // getDBPath returns the base-dir to use for the DB
 func (t *ManyRocks) getDBPath(id s.ExtentUUID) string {
 	return fmt.Sprintf("%s/%v", t.opts.BaseDir, id) // NB: 'baseDir' should already created

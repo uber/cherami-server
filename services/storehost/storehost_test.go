@@ -23,7 +23,6 @@ package storehost
 import (
 	// "encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"

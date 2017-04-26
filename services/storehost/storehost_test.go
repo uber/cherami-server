@@ -39,7 +39,8 @@ import (
 	"github.com/uber/cherami-thrift/.generated/go/store"
 )
 
-func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
+// FIXME: disabling test due to flakiness
+func (s *StoreHostSuite) _TestStoreHostTimerQueueWriteWithRead() {
 
 	var numIterations int            // number of iterations of the whole test
 	var numExtents int               // number of concurrent extents to use in each iteration
@@ -254,8 +255,7 @@ func (s *StoreHostSuite) TestStoreHostTimerQueueWriteWithRead() {
 	}
 }
 
-// FIXME: disabling test due to flakiness
-func (s *StoreHostSuite) _TestStoreHostTimerQueueWriteThenRead() {
+func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
 
 	// log.SetLevel(log.InfoLevel) // test logs at debug level
 	// log.SetOutput(os.Stdout)    // test output to stdout

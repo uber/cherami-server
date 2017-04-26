@@ -57,7 +57,10 @@ type (
 
 	// AuthManager is interface to do auth
 	AuthManager interface {
+		// Authenticate checks user identity in the context, and return a subject instance containing the user name
 		Authenticate(ctx context.Context) (Subject, error)
+		// Authorize validates whether the user (subject) has the permission to do the operation on the resource.
+		// It returns nil if the user has the permission, otherwise return error.
 		Authorize(subject Subject, operation Operation, resource Resource) error
 	}
 

@@ -26,10 +26,10 @@ import (
 )
 
 const (
-	resourceURNTemplateCreateDestination = "cherami:dst:%v"
+	resourceURNTemplateCreateDestination = "urn:cherami:dst:%v"
 )
 
-// GetResourceRootURN returns the root resource URN, e.g. cherami:dst:zone1_prod
+// GetResourceRootURN returns the root resource URN, e.g. urn:cherami:dst:zone1_prod
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
 func GetResourceRootURN(scommon SCommon) string {
 	deploymentName := scommon.GetConfig().GetDeploymentName()

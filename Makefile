@@ -94,7 +94,7 @@ cherami-store-tool: $(DEPS)
 	go build -i $(EMBED) -o cherami-store-tool cmd/tools/store/main.go
 
 cdb: $(DEPS)
-	go build -i $(EMBED) -o cdb cmd/tools/cdb/main.go
+	go build -i $(EMBED) -o cdb cmd/tools/cdb/*.go
 
 bins: cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool cdb
 

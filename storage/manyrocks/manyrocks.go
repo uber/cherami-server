@@ -35,6 +35,8 @@ import (
 	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
 	s "github.com/uber/cherami-server/storage"
+
+	"github.com/Sirupsen/logrus"
 )
 
 const rocksdbNotExistError = "does not exist (create_if_missing is false)"
@@ -116,7 +118,7 @@ func New(opts *Opts, log bark.Logger) (*ManyRocks, error) {
 }
 
 // OpenExtentDB gets a handle to the raw extent DB
-func OpenExtentDB(id s.ExtentUUID, path string, logger bark.Logger) (*Rock, error) {
+func OpenExtentDB(id s.ExtentUUID, path string) (*Rock, error) {
 
 	// setup RocksDB options
 	opts := gorocksdb.NewDefaultOptions()
@@ -142,20 +144,20 @@ func OpenExtentDB(id s.ExtentUUID, path string, logger bark.Logger) (*Rock, erro
 		opts:       opts,
 		readOpts:   readOpts,
 		writeOpts:  writeOpts,
-		store:      &ManyRocks{logger: logger},
+		store: &ManyRocks{
+			logger: bark.NewLoggerFromLogrus(logrus.StandardLogger()),
+		},
 	}, nil
 }
 
 // CloseExtentDB closes the handle to the raw extent DB
-func (t *Rock) CloseExtentDB() error {
+func (t *Rock) CloseExtentDB() {
 
 	t.writeOpts.Destroy()
 	t.readOpts.Destroy()
 	t.db.Close()
 	t.opts.Destroy()
 	t.notify = nil
-
-	return nil
 }
 
 // getDBPath returns the base-dir to use for the DB

@@ -588,13 +588,14 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	authSubject, err := h.GetAuthManager().Authenticate(ctx)
 	if err != nil {
+		// TODO add metrics
 		return nil, err
 	}
 
-	authResource := common.GetResourceRootUri(h.SCommon)
+	authResource := common.GetResourceRootURN(h.SCommon)
 	err = h.GetAuthManager().Authorize(authSubject, common.OperationCreate, common.Resource(authResource))
 	if err != nil {
-		lclLg.WithField(common.TagSubject, authSubject).WithField(common.TagResource, authResource).Warn("Not allowed to create destination")
+		lclLg.WithField(common.TagSubject, authSubject).WithField(common.TagResource, authResource).Info("Not allowed to create destination")
 		// TODO add metrics
 		return nil, err
 	}

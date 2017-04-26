@@ -26,10 +26,12 @@ import (
 )
 
 const (
-	resourceUriTemplateCreateDestination = "dst://%v"
+	resourceURNTemplateCreateDestination = "cherami:dst:%v"
 )
 
-func GetResourceRootUri(scommon SCommon) string {
+// GetResourceRootURN returns the root resource URN, e.g. cherami:dst:zone1_prod
+// We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
+func GetResourceRootURN(scommon SCommon) string {
 	deploymentName := scommon.GetConfig().GetDeploymentName()
-	return fmt.Sprintf(resourceUriTemplateCreateDestination, strings.ToLower(deploymentName))
+	return fmt.Sprintf(resourceURNTemplateCreateDestination, strings.ToLower(deploymentName))
 }

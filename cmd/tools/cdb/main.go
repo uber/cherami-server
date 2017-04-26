@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"code.uber.internal/odp/cherami/open_source/.generated/go/store"
 	"github.com/uber/cherami-server/storage"
 	"github.com/uber/cherami-server/storage/manyrocks"
+	"github.com/uber/cherami-thrift/.generated/go/store"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/apache/thrift/lib/go/thrift"

@@ -255,7 +255,7 @@ func (s *StoreHostSuite) _TestStoreHostTimerQueueWriteWithRead() {
 	}
 }
 
-func (s *StoreHostSuite) TestStoreHostTimerQueueWriteThenRead() {
+func (s *StoreHostSuite) _TestStoreHostTimerQueueWriteThenRead() {
 
 	// log.SetLevel(log.InfoLevel) // test logs at debug level
 	// log.SetOutput(os.Stdout)    // test output to stdout

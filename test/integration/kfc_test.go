@@ -144,10 +144,11 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 			)
 
 		if err != nil {
-			fmt.Printf("kafkaProducer.SendMessage (topic=%v key=%v val=%d bytes) failed: %v\n", topic, key, len(val), err)
+			fmt.Printf("kafkaProducer.SendMessage (seq=%d topic=%v key=%v val=%d bytes) failed: %v\n", i, topic, key, len(val), err)
+			time.Sleep(100 * time.Millisecond)
+			i--
+			continue
 		}
-
-		s.NoError(err)
 
 		msgs[key] = &kafkaMsg{topic: topic, key: key, val: val, part: part, offs: offs, seq: i}
 	}

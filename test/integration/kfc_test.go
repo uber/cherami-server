@@ -56,6 +56,25 @@ type kafkaMsg struct {
 	seq   int
 }
 
+func (t *kafkaMsg) Equals(m *kafkaMsg) bool {
+
+	if m.topic != t.topic || m.key != t.key ||
+		len(m.val) != len(t.val) ||
+		m.part != t.part || m.offs != t.offs {
+
+		return false
+	}
+
+	for i, b := range m.val {
+
+		if t.val[i] != b {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (t *kafkaMsg) String() string {
 	return fmt.Sprintf("[%d] (topic:%v key:%v val:%d bytes) => (part:%d, offs:%d)", t.seq, t.topic, t.key, len(t.val), t.part, t.offs)
 }
@@ -162,16 +181,24 @@ loop:
 			payload := cmsg.GetMessage().Payload
 			uc := payload.GetUserContext()
 
-			msg := msgs[uc["key"]]
-			// fmt.Printf("msg=%v\n", msg)
+			key, topic := uc[`key`], uc[`topic`]
+			part, _ := strconv.Atoi(uc[`partition`])
+			offs, _ := strconv.Atoi(uc[`offset`])
 
-			// validate msg values are as expected
-			s.Equal(msg.topic, uc["topic"])
-			s.Equal(msg.key, uc["key"])
-			s.Equal(len(msg.val), len(payload.GetData()))
-			s.EqualValues(msg.val, payload.GetData())
-			s.Equal(strconv.Itoa(int(msg.part)), uc["partition"])
-			s.Equal(strconv.Itoa(int(msg.offs)), uc["offset"])
+			msg := &kafkaMsg{
+				topic: topic,
+				key:   key,
+				val:   payload.GetData(),
+				part:  int32(part),
+				offs:  int64(offs),
+				seq:   i,
+			}
+
+			// validate that message is as expected
+			if !msg.Equals(msgs[key]) {
+				fmt.Printf("got=%v (expected=%v)\n", msg, msgs[key])
+				s.Fail("message validation failed")
+			}
 
 			delete(msgs, msg.key) // ensure we don't see duplicates
 

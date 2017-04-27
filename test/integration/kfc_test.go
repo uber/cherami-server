@@ -196,11 +196,11 @@ loop:
 
 			// validate that message is as expected
 			if !msg.Equals(msgs[key]) {
-				fmt.Printf("got=%v (expected=%v)\n", msg, msgs[key])
+				fmt.Printf("received=%v (expected=%v)\n", msg, msgs[key])
 				s.Fail("message validation failed")
 			}
 
-			delete(msgs, msg.key) // ensure we don't see duplicates
+			delete(msgs, key) // ensure we don't see duplicates
 
 			cmsg.Ack()
 

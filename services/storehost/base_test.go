@@ -52,9 +52,9 @@ import (
 )
 
 // var runShort = flag.Bool("short", false, "do a short run") // "-short" to do a short run (already defined by package 'suite')
-var runLong = flag.Bool("long", false, "do a long run")                                                     // "-long" to do a long run
-var runVeryVerbose = flag.String("vv", "", "run (very) verbosely, enabling stdout logs at specified level") // "-vv" run with more output
-var enablePerMessageLogs = flag.Bool("msg", false, "enable per message logs")                               // "-msg" enable per message logs (requires '-vv')
+var runLong = flag.Bool("long", false, "do a long run")                             // "-long" to do a long run
+var logLevel = flag.String("log", "", "enabling stdout logging at specified level") // "-log=<level>" to enable log level
+var enablePerMessageLogs = flag.Bool("msg", false, "enable per message logs")       // "-msg" enable per message logs (requires '-vv')
 
 var testStore = ManyRocks
 var testDestinationUUID = "00000000-0000-0000-0000-000000000000"
@@ -117,12 +117,12 @@ func (s *StoreHostSuite) SetupSuite() {
 
 	s.cfg = common.SetupServerConfig(configure.NewCommonConfigure())
 
-	if *runVeryVerbose != "" {
+	if *logLevel != "" {
 
 		log.SetOutput(os.Stdout) // test output to stdout
 
 		// enable logs at specified level
-		switch *runVeryVerbose {
+		switch *logLevel {
 		case "debug":
 			log.SetLevel(log.DebugLevel)
 		case "info":

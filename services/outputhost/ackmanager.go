@@ -43,6 +43,7 @@ type (
 	// internalMsg is the message which is stored locally on the ackMgr
 	internalMsg struct {
 		addr  storeHostAddress
+		seq   common.SequenceNumber
 		acked bool
 	}
 
@@ -74,10 +75,9 @@ type (
 		doneWG             sync.WaitGroup
 		logger             bark.Logger
 		sessionID          uint16
-		ackMgrID           uint16                // ID of this ackManager; unique on this host
-		cgCache            *consumerGroupCache   // back pointer to the consumer group cache
-		levelOffset        common.SequenceNumber // ‡
-		lk                 sync.RWMutex          // ‡ = guarded by this mutex
+		ackMgrID           uint16              // ID of this ackManager; unique on this host
+		cgCache            *consumerGroupCache // back pointer to the consumer group cache
+		lk                 sync.RWMutex        // ‡ = guarded by this mutex
 	}
 )
 
@@ -124,19 +124,15 @@ func (ackMgr *ackManager) getNextAckID(address int64, sequence common.SequenceNu
 	ackMgr.readLevel++ // This means that the first ID is '1'
 	ackMgr.readLevelAddr = storeHostAddress(address)
 
-	expectedReadLevel := ackMgr.levelOffset + ackMgr.readLevel
-
 	// NOTE: sequence should be zero for timer destinations, since they usually have discontinuous sequence numbers
-	if sequence != 0 && expectedReadLevel != sequence {
-		skippedMessages := sequence - expectedReadLevel
+	if sequence != 0 && sequence != ackMgr.readLevel {
+		skippedMessages := sequence - ackMgr.readLevel
 
 		if skippedMessages < 0 {
 			ackMgr.logger.WithFields(bark.Fields{
-				`gotSeqNum`:      sequence,
-				`gotAddress`:     address,
-				`expectedSeqNum`: expectedReadLevel,
-				`levelOffset`:    ackMgr.levelOffset,
-				`readLevel`:      ackMgr.readLevel,
+				`gotSeqNum`:  sequence,
+				`gotAddress`: address,
+				`readLevel`:  ackMgr.readLevel,
 			}).Error(`negative discontinuity detected (rollback)`)
 			// Don't update gauge, since negative numbers aren't supported for M3 gauges
 		} else {
@@ -150,7 +146,7 @@ func (ackMgr *ackManager) getNextAckID(address int64, sequence common.SequenceNu
 		//       to retention events a bit faster.
 		// NOTE: The same skipped messages can be reported twice if the outputhost is restarted before the ack level
 		//       passes the discontinuity
-		ackMgr.addLevelOffsetImpl(skippedMessages)
+		// TODO: review/fix comments above!
 	}
 
 	ackID = common.ConstructAckID(ackMgr.sessionID, ackMgr.ackMgrID, uint32(ackMgr.readLevel), address)
@@ -158,28 +154,12 @@ func (ackMgr *ackManager) getNextAckID(address int64, sequence common.SequenceNu
 	// now store the message in the data structure internally
 	ackMgr.addrs[ackMgr.readLevel] = &internalMsg{
 		addr: storeHostAddress(address),
+		seq:  sequence,
 	}
 
 	ackMgr.lk.Unlock()
 
 	return
-}
-
-// addLevelOffset adds an offset to the sequence number stored in cassandra. This ensures that our internal records always have
-// continguous sequence numbers, but we can adjust the offset when/if the replica connection gets loaded (asynchronously)
-func (ackMgr *ackManager) addLevelOffset(offset common.SequenceNumber) {
-	ackMgr.lk.Lock()
-	ackMgr.addLevelOffsetImpl(offset)
-	ackMgr.lk.Unlock()
-}
-
-func (ackMgr *ackManager) addLevelOffsetImpl(offset common.SequenceNumber) {
-	ackMgr.logger.WithFields(bark.Fields{
-		`oldOffset`: ackMgr.levelOffset,
-		`newOffset`: ackMgr.levelOffset + offset,
-		`change`:    offset,
-	}).Info(`adjusting sequence number offset`)
-	ackMgr.levelOffset += offset
 }
 
 func (ackMgr *ackManager) stop() {
@@ -196,21 +176,11 @@ func (ackMgr *ackManager) start() {
 	go ackMgr.manageAckLevel()
 }
 
-func (ackMgr *ackManager) getCurrentAckLevelOffset() (addr int64) {
+func (ackMgr *ackManager) getCurrentReadLevel() (addr storeHostAddress, seqNo common.SequenceNumber) {
 	ackMgr.lk.RLock()
-	if addrs, ok := ackMgr.addrs[ackMgr.ackLevel]; ok {
-		addr = int64(addrs.addr)
-	}
-	ackMgr.lk.RUnlock()
+	defer ackMgr.lk.RUnlock()
 
-	return
-}
-
-func (ackMgr *ackManager) getCurrentAckLevelSeqNo() (seqNo common.SequenceNumber) {
-	ackMgr.lk.RLock()
-	seqNo = ackMgr.levelOffset + ackMgr.ackLevel
-	ackMgr.lk.RUnlock()
-	return
+	return ackMgr.readLevelAddr, ackMgr.readLevel
 }
 
 // resetMsg is a utility routine which is used to reset the readLevel because
@@ -261,16 +231,15 @@ func (ackMgr *ackManager) updateAckLevel() {
 	// moving the acklevel as we go forward.
 	for curr := ackMgr.ackLevel + 1; curr <= stop; curr++ {
 		if addrs, ok := ackMgr.addrs[curr]; ok {
-			if addrs.acked {
-				update = true
-				ackMgr.ackLevel = curr
 
-				// getCurrentAckLevelOffset needs addr[ackMgr.ackLevel], so delete the previous one if it exists
-				count++
-				delete(ackMgr.addrs, curr-1)
-			} else {
+			if !addrs.acked {
 				break
 			}
+
+			update = true
+			ackMgr.ackLevel = curr
+			count++
+			delete(ackMgr.addrs, curr-1)
 		}
 	}
 
@@ -297,9 +266,9 @@ func (ackMgr *ackManager) updateAckLevel() {
 			ExtentUUID:         common.StringPtr(ackMgr.extUUID),
 			ConnectedStoreUUID: common.StringPtr(*ackMgr.connectedStoreUUID),
 			AckLevelAddress:    common.Int64Ptr(int64(ackMgr.ackLevelAddr)),
-			AckLevelSeqNo:      common.Int64Ptr(int64(ackMgr.levelOffset + ackMgr.ackLevel)), // levelOffset adjusts the level according to what was returned from getAddressFromTimestamp
+			AckLevelSeqNo:      common.Int64Ptr(int64(ackMgr.addrs[ackMgr.ackLevel].seq)),
 			ReadLevelAddress:   common.Int64Ptr(int64(ackMgr.readLevelAddr)),
-			ReadLevelSeqNo:     common.Int64Ptr(int64(ackMgr.levelOffset + ackMgr.readLevel)),
+			ReadLevelSeqNo:     common.Int64Ptr(int64(ackMgr.addrs[ackMgr.readLevel].seq)),
 		}
 
 		// check if we can set the status as consumed

@@ -229,7 +229,7 @@ loop:
 				s.Fail("message validation failed")
 			}
 
-			recvMsgs[key] = msgs
+			recvMsgs[key] = msg
 			delete(sentMsgs, key) // ensure we don't see duplicates
 
 			cmsg.Ack()

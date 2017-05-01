@@ -140,10 +140,13 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 	config.Producer.Return.Successes = true
 
 	kafkaProducer, err := sarama.NewSyncProducer([]string{kafkaBroker}, config)
+	if err != nil {
+		fmt.Printf("sarama.NewSyncProducer error=%v\n", err)
+	}
 	s.NoError(err)
 	defer kafkaProducer.Close()
 
-	msgs := make(map[string]*kafkaMsg)
+	sentMsgs := make(map[string]*kafkaMsg)
 
 	// publish messages to kafka
 	for i := 0; i < numMsgs; i++ {
@@ -169,8 +172,10 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 			continue
 		}
 
-		msgs[key] = &kafkaMsg{topic: topic, key: key, val: val, part: part, offs: offs, seq: i}
+		sentMsgs[key] = &kafkaMsg{topic: topic, key: key, val: val, part: part, offs: offs, seq: i}
 	}
+
+	recvMsgs := make([]*kafkaMsg, 0, len(sentMsgs))
 
 	// consume messages from cherami
 loop:
@@ -195,12 +200,31 @@ loop:
 			}
 
 			// validate that message is as expected
-			if !msg.Equals(msgs[key]) {
-				fmt.Printf("received=%v (expected=%v)\n", msg, msgs[key])
+			if sentMsgs[key] == nil || !msg.Equals(sentMsgs[key]) {
+
+				fmt.Printf("received[%d]=%v\n", i, msg)
+
+				if sentMsgs[key] == nil {
+					fmt.Printf("expected=<MISSING>\n")
+				} else {
+					fmt.Printf("expected=%v\n", sentMsgs[key])
+				}
+
+				fmt.Printf("\nreceived:\n")
+				for _, m := range recvMsgs {
+					fmt.Printf("%v\n", m)
+				}
+
+				fmt.Printf("\nsent (and not received):\n")
+				for _, m := range sentMsgs {
+					fmt.Printf("%v\n", m)
+				}
+
 				s.Fail("message validation failed")
 			}
 
-			delete(msgs, key) // ensure we don't see duplicates
+			recvMsgs = append(recvMsgs, msg)
+			delete(sentMsgs, key) // ensure we don't see duplicates
 
 			cmsg.Ack()
 

@@ -188,7 +188,7 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 
 	// consume messages from cherami
 loop:
-	for i := 0; len(sentMsgs) > 0; i++ {
+	for i := 0; (len(recvMsgs) < numMsgs) && (i < 2*numMsgs); i++ {
 
 		select {
 		case cmsg := <-cheramiMsgsCh:
@@ -199,14 +199,13 @@ loop:
 			part, _ := strconv.Atoi(uc[`partition`])
 			offs, _ := strconv.Atoi(uc[`offset`])
 
-			// check and skip duplicates
+			// check for duplicates
 			if _, ok := recvMsgs[key]; ok {
 
 				if recvMsgs[key].count++; recvMsgs[key].count > 3 {
 					s.Fail("received message too many times")
 				}
 
-				i--
 				continue loop
 			}
 
@@ -244,8 +243,8 @@ loop:
 				s.Fail("message validation failed")
 			}
 
+			// if we have seen all the messages, break out
 			recvMsgs[key] = msg
-			delete(sentMsgs, key) // ensure we don't see duplicates
 
 			cmsg.Ack()
 
@@ -253,11 +252,9 @@ loop:
 			s.Fail("cherami-consumer: timed out")
 			break loop
 		}
-
-		if i > 2*numMsgs {
-			s.Fail("too many duplicates")
-		}
 	}
+
+	s.Equal(numMsgs, len(recvMsgs)) // we should have received all the messages
 
 	return
 }

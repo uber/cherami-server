@@ -172,7 +172,14 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 			continue
 		}
 
-		sentMsgs[key] = &kafkaMsg{topic: topic, key: key, val: val, part: part, offs: offs, seq: i}
+		sentMsgs[key] = &kafkaMsg{
+			topic: topic,
+			key:   key,
+			val:   val,
+			part:  part,
+			offs:  offs,
+			seq:   i,
+		}
 	}
 
 	recvMsgs := make(map[string]*kafkaMsg)
@@ -190,6 +197,12 @@ loop:
 			part, _ := strconv.Atoi(uc[`partition`])
 			offs, _ := strconv.Atoi(uc[`offset`])
 
+			// check and skip duplicates
+			if _, ok := recvMsgs[key]; ok {
+				i--
+				continue loop
+			}
+
 			msg := &kafkaMsg{
 				topic: topic,
 				key:   key,
@@ -197,12 +210,6 @@ loop:
 				part:  int32(part),
 				offs:  int64(offs),
 				seq:   i,
-			}
-
-			// check and skip duplicates
-			if _, ok := recvMsgs[key]; ok {
-				i--
-				continue loop
 			}
 
 			// validate that message is as expected

@@ -175,7 +175,7 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 		sentMsgs[key] = &kafkaMsg{topic: topic, key: key, val: val, part: part, offs: offs, seq: i}
 	}
 
-	recvMsgs := make([]*kafkaMsg, 0, len(sentMsgs))
+	recvMsgs := make(map[string]*kafkaMsg)
 
 	// consume messages from cherami
 loop:
@@ -197,6 +197,12 @@ loop:
 				part:  int32(part),
 				offs:  int64(offs),
 				seq:   i,
+			}
+
+			// check and skip duplicates
+			if _, ok := recvMsgs[key]; ok {
+				i--
+				continue loop
 			}
 
 			// validate that message is as expected
@@ -223,7 +229,7 @@ loop:
 				s.Fail("message validation failed")
 			}
 
-			recvMsgs = append(recvMsgs, msg)
+			recvMsgs[key] = msgs
 			delete(sentMsgs, key) // ensure we don't see duplicates
 
 			cmsg.Ack()

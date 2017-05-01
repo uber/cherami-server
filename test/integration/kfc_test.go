@@ -54,6 +54,7 @@ type kafkaMsg struct {
 	part  int32
 	offs  int64
 	seq   int
+	count int
 }
 
 func (t *kafkaMsg) Equals(m *kafkaMsg) bool {
@@ -76,7 +77,8 @@ func (t *kafkaMsg) Equals(m *kafkaMsg) bool {
 }
 
 func (t *kafkaMsg) String() string {
-	return fmt.Sprintf("[%d] (topic:%v key:%v val:%d bytes) => (part:%d, offs:%d)", t.seq, t.topic, t.key, len(t.val), t.part, t.offs)
+	return fmt.Sprintf("[%d] (topic:%v key:%v val:%d bytes) => (part:%d, offs:%d) <count=%d>",
+		t.seq, t.topic, t.key, len(t.val), t.part, t.offs, t.count)
 }
 
 func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
@@ -186,7 +188,7 @@ func (s *NetIntegrationSuiteParallelE) TestKafkaForCherami() {
 
 	// consume messages from cherami
 loop:
-	for i := 0; i < numMsgs; i++ {
+	for i := 0; len(sentMsgs) > 0; i++ {
 
 		select {
 		case cmsg := <-cheramiMsgsCh:
@@ -199,6 +201,11 @@ loop:
 
 			// check and skip duplicates
 			if _, ok := recvMsgs[key]; ok {
+
+				if recvMsgs[key].count++; recvMsgs[key].count > 3 {
+					s.Fail("received message too many times")
+				}
+
 				i--
 				continue loop
 			}
@@ -210,6 +217,7 @@ loop:
 				part:  int32(part),
 				offs:  int64(offs),
 				seq:   i,
+				count: 1,
 			}
 
 			// validate that message is as expected
@@ -244,6 +252,10 @@ loop:
 		case <-time.After(45 * time.Second):
 			s.Fail("cherami-consumer: timed out")
 			break loop
+		}
+
+		if i > 2*numMsgs {
+			s.Fail("too many duplicates")
 		}
 	}
 

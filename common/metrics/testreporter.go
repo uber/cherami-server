@@ -44,7 +44,7 @@ type (
 // this type.
 type HandlerFn func(metricName string, baseTags, tags map[string]string, value int64)
 
-var handlers = make(map[string]map[string]HandlerFn) // Key1 - metricName; Key2 - "filterTag:filterVal"
+var handlers = make(map[string]map[string]handlerFn) // Key1 - metricName; Key2 - "filterTag:filterVal"
 var handlerMutex sync.RWMutex
 
 // NewTestReporter create an instance of Reporter which can be used for driver to emit metric to console
@@ -136,11 +136,11 @@ func (r *TestReporter) executeHandler(name string, tags map[string]string, value
 // * Your handler can be called concurrently. Capture your own sync.Mutex if you must serialize
 // * Counters report the delta; you must maintain the cumulative value of your counter if it is important
 // * Your handler executes synchronously with the metrics code; DO NOT BLOCK
-func RegisterHandler(metricName, filterTag, filterTagVal string, handler HandlerFn) {
+func RegisterHandler(metricName, filterTag, filterTagVal string, handler handlerFn) {
 	defer handlerMutex.Unlock()
 	handlerMutex.Lock()
 	if _, ok := handlers[metricName]; !ok {
-		handlers[metricName] = make(map[string]HandlerFn)
+		handlers[metricName] = make(map[string]handlerFn)
 	}
 
 	key2 := filterTag + `:` + filterTagVal

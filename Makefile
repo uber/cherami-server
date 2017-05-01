@@ -33,11 +33,6 @@ ALL_SRC := $(shell find . -name "*.go" | grep -v -e Godeps -e vendor \
 	-e ".*/_.*" \
 	-e ".*/mocks.*")
 
-TOUCHED_SRC := $(shell git diff --name-only master | grep "\.go$$" | grep -v -e Godeps -e vendor \
-	-e ".*/\//*" \
-	-e ".*/_.*" \
-	-e ".*/mocks.*")
-
 # all directories with *_test.go files in them
 ALL_TEST_DIRS := $(sort $(dir $(filter %_test.go,$(ALL_SRC))))
 # all tests other than integration test fall into the pkg_test category
@@ -98,7 +93,10 @@ cherami-cassandra-tool: $(DEPS)
 cherami-store-tool: $(DEPS)
 	go build -i $(EMBED) -o cherami-store-tool cmd/tools/store/main.go
 
-bins: cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool
+cdb: $(DEPS)
+	go build -i $(EMBED) -o cdb cmd/tools/cdb/*.go
+
+bins: cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool cdb
 
 cover_profile: lint bins
 	@mkdir -p $(BUILD)
@@ -125,25 +123,24 @@ cover_ci: cover_profile
 	goveralls -coverprofile=$(BUILD)/cover.out -service=travis-ci || echo -e "\x1b[31mCoveralls failed\x1b[m"
 
 clean:
-	rm -f cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool
+	rm -f cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool cdb
 	rm -Rf vendor/*
 	rm -Rf $(BUILD)
 
 lint:
-	@lintFail=0; for file in $(TOUCHED_SRC); do \
+	@lintFail=0; for file in $(ALL_SRC); do \
 		golint -set_exit_status "$$file"; \
 		if [ $$? -eq 1 ]; then lintFail=1; fi; \
 	done; \
 	if [ $$lintFail -eq 1 ]; then exit 1; fi;
-	@echo gofmt -l $(ALL_SRC)
 	@OUTPUT=`gofmt -l $(ALL_SRC) 2>&1`; \
 	if [ "$$OUTPUT" ]; then \
 		echo "Run 'make fmt'. gofmt must be run on the following files:"; \
 		echo "$$OUTPUT"; \
 		exit 1; \
 	fi
-	go tool vet -all -printfuncs=Info,Infof,Debug,Debugf,Warn,Warnf,Panic,Panicf $(ALL_TEST_DIRS)
+	@go tool vet -all -printfuncs=Info,Infof,Debug,Debugf,Warn,Warnf,Panic,Panicf $(ALL_TEST_DIRS)
 
 fmt:
-	gofmt -w $(ALL_SRC)
+	@gofmt -w $(ALL_SRC)
 

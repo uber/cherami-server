@@ -289,7 +289,7 @@ func (t *outputhostStreamMock) Write(msg *store.ReadMessageContent) error {
 			for i := range data {
 				if data[i] != byte(r.Intn(256)) {
 					t.Lock()
-					t.err = fmt.Errorf("corrupt (seqNum: %x): data[%d]\n", appMsg.GetSequenceNumber(), i)
+					t.err = fmt.Errorf("corrupt (seqNum: %x): data[%d]", appMsg.GetSequenceNumber(), i)
 					fmt.Printf("message corrupt (addr: %x seq: %x): data[%d]\n", msg.GetMessage().GetAddress(), appMsg.GetSequenceNumber(), i)
 					t.Unlock()
 					break
@@ -356,7 +356,7 @@ func benchmarkByDataSize(b *testing.B, dataSize int) {
 
 	reporter := common.NewMetricReporterWithHostname(configure.NewCommonServiceConfig())
 	dClient := dconfig.NewDconfigClient(configure.NewCommonServiceConfig(), common.StoreServiceName)
-	sCommon := common.NewService(sName, uuid.New(), configure.NewCommonServiceConfig(), nil, nil, reporter, dClient)
+	sCommon := common.NewService(sName, uuid.New(), configure.NewCommonServiceConfig(), nil, nil, reporter, dClient, common.NewBypassAuthManager())
 	storeHost, tc := NewStoreHost(sName, sCommon, nil, &Options{Store: storeC})
 	storeHost.Start(tc)
 
@@ -472,7 +472,7 @@ func benchmarkParallelExtents(b *testing.B, dataSize int, numExtents int) {
 	reporter := common.NewMetricReporterWithHostname(configure.NewCommonServiceConfig())
 	dClient := dconfig.NewDconfigClient(configure.NewCommonServiceConfig(), common.StoreServiceName)
 
-	sCommon := common.NewService(sName, uuid.New(), configure.NewCommonServiceConfig(), nil, nil, reporter, dClient)
+	sCommon := common.NewService(sName, uuid.New(), configure.NewCommonServiceConfig(), nil, nil, reporter, dClient, common.NewBypassAuthManager())
 	storeHost, tc := NewStoreHost(sName, sCommon, nil, &Options{Store: storeC})
 	storeHost.Start(tc)
 

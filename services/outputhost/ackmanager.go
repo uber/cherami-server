@@ -185,6 +185,7 @@ func (ackMgr *ackManager) start() {
 	go ackMgr.manageAckLevel()
 }
 
+/*
 func (ackMgr *ackManager) getCurrentAckLevelOffset() (addr int64) {
 	ackMgr.lk.RLock()
 	if addrs, ok := ackMgr.addrs[ackMgr.ackLevel]; ok {
@@ -199,6 +200,17 @@ func (ackMgr *ackManager) getCurrentAckLevelSeqNo() (seqNo common.SequenceNumber
 	ackMgr.lk.RLock()
 	seqNo = ackMgr.levelOffset + ackMgr.ackLevel
 	ackMgr.lk.RUnlock()
+	return
+}
+*/
+
+func (ackMgr *ackManager) getCurrentReadLevel() (addr int64, seqNo common.SequenceNumber) {
+	ackMgr.lk.RLock()
+	defer ackMgr.lk.RUnlock()
+	if addrs, ok := ackMgr.addrs[ackMgr.readLevel]; ok {
+		addr = int64(addrs.addr)
+	}
+	seqNo = ackMgr.levelOffset + ackMgr.readLevel
 	return
 }
 

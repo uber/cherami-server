@@ -437,11 +437,9 @@ func (extCache *extentCache) manageExtentCache() {
 				// first make sure the ackMgr updates its current ack level
 				extCache.ackMgr.updateAckLevel()
 				// TODO: Fix small race between the offset and seqNo calls
+				startAddr, startSequence := extCache.ackMgr.getCurrentReadLevel()
 				extCache.connection, extCache.pickedIndex, err =
-					extCache.loadReplicaStream(
-						extCache.ackMgr.getCurrentAckLevelOffset(),
-						extCache.ackMgr.getCurrentAckLevelSeqNo(),
-						(extCache.pickedIndex+1)%len(extCache.storeUUIDs))
+					extCache.loadReplicaStream(startAddr, startSequence, (extCache.pickedIndex+1)%len(extCache.storeUUIDs))
 			}
 			extCache.cacheMutex.Unlock()
 			if err != nil {

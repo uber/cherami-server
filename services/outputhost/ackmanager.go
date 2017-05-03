@@ -185,13 +185,19 @@ func (ackMgr *ackManager) start() {
 	go ackMgr.manageAckLevel()
 }
 
+// getCurrentReadLevel returns the current read-level address and seqnum. this is called
+// by extcache when it connects to a new replica, when one stream is disconnected.
 func (ackMgr *ackManager) getCurrentReadLevel() (addr int64, seqNo common.SequenceNumber) {
+
 	ackMgr.lk.RLock()
 	defer ackMgr.lk.RUnlock()
-	if addrs, ok := ackMgr.addrs[ackMgr.readLevel]; ok {
-		addr = int64(addrs.addr)
-	}
+
+	// the 'readLevel' may not exist in the 'addrs' map, if this instance
+	// of ackMgr has not seen a message yet (ie, getNextAckID has not been
+	// called) .. in which case we would return '0'.
+	addr = ackMgr.addrs[ackMgr.readLevel]
 	seqNo = ackMgr.levelOffset + ackMgr.readLevel
+
 	return
 }
 

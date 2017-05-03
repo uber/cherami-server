@@ -192,10 +192,13 @@ func (ackMgr *ackManager) getCurrentReadLevel() (addr int64, seqNo common.Sequen
 	ackMgr.lk.RLock()
 	defer ackMgr.lk.RUnlock()
 
-	// the 'readLevel' may not exist in the 'addrs' map, if this instance
+	// the 'readLevel' may not exist in the 'addrs' map if this instance
 	// of ackMgr has not seen a message yet (ie, getNextAckID has not been
-	// called) .. in which case we would return '0'.
-	addr = ackMgr.addrs[ackMgr.readLevel]
+	// called), in which case we would return '0' addr.
+	if msg, ok := ackMgr.addrs[ackMgr.readLevel]; ok {
+		addr = int64(msg.addr)
+	}
+
 	seqNo = ackMgr.levelOffset + ackMgr.readLevel
 
 	return

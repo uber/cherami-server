@@ -1001,3 +1001,130 @@ func (s *OutputHostSuite) TestOutputAckMgrReset() {
 	// 10. make sure the readlevels are not the same
 	assert.NotEqual(s.T(), readLevel, newReadLevel, "read levels should not be the same")
 }
+
+func (s *OutputHostSuite) TestOutputHostReplicaResume() {
+
+	count := 50
+
+	outputHost, _ := NewOutputHost("outputhost-test", s.mockService, s.mockMeta, nil, nil, nil)
+	httpRequest := utilGetHTTPRequestWithPath("foo")
+
+	destUUID := uuid.New()
+	destDesc := shared.NewDestinationDescription()
+	destDesc.Path = common.StringPtr("/foo/bar")
+	destDesc.DestinationUUID = common.StringPtr(destUUID)
+	destDesc.Status = common.InternalDestinationStatusPtr(shared.DestinationStatus_ENABLED)
+	s.mockMeta.On("ReadDestination", mock.Anything, mock.Anything).Return(destDesc, nil).Once()
+	s.mockMeta.On("ReadExtentStats", mock.Anything, mock.Anything).Return(nil, fmt.Errorf(`foo`))
+
+	cgDesc := shared.NewConsumerGroupDescription()
+	cgDesc.ConsumerGroupUUID = common.StringPtr(uuid.New())
+	cgDesc.DestinationUUID = common.StringPtr(destUUID)
+	s.mockMeta.On("ReadConsumerGroup", mock.Anything, mock.Anything).Return(cgDesc, nil).Twice()
+
+	cgExt := shared.NewConsumerGroupExtent()
+	cgExt.ExtentUUID = common.StringPtr(uuid.New())
+	cgExt.StoreUUIDs = []string{"mock"}
+
+	cgRes := &shared.ReadConsumerGroupExtentsResult_{}
+	cgRes.Extents = append(cgRes.Extents, cgExt)
+	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
+	s.mockRead.On("Write", mock.Anything).Return(nil)
+
+	nWritten := 0
+	writeDoneCh := make(chan struct{})
+
+	s.mockCons.On("Write", mock.Anything).Return(nil).Times(count).Run(func(args mock.Arguments) {
+
+		ohc := args.Get(0).(*cherami.OutputHostCommand)
+
+		if ohc.GetType() == cherami.OutputHostCommandType_MESSAGE {
+
+			msg := ohc.GetMessage()
+			fmt.Printf("msg id=%v\n", msg.GetPayload().GetID())
+			if nWritten++; nWritten == count {
+				close(writeDoneCh)
+			}
+		}
+	})
+
+	cFlow := cherami.NewControlFlow()
+	cFlow.Credits = common.Int32Ptr(int32(count))
+
+	connOpenedCh := make(chan struct{})
+	s.mockCons.On("Read").Return(cFlow, nil).Once().Run(func(args mock.Arguments) { close(connOpenedCh) })
+
+	// setup the mock so that we can read 10 messages
+	writeSeq := int64(0)
+
+	rmc := store.NewReadMessageContent()
+	rmc.Type = store.ReadMessageContentTypePtr(store.ReadMessageContentType_MESSAGE)
+
+	s.mockRead.On("Read").Return(rmc, nil).Run(func(args mock.Arguments) {
+		aMsg := store.NewAppendMessage()
+		aMsg.SequenceNumber = common.Int64Ptr(writeSeq)
+		pMsg := cherami.NewPutMessage()
+		pMsg.ID = common.StringPtr(strconv.Itoa(int(writeSeq)))
+		pMsg.Data = []byte(fmt.Sprintf("hello-%d", writeSeq))
+		aMsg.Payload = pMsg
+		rMsg := store.NewReadMessage()
+		rMsg.Message = aMsg
+		rMsg.Address = common.Int64Ptr(1234000000 + writeSeq)
+		rmc.Message = rMsg
+		writeSeq++
+	}).Times(count - 20)
+
+	s.mockRead.On("Read").Return(0, errors.New("store read error")).Once()
+
+	s.mockRead.On("Read").Return(rmc, nil).Run(func(args mock.Arguments) {
+		aMsg := store.NewAppendMessage()
+		pMsg := cherami.NewPutMessage()
+		pMsg.ID = common.StringPtr(strconv.Itoa(int(writeSeq)))
+		pMsg.Data = []byte(fmt.Sprintf("hello-%d", writeSeq))
+		aMsg.Payload = pMsg
+		rMsg := store.NewReadMessage()
+		rMsg.Message = aMsg
+		rMsg.Address = common.Int64Ptr(1234000000 + writeSeq)
+		rmc.Message = rMsg
+		writeSeq++
+	}).Times(20)
+
+	streamDoneCh := make(chan struct{})
+	go func() {
+		outputHost.OpenConsumerStreamHandler(s.mockHTTPResponse, httpRequest)
+		close(streamDoneCh)
+	}()
+
+	// close the read stream
+	creditUnblockCh := make(chan struct{})
+	s.mockRead.On("Read").Return(nil, io.EOF)
+	s.mockCons.On("Read").Return(nil, io.EOF).Run(func(args mock.Arguments) { <-writeDoneCh; <-creditUnblockCh })
+
+	<-connOpenedCh // wait for the consConnection to open
+
+	// look up cgcache and the underlying client connnection
+	outputHost.cgMutex.RLock()
+	cgCache, ok := outputHost.cgCache[cgDesc.GetConsumerGroupUUID()]
+	outputHost.cgMutex.RUnlock()
+	s.True(ok, "cannot find cgcache entry")
+
+	var nConns = 0
+	var conn *consConnection
+	cgCache.extMutex.RLock()
+	for _, conn = range cgCache.connections {
+		break
+	}
+	nConns = len(cgCache.connections)
+	cgCache.extMutex.RUnlock()
+	s.Equal(1, nConns, "wrong number of consumer connections")
+	s.NotNil(conn, "failed to find consConnection within cgcache")
+
+	creditUnblockCh <- struct{}{} // now unblock the readCreditsPump on the consconnection
+	<-streamDoneCh
+
+	s.mockHTTPResponse.AssertNotCalled(s.T(), "WriteHeader", mock.Anything)
+	s.Equal(int64(count), conn.sentMsgs, "wrong sentMsgs count")
+	s.Equal(int64(0), conn.reSentMsgs, "wrong reSentMsgs count")
+	s.Equal(conn.sentMsgs, conn.sentToMsgCache, "sentMsgs != sentToMsgCache")
+	outputHost.Shutdown()
+}

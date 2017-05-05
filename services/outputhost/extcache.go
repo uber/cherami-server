@@ -39,6 +39,7 @@ import (
 	"github.com/Shopify/sarama"
 	sc "github.com/bsm/sarama-cluster"
 	"github.com/uber/cherami-server/common"
+	"github.com/uber/cherami-server/common/goMetricsExporter"
 	"github.com/uber/cherami-server/common/metrics"
 	"github.com/uber/cherami-server/services/outputhost/load"
 	serverStream "github.com/uber/cherami-server/stream"
@@ -144,6 +145,9 @@ type extentCache struct {
 
 	// kafkaClient is the client for the kafka connection, if any
 	kafkaClient *sc.Consumer
+
+	// exporter is the metrics bridge between the kafka consumer metrics and the Cherami metrics reporting library
+	exporter *goMetricsExporter.GoMetricsExporter
 }
 
 var kafkaLogSetup sync.Once
@@ -373,7 +377,7 @@ func (extCache *extentCache) loadKafkaStream(
 	cfg.Config.ClientID = `cherami_` + groupID
 
 	// Configure a metrics registry and start the exporter
-	cfg.Config.MetricRegistry = metrics.NewGoMetricsExporter(
+	extCache.exporter, cfg.Config.MetricRegistry = goMetricsExporter.NewGoMetricsExporter(
 		metricsClient,
 		metrics.ConsConnectionScope,
 		map[string]int{
@@ -385,9 +389,8 @@ func (extCache *extentCache) loadKafkaStream(
 			`response-rate`:         metrics.OutputhostCGKafkaResponseReceived,
 			`response-size`:         metrics.OutputhostCGKafkaResponseSize,
 		},
-		extCache.logger,
-		extCache.closeChannel,
 	)
+	go extCache.exporter.Run()
 
 	// Build the Kafka client. Note that we would ideally like to have a factory for this, but the client
 	// has consumer-group-specific changes to its configuration (e.g. startFrom)
@@ -531,6 +534,9 @@ func (extCache *extentCache) unload() {
 		if err := extCache.kafkaClient.Close(); err != nil {
 			extCache.logger.WithField(common.TagErr, err).Error(`error closing Kafka client`)
 		}
+	}
+	if extCache.exporter != nil {
+		extCache.exporter.Stop()
 	}
 	extCache.cacheMutex.Unlock()
 }

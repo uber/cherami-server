@@ -18,66 +18,59 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-package metrics
+package goMetricsExporter
 
 import (
-	"fmt"
-	"time"
-
 	gometrics "github.com/rcrowley/go-metrics"
-	"github.com/uber-common/bark"
+	m "github.com/uber/cherami-server/common/metrics"
+	"time"
 )
 
 const (
-	delayToFirstLogDump  = time.Minute * 15
-	delayBetweenLogDumps = time.Minute * 60
-	delayBetweenExports  = time.Second * 10
+	delayBetweenExports = time.Second * 10
 )
 
-// goMetricsExporter allows an rcrowley/go-metrics registry to be
+// GoMetricsExporter allows an rcrowley/go-metrics registry to be
 // periodically exported to the Cherami metrics system
-type goMetricsExporter struct {
-	c     Client
+type GoMetricsExporter struct {
+	m     m.Client
 	scope int
 
 	// metricNameToMetric maps a metric name to the metric symbol,
 	// e.g. "request-rate" -> OutputhostCGKafkaRequestRate
 	metricNameToMetric  map[string]int
-	closeCh             <-chan struct{}
+	closeCh             chan struct{}
 	metricNameToLastVal map[string]int64
-	l                   bark.Logger
 	registry            gometrics.Registry // Registry to be exported
-	lastLogDump         time.Time
 }
 
 // NewGoMetricsExporter starts the exporter loop to export go-metrics to the Cherami
 // metrics system and returns the go-metrics registry that should be used
 func NewGoMetricsExporter(
-	c Client,
+	m m.Client,
 	scope int,
 	metricNameToMetric map[string]int,
-	l bark.Logger,
-	closeCh <-chan struct{},
-) gometrics.Registry {
+) (*GoMetricsExporter, gometrics.Registry) {
 	// Make a new registy and give it to the caller. This allows the exporters to operate independently
 	registry := gometrics.NewRegistry()
-	r := &goMetricsExporter{
-		c:                   c,
+	r := &GoMetricsExporter{
+		m:                   m,
 		scope:               scope,
 		registry:            registry,
 		metricNameToMetric:  metricNameToMetric,
-		l:                   l,
-		closeCh:             closeCh,
+		closeCh:             make(chan struct{}, 0),
 		metricNameToLastVal: make(map[string]int64),
-
-		// Calculate the time to provide the delayToFirstLogDump in export()
-		lastLogDump: time.Now().Add(-1 * delayBetweenLogDumps).Add(delayToFirstLogDump),
 	}
-	go r.run()
-	return registry
+	return r, registry
 }
 
-func (r *goMetricsExporter) run() {
+// Stop stops the exporter
+func (r *GoMetricsExporter) Stop() {
+	close(r.closeCh)
+}
+
+// Run runs the exporter. It blocks until Stop() is called, so it should probably be run in a go-routine
+func (r *GoMetricsExporter) Run() {
 	t := time.NewTicker(delayBetweenExports)
 	defer t.Stop()
 
@@ -93,7 +86,11 @@ exportLoop:
 	}
 }
 
-func (r *goMetricsExporter) export() {
+// export solves a problem in exporting from rcrowley/go-metrics to m3 metrics. Both of these packages want to do the
+// local aggregation step of the local-reporting->local-aggregation->remote-reporting metrics pipeline. We have to
+// de-aggregate from rcrowley in order to properly report in m3. There is also some shoe-horning that must occur, because
+// m3 does not have a histogram type, but exposes that functionality in its timers.
+func (r *GoMetricsExporter) export() {
 	r.registry.Each(func(name string, i interface{}) {
 		if metricID, ok := r.metricNameToMetric[name]; ok {
 			switch metric := i.(type) {
@@ -106,7 +103,7 @@ func (r *goMetricsExporter) export() {
 					}
 
 					// Default unit for our timers is milliseconds, so this prevents a need to scale the metric for display
-					r.c.RecordTimer(r.scope, metricID, time.Duration(v)*time.Millisecond)
+					r.m.RecordTimer(r.scope, metricID, time.Duration(v)*time.Millisecond)
 				}
 
 				metric.Clear()
@@ -119,40 +116,7 @@ func (r *goMetricsExporter) export() {
 				lastVal := r.metricNameToLastVal[name]
 				r.metricNameToLastVal[name] = count
 
-				r.c.AddCounter(r.scope, metricID, count-lastVal)
-			default:
-				r.l.WithField(`type`, fmt.Sprintf("%T", i)).Error("unable to record metric")
-			}
-		} else {
-			// Unexported metrics are periodically reported here. This is reasonable for metrics
-			// that have excessive cardinality, such as the broker-specific Kafka metrics
-			if time.Since(r.lastLogDump) >= delayBetweenLogDumps {
-				r.lastLogDump = time.Now()
-				switch metric := i.(type) {
-				case gometrics.Histogram:
-					s := metric.Snapshot()
-					r.l.WithFields(bark.Fields{
-						`max`:  s.Max(),
-						`mean`: s.Mean(),
-						`min`:  s.Min(),
-						`sum`:  s.Sum(),
-						`p99`:  s.Percentile(99),
-						`p95`:  s.Percentile(95),
-						`name`: name,
-					}).Info(`unexported histogram metric`)
-					metric.Clear()
-				case gometrics.Meter:
-					s := metric.Snapshot()
-					r.l.WithFields(bark.Fields{
-						`avg1Min`:  s.Rate1(),
-						`avg5Min`:  s.Rate5(),
-						`avg15Min`: s.Rate15(),
-						`count`:    s.Count(),
-						`name`:     name,
-					}).Info(`unexported meter metric`)
-				default:
-					r.l.WithField(`type`, fmt.Sprintf("%T", i)).Error("unable to record unexported metric")
-				}
+				r.m.AddCounter(r.scope, metricID, count-lastVal)
 			}
 		}
 	})

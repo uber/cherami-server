@@ -25,7 +25,7 @@ type Set interface {
 
 const sliceSetMax = 16
 
-func NewSet(cap int) Set {
+func New(cap int) Set {
 
 	if cap == 0 || cap > sliceSetMax {
 		return newMapSet(cap)

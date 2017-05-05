@@ -34,6 +34,7 @@ import (
 	"github.com/uber/cherami-server/common"
 	"github.com/uber/cherami-server/common/configure"
 	dconfig "github.com/uber/cherami-server/common/dconfigclient"
+	"github.com/uber/cherami-server/common/set"
 	mockcommon "github.com/uber/cherami-server/test/mocks/common"
 	mockcontroller "github.com/uber/cherami-server/test/mocks/controllerhost"
 	mockmeta "github.com/uber/cherami-server/test/mocks/metadata"
@@ -1002,7 +1003,7 @@ func (s *OutputHostSuite) TestOutputAckMgrReset() {
 	assert.NotEqual(s.T(), readLevel, newReadLevel, "read levels should not be the same")
 }
 
-func (s *OutputHostSuite) TestOutputHostReplicaResume() {
+func (s *OutputHostSuite) TestOutputHostReplicaRollover() {
 
 	count := 50
 
@@ -1031,22 +1032,27 @@ func (s *OutputHostSuite) TestOutputHostReplicaResume() {
 	s.mockMeta.On("ReadConsumerGroupExtents", mock.Anything, mock.Anything).Return(cgRes, nil).Once()
 	s.mockRead.On("Write", mock.Anything).Return(nil)
 
-	nWritten := 0
 	writeDoneCh := make(chan struct{})
+	var msgsRecv = set.New(count)
 
-	s.mockCons.On("Write", mock.Anything).Return(nil).Times(count).Run(func(args mock.Arguments) {
+	s.mockCons.On("Write", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 
 		ohc := args.Get(0).(*cherami.OutputHostCommand)
 
 		if ohc.GetType() == cherami.OutputHostCommandType_MESSAGE {
 
 			msg := ohc.GetMessage()
-			fmt.Printf("msg id=%v\n", msg.GetPayload().GetID())
-			if nWritten++; nWritten == count {
+			id := msg.GetPayload().GetID()
+
+			// ensure we don't see duplicates
+			s.False(msgsRecv.Contains(id))
+
+			if msgsRecv.Insert(id); msgsRecv.Count() == count {
 				close(writeDoneCh)
 			}
 		}
-	})
+
+	}).Times(count)
 
 	cFlow := cherami.NewControlFlow()
 	cFlow.Credits = common.Int32Ptr(int32(count))
@@ -1054,40 +1060,47 @@ func (s *OutputHostSuite) TestOutputHostReplicaResume() {
 	connOpenedCh := make(chan struct{})
 	s.mockCons.On("Read").Return(cFlow, nil).Once().Run(func(args mock.Arguments) { close(connOpenedCh) })
 
-	// setup the mock so that we can read 10 messages
-	writeSeq := int64(0)
-
 	rmc := store.NewReadMessageContent()
 	rmc.Type = store.ReadMessageContentTypePtr(store.ReadMessageContentType_MESSAGE)
 
+	var seqnum int64
+
 	s.mockRead.On("Read").Return(rmc, nil).Run(func(args mock.Arguments) {
+		seqnum++
 		aMsg := store.NewAppendMessage()
-		aMsg.SequenceNumber = common.Int64Ptr(writeSeq)
+		aMsg.SequenceNumber = common.Int64Ptr(seqnum)
 		pMsg := cherami.NewPutMessage()
-		pMsg.ID = common.StringPtr(strconv.Itoa(int(writeSeq)))
-		pMsg.Data = []byte(fmt.Sprintf("hello-%d", writeSeq))
+		pMsg.ID = common.StringPtr(strconv.Itoa(int(seqnum)))
+		pMsg.Data = []byte(fmt.Sprintf("seqnum=%d", seqnum))
 		aMsg.Payload = pMsg
 		rMsg := store.NewReadMessage()
 		rMsg.Message = aMsg
-		rMsg.Address = common.Int64Ptr(1234000000 + writeSeq)
+		rMsg.Address = common.Int64Ptr(1234000000 + seqnum)
 		rmc.Message = rMsg
-		writeSeq++
+	}).Times(20)
+
+	// simulate error from a replica, that should cause outputhost to resume
+	// by re-connecting to the replica
+	s.mockRead.On("Read").Return(0, errors.New("store error")).Once()
+
+	s.mockRead.On("Read").Return(rmc, nil).Run(func(args mock.Arguments) {
+		seqnum++
+		aMsg := store.NewAppendMessage()
+		aMsg.SequenceNumber = common.Int64Ptr(seqnum)
+		pMsg := cherami.NewPutMessage()
+		pMsg.ID = common.StringPtr(strconv.Itoa(int(seqnum)))
+		pMsg.Data = []byte(fmt.Sprintf("seqnum=%d", seqnum))
+		aMsg.Payload = pMsg
+		rMsg := store.NewReadMessage()
+		rMsg.Message = aMsg
+		rMsg.Address = common.Int64Ptr(1234000000 + seqnum)
+		rmc.Message = rMsg
 	}).Times(count - 20)
 
-	s.mockRead.On("Read").Return(0, errors.New("store read error")).Once()
-
-	s.mockRead.On("Read").Return(rmc, nil).Run(func(args mock.Arguments) {
-		aMsg := store.NewAppendMessage()
-		pMsg := cherami.NewPutMessage()
-		pMsg.ID = common.StringPtr(strconv.Itoa(int(writeSeq)))
-		pMsg.Data = []byte(fmt.Sprintf("hello-%d", writeSeq))
-		aMsg.Payload = pMsg
-		rMsg := store.NewReadMessage()
-		rMsg.Message = aMsg
-		rMsg.Address = common.Int64Ptr(1234000000 + writeSeq)
-		rmc.Message = rMsg
-		writeSeq++
-	}).Times(20)
+	rmcSeal := store.NewReadMessageContent()
+	rmcSeal.Type = store.ReadMessageContentTypePtr(store.ReadMessageContentType_SEALED)
+	rmcSeal.Sealed = store.NewExtentSealedError()
+	s.mockRead.On("Read").Return(rmcSeal, nil).Once()
 
 	streamDoneCh := make(chan struct{})
 	go func() {

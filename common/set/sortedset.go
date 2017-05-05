@@ -29,7 +29,7 @@ type sortedset struct {
 }
 
 // NewSortedSet initializes a sorted-slice based set
-func NewSortedSet(cap int) *sortedset {
+func NewSortedSet(cap int) Set {
 
 	return &sortedset{
 		s: make([]string, 0),

@@ -25,7 +25,7 @@ type mapset struct {
 }
 
 // NewMapSet initializes a map-based set
-func NewMapSet(cap int) *mapset {
+func NewMapSet(cap int) Set {
 
 	return &mapset{
 		m: make(map[string]struct{}),

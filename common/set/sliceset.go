@@ -25,7 +25,7 @@ type sliceset struct {
 }
 
 // NewSliceSet initializes a slice-based set
-func NewSliceSet(cap int) *sliceset {
+func NewSliceSet(cap int) Set {
 
 	return &sliceset{
 		s: make([]string, 0),

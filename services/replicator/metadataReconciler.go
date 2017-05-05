@@ -119,21 +119,34 @@ func (r *metadataReconciler) run() {
 		return
 	}
 
+	// Get the local destination and cgs
+	localDests, err := r.getAllMultiZoneDestInLocalZone()
+	if err != nil {
+		r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileFail, 1)
+		return
+	}
+	localCgs, err := r.getAllMultiZoneCgInLocalZone(localDests)
+	if err != nil {
+		r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileFail, 1)
+		return
+	}
+
 	// destination/cg metadata reconciliation is only needed if this is a non-authoritative zone
-	var localCgs []*shared.ConsumerGroupDescription
 	if r.localZone != r.replicator.getAuthoritativeZone() {
 		r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestRun, 1)
-		localDests, remoteDests, err2 := r.reconcileDestMetadata()
-		if err2 != nil {
-			r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFail, 1)
-			return
-		}
-
-		r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgRun, 1)
-		localCgs, err = r.reconcileCgMetadata(localDests, remoteDests)
+		authoritativeZoneDests, err := r.getAllMultiZoneDestInAuthoritativeZone()
 		if err != nil {
-			r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFail, 1)
-			return
+			r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileDestFail, 1)
+		} else {
+			r.reconcileDest(localDests, authoritativeZoneDests)
+
+			r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgRun, 1)
+			authoritativeZoneCgs, err := r.getAllMultiZoneCgInAuthoritativeZone(authoritativeZoneDests)
+			if err != nil {
+				r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFail, 1)
+			} else {
+				r.reconcileCg(localCgs, authoritativeZoneCgs)
+			}
 		}
 	}
 
@@ -152,36 +165,6 @@ func (r *metadataReconciler) run() {
 	}
 
 	atomic.StoreInt64(&r.running, 0)
-}
-
-func (r *metadataReconciler) reconcileDestMetadata() ([]*shared.DestinationDescription, []*shared.DestinationDescription, error) {
-	localDests, err := r.getAllMultiZoneDestInLocalZone()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	remoteDests, err := r.getAllMultiZoneDestInAuthoritativeZone()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	r.reconcileDest(localDests, remoteDests)
-	return localDests, remoteDests, nil
-}
-
-func (r *metadataReconciler) reconcileCgMetadata(localDests []*shared.DestinationDescription, remoteDests []*shared.DestinationDescription) ([]*shared.ConsumerGroupDescription, error) {
-	localCgs, err := r.getAllMultiZoneCgInLocalZone(localDests)
-	if err != nil {
-		return nil, err
-	}
-
-	remoteCgs, err := r.getAllMultiZoneCgInAuthoritativeZone(remoteDests)
-	if err != nil {
-		return nil, err
-	}
-
-	r.reconcileCg(localCgs, remoteCgs)
-	return localCgs, nil
 }
 
 func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescription, remoteDests []*shared.DestinationDescription) {
@@ -301,6 +284,7 @@ func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescr
 
 func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescription, remoteCgs []*shared.ConsumerGroupDescription) {
 	var replicatorReconcileCgFoundMissingCount int64
+	var replicatorReconcileCgFoundUpdatedCount int64
 	localCgsSet := make(map[string]*shared.ConsumerGroupDescription, len(localCgs))
 	for _, cg := range localCgs {
 		localCgsSet[cg.GetConsumerGroupUUID()] = cg
@@ -335,7 +319,8 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 				continue
 			}
 
-			// TODO case #2: cg exists in both remote and local, try to compare the property to see if anything gets updated
+			// case #2: cg exists in both remote and local, try to compare and update cg
+			r.compareAndUpdateCg(remoteCg, localCg, lclLg, &replicatorReconcileCgFoundUpdatedCount)
 		} else {
 			// case #3: cg exists in remote, but not in local. Create the cg locally
 			lclLg.Warn(`Found missing ConsumerGroup from remote!`)
@@ -388,6 +373,59 @@ func (r *metadataReconciler) reconcileCg(localCgs []*shared.ConsumerGroupDescrip
 	// We don't need to handle this because deleted cg will still be in the uuid table for 30 days, so it should be covered by case #1
 
 	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFoundMissing, replicatorReconcileCgFoundMissingCount)
+	r.m3Client.UpdateGauge(metrics.ReplicatorReconcileScope, metrics.ReplicatorReconcileCgFoundUpdated, replicatorReconcileCgFoundUpdatedCount)
+}
+
+func (r *metadataReconciler) compareAndUpdateCg(remoteCg *shared.ConsumerGroupDescription, localCg *shared.ConsumerGroupDescription, logger bark.Logger, replicatorReconcileCgFoundUpdatedCount *int64) {
+	updateRequest := &shared.UpdateConsumerGroupRequest{}
+	cgUpdated := false
+
+	if localCg.GetLockTimeoutSeconds() != remoteCg.GetLockTimeoutSeconds() {
+		updateRequest.LockTimeoutSeconds = common.Int32Ptr(remoteCg.GetLockTimeoutSeconds())
+		cgUpdated = true
+	}
+	if localCg.GetMaxDeliveryCount() != remoteCg.GetMaxDeliveryCount() {
+		updateRequest.MaxDeliveryCount = common.Int32Ptr(remoteCg.GetMaxDeliveryCount())
+		cgUpdated = true
+	}
+	if localCg.GetSkipOlderMessagesSeconds() != remoteCg.GetSkipOlderMessagesSeconds() {
+		updateRequest.SkipOlderMessagesSeconds = common.Int32Ptr(remoteCg.GetSkipOlderMessagesSeconds())
+		cgUpdated = true
+	}
+	if localCg.GetStatus() != remoteCg.GetStatus() {
+		updateRequest.Status = common.InternalConsumerGroupStatusPtr(remoteCg.GetStatus())
+		cgUpdated = true
+	}
+	if localCg.GetOwnerEmail() != remoteCg.GetOwnerEmail() {
+		updateRequest.OwnerEmail = common.StringPtr(remoteCg.GetOwnerEmail())
+		cgUpdated = true
+	}
+	if localCg.GetActiveZone() != remoteCg.GetActiveZone() {
+		updateRequest.ActiveZone = common.StringPtr(remoteCg.GetActiveZone())
+		cgUpdated = true
+	}
+
+	if cgUpdated {
+		logger.Info(`Found cg gets updated in remote but not in local`)
+		*replicatorReconcileCgFoundUpdatedCount = *replicatorReconcileCgFoundUpdatedCount + 1
+
+		destDesc, err := r.readDestinationInAuthoritativeZone(remoteCg.GetDestinationUUID())
+		if err != nil {
+			logger.WithFields(bark.Fields{
+				common.TagErr: err,
+			}).Error(`Failed to update ConsumerGroup in local zone because read destination failed in remote zone`)
+			return
+		}
+		updateRequest.DestinationPath = common.StringPtr(destDesc.GetPath())
+		updateRequest.ConsumerGroupName = common.StringPtr(remoteCg.GetConsumerGroupName())
+
+		ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)
+		defer cancel()
+		_, err = r.replicator.UpdateConsumerGroup(ctx, updateRequest)
+		if err != nil {
+			logger.WithField(common.TagErr, err).Error(`Failed to update cg in local zone for reconciliation`)
+		}
+	}
 }
 
 func (r *metadataReconciler) readDestinationInAuthoritativeZone(destUUID string) (*shared.DestinationDescription, error) {

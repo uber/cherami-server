@@ -1,3 +1,23 @@
+// Copyright (c) 2017 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 package set
 
 import (
@@ -7,66 +27,41 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type settype int
+func newTestSet(setType string, cap int) (s Set) {
 
-func (t settype) String() string {
-	switch t {
-	case tSliceset:
-		return "sliceset"
-	case tSortedset:
-		return "sortedset"
-	case tMapset:
-		return "mapset"
+	switch setType {
+	case "SliceSet":
+		s = NewSliceSet(0)
+	case "SortedSet":
+		s = NewSortedSet(0)
+	case "MapSet":
+		s = NewMapSet(0)
 	}
-	return "unknown"
-}
 
-const (
-	_ settype = iota
-	tSliceset
-	tSortedset
-	tMapset
-)
+	return s
+}
 
 func TestSet(t *testing.T) {
 
 	testCases := []struct {
-		set0 settype
-		set1 settype
+		set0, set1 string // set type
 	}{
-		{tSliceset, tSliceset},
-		{tSliceset, tSortedset},
-		{tSliceset, tMapset},
-		{tSortedset, tSliceset},
-		{tSortedset, tSortedset},
-		{tSortedset, tMapset},
-		{tMapset, tSliceset},
-		{tMapset, tSortedset},
-		{tMapset, tMapset},
+		{"SliceSet", "SliceSet"},
+		{"SliceSet", "SortedSet"},
+		{"SliceSet", "MapSet"},
+		{"SortedSet", "SliceSet"},
+		{"SortedSet", "SortedSet"},
+		{"SortedSet", "MapSet"},
+		{"MapSet", "SliceSet"},
+		{"MapSet", "SortedSet"},
+		{"MapSet", "MapSet"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("{%v,%v}", tc.set0, tc.set1), func(t *testing.T) {
 
-			var s0, s1 Set
-
-			switch tc.set0 {
-			case tSliceset:
-				s0 = newSliceSet(0)
-			case tSortedset:
-				s0 = newSortedSet(0)
-			case tMapset:
-				s0 = newMapSet(0)
-			}
-
-			switch tc.set1 {
-			case tSliceset:
-				s1 = newSliceSet(0)
-			case tSortedset:
-				s1 = newSortedSet(0)
-			case tMapset:
-				s1 = newMapSet(0)
-			}
+			s0 := newTestSet(tc.set0, 0)
+			s1 := newTestSet(tc.set1, 0)
 
 			assert.False(t, s0.Contains("foo"))
 			assert.Equal(t, 0, s0.Count())

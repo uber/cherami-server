@@ -72,3 +72,5 @@ import:
   version: ^1.11.0
   repo: http://github.com/Shopify/sarama
 - package: github.com/rcrowley/go-metrics
+- package: github.com/google/uuid
+  version: ^0.2.0

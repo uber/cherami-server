@@ -54,6 +54,7 @@ type (
 		readLevelSeq common.SequenceNumber // msg seqnum corresponding to readLevel
 		ackLevel     ackIndex              // index upto which msgs have been acked
 		ackLevelSeq  common.SequenceNumber // msg seqnum corresponding to the ackLevel
+
 		lastAckedSeq common.SequenceNumber // the latest sequence which is acked
 	}
 

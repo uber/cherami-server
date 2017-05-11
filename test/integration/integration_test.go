@@ -51,10 +51,10 @@ import (
 	"testing"
 )
 
-type NetIntegrationSuiteParallelB struct {
+type NetIntegrationSuiteParallelA struct {
 	testBase
 }
-type NetIntegrationSuiteParallelA struct {
+type NetIntegrationSuiteParallelB struct {
 	testBase
 }
 type NetIntegrationSuiteParallelC struct {
@@ -113,7 +113,7 @@ func XXXTestNetIntegrationSuiteSerial(t *testing.T) {
 
 func createCheramiClient(svcName string, ipaddr string, port int, logger bark.Logger) client.Client {
 	options := &client.ClientOptions{
-		Timeout: time.Second * 30,
+		Timeout: time.Second * 60,
 		ReconfigurationPollingInterval: time.Second,
 	}
 	if logger != nil {
@@ -183,6 +183,9 @@ func (s *NetIntegrationSuiteParallelC) TestMsgCacheLimit() {
 	s.NotNil(publisherTest)
 
 	err = publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestMsgCacheLimit: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 	// Publish messages
 	doneCh := make(chan *client.PublisherReceipt, testMsgCount)
@@ -337,6 +340,9 @@ func (s *NetIntegrationSuiteParallelE) TestWriteEndToEndSuccessWithCassandra() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestWriteEndToEndSuccessWithCassandra: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages
@@ -436,7 +442,7 @@ ReadLoop:
 	s.Nil(err, "Failed to delete destination")
 }
 
-func (s *NetIntegrationSuiteParallelE) _TestWriteWithDrain() { // Disabled pending fix for flakiness
+func (s *NetIntegrationSuiteParallelE) TestWriteWithDrain() { // Disabled pending fix for flakiness
 	destPath := "/dest/testWriteDrain"
 	cgPath := "/cg/testWriteDrain"
 	testMsgCount := 1000
@@ -477,6 +483,9 @@ func (s *NetIntegrationSuiteParallelE) _TestWriteWithDrain() { // Disabled pendi
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestWriteWithDrain: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages
@@ -656,6 +665,9 @@ func (s *NetIntegrationSuiteSerial) TestWriteEndToEndMultipleStore() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestWriteEndToEndMultipleStore: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages
@@ -901,6 +913,9 @@ func (s *NetIntegrationSuiteParallelB) _TestTimerQueue() {
 
 	// -- start publisher and publish all messages
 	err = publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestTimerQueue: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	doneCh := make(chan *client.PublisherReceipt, testMsgCount)
@@ -1095,7 +1110,9 @@ func (s *NetIntegrationSuiteParallelA) TestDLQWithCassandra() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
-	log.Errorf("error is: %v", err)
+	if err != nil {
+		fmt.Printf("TestDLQWithCassandra: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages continuously in a goroutine;
@@ -1626,6 +1643,9 @@ func (s *NetIntegrationSuiteParallelD) TestSmartRetryDisableDuringDLQMerge() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestSmartRetryDisableDuringDLQMerge: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages continuously in a goroutine to ensures a steady supply of 'good' messages so
@@ -1781,7 +1801,7 @@ readLoop:
 	}
 }
 
-func (s *NetIntegrationSuiteParallelA) _TestSmartRetry() {
+func (s *NetIntegrationSuiteParallelA) TestSmartRetry() {
 	destPath := "/test.runner.SmartRetry/TestSmartRetry"
 	cgPath := "/test.runner.SmartRetry/TestSmartRetryCG"
 	testMsgCount := 1000
@@ -1821,6 +1841,9 @@ func (s *NetIntegrationSuiteParallelA) _TestSmartRetry() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestSmartRetry: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages
@@ -2038,7 +2061,7 @@ ReadLoop2_TheReloopening:
 
 }
 
-func (s *NetIntegrationSuiteParallelE) _TestStartFromWithCassandra() {
+func (s *NetIntegrationSuiteParallelE) TestStartFromWithCassandra() {
 	destPath := "/dest/TestStartFromWithCassandra"
 	cgPathEverything := "/cg/TestStartFromWithCassandraEverything"
 	cgPathStartFrom := "/cg/TestStartFromWithCassandra"
@@ -2080,6 +2103,9 @@ func (s *NetIntegrationSuiteParallelE) _TestStartFromWithCassandra() {
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("TestStartFromWithCassandra: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages
@@ -2258,7 +2284,8 @@ ReadLoop2:
 	s.Nil(err, "Failed to delete destination")
 }
 
-func (s *NetIntegrationSuiteParallelB) _TestQueueDepth() { // Disable pending fix for flakiness
+func (s *NetIntegrationSuiteParallelB) TestQueueDepth() {
+
 	const (
 		destPath                = `/test.runner.SmartRetry/TestQueueDepth` // This path ensures that throttling is limited for this test
 		cgPath                  = `/test.runner.SmartRetry/TestQueueDepthCG`
@@ -2366,6 +2393,9 @@ func (s *NetIntegrationSuiteParallelB) _TestQueueDepth() { // Disable pending fi
 	s.NotNil(publisherTest)
 
 	errPTO := publisherTest.Open()
+	if errPTO != nil {
+		fmt.Printf("TestQueueDepth: publisherTest.Open failed: %v\n", errPTO)
+	}
 	s.NoError(errPTO)
 	defer publisherTest.Close()
 
@@ -2633,7 +2663,7 @@ func (s *NetIntegrationSuiteParallelB) _TestQueueDepth() { // Disable pending fi
 
 	var newStartFrom int64
 	for ; phase < phaseCount; phase++ {
-		ll().WithField(`phase`, phase).Error(`Starting...`)
+		ll().WithField(`phase`, phase).Info(`Starting...`)
 		// Producer actions
 		switch phase {
 		case 0:
@@ -2742,6 +2772,9 @@ func (s *NetIntegrationSuiteParallelC) doPublishAndReadTest(
 	s.NotNil(publisherTest)
 
 	err := publisherTest.Open()
+	if err != nil {
+		fmt.Printf("doPublishAndReadTest: publisherTest.Open failed: %v\n", err)
+	}
 	s.NoError(err)
 
 	// Publish messages

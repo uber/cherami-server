@@ -98,6 +98,23 @@ cdb: $(DEPS)
 
 bins: cherami-server cherami-replicator-server cherami-cli cherami-admin cherami-replicator-tool cherami-cassandra-tool cherami-store-tool cdb
 
+integration_tests: bins
+	@echo Running integration tests:
+	@time for dir in $(INTEG_TEST_DIRS); do \
+		go test $(EMBED) "$$dir" $(TEST_ARG) $(GOCOVERPKG_ARG) || exit 1; \
+	done
+
+queue_depth: bins
+	go test -v -race ./test/integration -testify.m QueueDepth || exit 1; \
+
+
+unit_tests: bins
+	@echo Running tests:
+	@time for dir in $(PKG_TEST_DIRS); do \
+		go test $(EMBED) "$$dir" $(TEST_ARG) || exit 1; \
+	done
+
+
 cover_profile: lint bins
 	@mkdir -p $(BUILD)
 	@echo "mode: atomic" > $(BUILD)/cover.out

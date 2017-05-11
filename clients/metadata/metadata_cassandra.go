@@ -886,9 +886,6 @@ func (s *CassandraMetadataService) DeleteDestinationUUID(ctx thrift.Context, del
 		defaultDeleteTTLSeconds).Consistency(s.midConsLevel)
 
 	if err = query.Exec(); err != nil {
-
-		fmt.Printf("DeleteDestinationUUID query=%v ERROR=%v\n", query, err)
-
 		return &shared.InternalServiceError{
 			Message: fmt.Sprintf("DeleteDestinationUUID:%v (%v)", *existing.DLQConsumerGroupUUID, err),
 		}

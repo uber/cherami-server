@@ -204,6 +204,7 @@ func (dlq *deadLetterQueue) publish() {
 				err = backoff.Retry(func() error {
 					receipt := dlq.publisher.Publish(&client.PublisherMessage{
 						Data: msg.GetPayload().GetData(),
+						UserContext: msg.GetPayload().GetUserContext(),
 					})
 					if receipt.Error != nil {
 						dlq.lclLg.WithFields(bark.Fields{

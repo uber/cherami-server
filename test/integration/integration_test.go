@@ -1809,7 +1809,7 @@ readLoop:
 func (s *NetIntegrationSuiteParallelF) TestSmartRetry() {
 	destPath := "/test.runner.SmartRetry/TestSmartRetry"
 	cgPath := "/test.runner.SmartRetry/TestSmartRetryCG"
-	testMsgCount := 1000
+	testMsgCount := 10
 	var ackedMsgID int
 
 	log := common.GetDefaultLogger()

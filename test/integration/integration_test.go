@@ -1809,7 +1809,7 @@ readLoop:
 func (s *NetIntegrationSuiteParallelF) TestSmartRetry() {
 	destPath := "/test.runner.SmartRetry/TestSmartRetry"
 	cgPath := "/test.runner.SmartRetry/TestSmartRetryCG"
-	testMsgCount := 10
+	testMsgCount := 100
 	var ackedMsgID int
 
 	log := common.GetDefaultLogger()
@@ -1886,7 +1886,7 @@ func (s *NetIntegrationSuiteParallelF) TestSmartRetry() {
 		Path:              destPath,
 		ConsumerGroupName: cgPath,
 		ConsumerName:      "TestSmartRetryConsumerName",
-		PrefetchCount:     2,
+		PrefetchCount:     10,
 		Options:           &client.ClientOptions{Timeout: time.Second * 30}, // this is the thrift context timeout
 	}
 

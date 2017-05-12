@@ -66,6 +66,12 @@ type NetIntegrationSuiteParallelD struct {
 type NetIntegrationSuiteParallelE struct {
 	testBase
 }
+type NetIntegrationSuiteParallelF struct {
+	testBase
+}
+type NetIntegrationSuiteParallelG struct {
+	testBase
+}
 
 type NetIntegrationSuiteSerial struct {
 	testBase
@@ -97,6 +103,18 @@ func TestNetIntegrationSuiteParallelD(t *testing.T) {
 }
 func TestNetIntegrationSuiteParallelE(t *testing.T) {
 	s := new(NetIntegrationSuiteParallelE)
+	s.testBase.SetupSuite(t)
+	t.Parallel()
+	suite.Run(t, s)
+}
+func TestNetIntegrationSuiteParallelF(t *testing.T) {
+	s := new(NetIntegrationSuiteParallelF)
+	s.testBase.SetupSuite(t)
+	t.Parallel()
+	suite.Run(t, s)
+}
+func TestNetIntegrationSuiteParallelG(t *testing.T) {
+	s := new(NetIntegrationSuiteParallelG)
 	s.testBase.SetupSuite(t)
 	t.Parallel()
 	suite.Run(t, s)
@@ -1788,7 +1806,7 @@ readLoop:
 	}
 }
 
-func (s *NetIntegrationSuiteParallelA) TestSmartRetry() {
+func (s *NetIntegrationSuiteParallelF) TestSmartRetry() {
 	destPath := "/test.runner.SmartRetry/TestSmartRetry"
 	cgPath := "/test.runner.SmartRetry/TestSmartRetryCG"
 	testMsgCount := 1000

@@ -82,7 +82,7 @@ type deadLetterQueue struct {
 	closeCh           chan struct{}
 	consumerM3Client  metrics.Client
 	m3Client          metrics.Client
-	dlqWG             sync.WaitGroup
+	wg                sync.WaitGroup
 }
 
 func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.ConsumerGroupDescription, metaClient metadata.TChanMetadataService, m3Client metrics.Client, consumerM3Client metrics.Client) (dlq *deadLetterQueue, err error) {
@@ -96,7 +96,7 @@ func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.Con
 		m3Client:          m3Client,
 	}
 
-	dlq.dlqWG.Add(2)
+	dlq.wg.Add(2)
 	go dlq.publishBuffer()
 	go dlq.publish()
 
@@ -142,7 +142,7 @@ func newDeadLetterQueue(ctx thrift.Context, lclLg bark.Logger, cgDesc shared.Con
 }
 
 func (dlq *deadLetterQueue) publishBuffer() {
-	defer dlq.dlqWG.Done()
+	defer dlq.wg.Done()
 	var buffer []*cherami.ConsumerMessage
 	var peekVal *cherami.ConsumerMessage
 	var dlqPublishBufferOutCh chan *cherami.ConsumerMessage
@@ -191,7 +191,7 @@ func (dlq *deadLetterQueue) publishBuffer() {
 }
 
 func (dlq *deadLetterQueue) publish() {
-	defer dlq.dlqWG.Done()
+	defer dlq.wg.Done()
 	var err error
 	for {
 		select {
@@ -261,6 +261,6 @@ func (dlq *deadLetterQueue) close() {
 			dlq.publisher.Close()
 		}
 		close(dlq.closeCh)
-		dlq.dlqWG.Wait()
+		dlq.wg.Wait()
 	}
 }

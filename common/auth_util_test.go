@@ -62,7 +62,13 @@ func (s *AuthUtilSuite) TestGetResourceURNCreateDestination() {
 	config.deploymentName = "zone1"
 	s.Equal("urn:cherami:dst:zone1:", GetResourceURNCreateDestination(mockService, nil))
 	s.Equal("urn:cherami:dst:zone1:", GetResourceURNCreateDestination(mockService, StringPtr("")))
+	s.Equal("urn:cherami:dst:zone1:/", GetResourceURNCreateDestination(mockService, StringPtr("/")))
+	s.Equal("urn:cherami:dst:zone1:/", GetResourceURNCreateDestination(mockService, StringPtr("//")))
 
 	config.deploymentName = "Zone2_ABC"
 	s.Equal("urn:cherami:dst:zone2_abc:/dst1", GetResourceURNCreateDestination(mockService, StringPtr("/Dst1")))
+	s.Equal("urn:cherami:dst:zone2_abc:/root2", GetResourceURNCreateDestination(mockService, StringPtr("/Root2/Dst2")))
+
+	s.Equal("urn:cherami:dst:zone2_abc:dst2", GetResourceURNCreateDestination(mockService, StringPtr("Dst2")))
+	s.Equal("urn:cherami:dst:zone2_abc:root2", GetResourceURNCreateDestination(mockService, StringPtr("Root2/Dst2")))
 }

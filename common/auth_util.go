@@ -29,15 +29,32 @@ const (
 	resourceURNTemplateCreateDestination = "urn:cherami:dst:%v:%v"
 )
 
-// GetResourceURNCreateDestination returns the resource URN to create destination, e.g. urn:cherami:dst:zone1_prod:/prefix1/dst1
+// GetResourceURNCreateDestination returns the resource URN to create destination, e.g. urn:cherami:dst:zone1_prod:/prefix1
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
 func GetResourceURNCreateDestination(scommon SCommon, dstPath *string) string {
 	var dstPathString string
 	if dstPath == nil {
 		dstPathString = ""
 	} else {
-		dstPathString = *dstPath
+		dstPathString = getPathRootName(dstPath)
 	}
 	deploymentName := scommon.GetConfig().GetDeploymentName()
 	return fmt.Sprintf(resourceURNTemplateCreateDestination, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
+}
+
+func getPathRootName(path *string) string {
+	if path == nil {
+		return ""
+	}
+
+	parts := strings.Split(*path, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+
+	if strings.HasPrefix(*path, "/") {
+		return "/" + parts[1]
+	}
+
+	return parts[0]
 }

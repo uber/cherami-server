@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/codegangsta/cli"
+	cherami2 "github.com/uber/cherami-client-go/client/cherami"
 	mcli "github.com/uber/cherami-server/clients/metadata"
 	"github.com/uber/cherami-server/common"
 	toolscommon "github.com/uber/cherami-server/tools/common"
@@ -45,7 +46,12 @@ const (
 
 // CreateDestination creates a destination
 func CreateDestination(c *cli.Context, cliHelper common.CliHelper) {
-	cClient := toolscommon.GetCClient(c, adminToolService)
+	CreateDestinationSecure(c, cliHelper, nil)
+}
+
+// CreateDestinationSecure creates a destination with security enabled
+func CreateDestinationSecure(c *cli.Context, cliHelper common.CliHelper, authProvider cherami2.AuthProvider) {
+	cClient := toolscommon.GetCClientSecure(c, adminToolService, authProvider)
 	toolscommon.CreateDestination(c, cClient, cliHelper)
 }
 

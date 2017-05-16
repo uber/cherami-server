@@ -43,15 +43,12 @@ func GetResourceURNCreateDestination(scommon SCommon, dstPath *string) string {
 }
 
 func getPathRootName(path *string) string {
-	if path == nil {
+	if path == nil || *path == ""{
 		return ""
 	}
 
 	parts := strings.Split(*path, "/")
-	if len(parts) == 0 {
-		return ""
-	}
-
+	
 	if strings.HasPrefix(*path, "/") {
 		return "/" + parts[1]
 	}

@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	resourceURNTemplateCreateDestination = "urn:cherami:dst:%v:%v"
+	resourceURNTemplateCreateDestination   = "urn:cherami:dst:%v:%v"
+	resourceURNTemplateCreateConsumerGroup = "urn:cherami:dst:%v:%v"
 )
 
 // GetResourceURNCreateDestination returns the resource URN to create destination, e.g. urn:cherami:dst:zone1_prod:/prefix1
@@ -42,13 +43,26 @@ func GetResourceURNCreateDestination(scommon SCommon, dstPath *string) string {
 	return fmt.Sprintf(resourceURNTemplateCreateDestination, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
 }
 
+// GetResourceURNCreateConsumerGroup returns the resource URN to create consumer group, e.g. urn:cherami:dst:zone1_prod:/dst1
+// We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
+func GetResourceURNCreateConsumerGroup(scommon SCommon, dstPath *string) string {
+	var dstPathString string
+	if dstPath == nil {
+		dstPathString = ""
+	} else {
+		dstPathString = *dstPath
+	}
+	deploymentName := scommon.GetConfig().GetDeploymentName()
+	return fmt.Sprintf(resourceURNTemplateCreateConsumerGroup, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
+}
+
 func getPathRootName(path *string) string {
-	if path == nil || *path == ""{
+	if path == nil || *path == "" {
 		return ""
 	}
 
 	parts := strings.Split(*path, "/")
-	
+
 	if strings.HasPrefix(*path, "/") {
 		return "/" + parts[1]
 	}

@@ -64,7 +64,12 @@ func UpdateDestination(c *cli.Context) {
 
 // CreateConsumerGroup creates a consumer group
 func CreateConsumerGroup(c *cli.Context, cliHelper common.CliHelper) {
-	cClient := toolscommon.GetCClient(c, adminToolService)
+	CreateConsumerGroupSecure(c, cliHelper, nil)
+}
+
+// CreateConsumerGroupSecure creates a consumer group with security enabled
+func CreateConsumerGroupSecure(c *cli.Context, cliHelper common.CliHelper, authProvider cherami2.AuthProvider) {
+	cClient := toolscommon.GetCClientSecure(c, adminToolService, authProvider)
 	mClient := toolscommon.GetMClient(c, adminToolService)
 	toolscommon.CreateConsumerGroup(c, cClient, mClient, cliHelper)
 }

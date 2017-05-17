@@ -60,7 +60,7 @@ func CreateConsumerGroup(c *cli.Context, cliHelper scommon.CliHelper) {
 	CreateConsumerGroupSecure(c, cliHelper, nil)
 }
 
-// CreateConsumerGroup creates the CG with security enabled
+// CreateConsumerGroupSecure creates the CG with security enabled
 func CreateConsumerGroupSecure(c *cli.Context, cliHelper scommon.CliHelper, authProvider cherami2.AuthProvider) {
 	mClient := common.GetMClient(c, serviceName)
 	cClient := common.GetCClientSecure(c, serviceName, authProvider)

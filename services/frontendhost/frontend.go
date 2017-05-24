@@ -44,6 +44,7 @@ import (
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
 
+	"context"
 	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go/hyperbahn"
 	"github.com/uber/tchannel-go/thrift"
@@ -51,6 +52,7 @@ import (
 
 const (
 	maxSizeCacheDestinationPathForUUID = 1000
+	authContextResourceUrnKey          = "resourceUrn"
 )
 
 var nilRequestError = &c.BadRequestError{Message: `request must not be nil`}
@@ -589,13 +591,15 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	lclLg := h.logger.WithField(common.TagDstPth, common.FmtDstPth(createRequest.GetPath()))
 
-	authSubject, err := h.GetAuthManager().Authenticate(ctx)
+	authResource := common.GetResourceURNCreateDestination(h.SCommon, createRequest.Path)
+
+	authContext := context.WithValue(ctx, authContextResourceUrnKey, authResource)
+	authSubject, err := h.GetAuthManager().Authenticate(authContext)
 	if err != nil {
 		// TODO add metrics
 		return nil, err
 	}
 
-	authResource := common.GetResourceURNCreateDestination(h.SCommon, createRequest.Path)
 	err = h.GetAuthManager().Authorize(authSubject, common.OperationCreate, common.Resource(authResource))
 	if err != nil {
 		lclLg.WithField(common.TagSubject, authSubject).WithField(common.TagResource, authResource).Info("Not allowed to create destination")

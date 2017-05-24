@@ -21,6 +21,7 @@
 package frontendhost
 
 import (
+	"context"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
@@ -44,7 +45,6 @@ import (
 	m "github.com/uber/cherami-thrift/.generated/go/metadata"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
 
-	"context"
 	"github.com/uber-common/bark"
 	"github.com/uber/tchannel-go/hyperbahn"
 	"github.com/uber/tchannel-go/thrift"

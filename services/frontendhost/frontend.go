@@ -52,8 +52,11 @@ import (
 
 const (
 	maxSizeCacheDestinationPathForUUID = 1000
-	authContextResourceUrnKey          = "resourceUrn"
 )
+
+type ContextKey string
+
+var ResourceUrnKey = ContextKey("resourceUrn")
 
 var nilRequestError = &c.BadRequestError{Message: `request must not be nil`}
 var badRequestKafkaConfigError = &c.BadRequestError{Message: `kafka destination must set kafka cluster and topic, and may not be multi-zone`}
@@ -593,7 +596,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	authResource := common.GetResourceURNCreateDestination(h.SCommon, createRequest.Path)
 
-	authContext := context.WithValue(ctx, authContextResourceUrnKey, authResource)
+	authContext := context.WithValue(ctx, ResourceUrnKey, authResource)
 	authSubject, err := h.GetAuthManager().Authenticate(authContext)
 	if err != nil {
 		// TODO add metrics

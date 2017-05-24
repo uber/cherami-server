@@ -54,8 +54,10 @@ const (
 	maxSizeCacheDestinationPathForUUID = 1000
 )
 
+// ContextKey is the type for context key
 type ContextKey string
 
+// ResourceUrnKey is the context key name for resourceUrn
 var ResourceUrnKey = ContextKey("resourceUrn")
 
 var nilRequestError = &c.BadRequestError{Message: `request must not be nil`}

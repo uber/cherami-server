@@ -225,6 +225,11 @@ func (r *metadataReconciler) reconcileDest(localDests []*shared.DestinationDescr
 				destUpdated = true
 			}
 
+			if !common.AreDestinationZoneConfigsEqual(localDest.GetZoneConfigs(), remoteDest.GetZoneConfigs()) {
+				updateRequest.ZoneConfigs = remoteDest.GetZoneConfigs()
+				destUpdated = true
+			}
+
 			if destUpdated {
 				r.logger.WithField(common.TagDst, common.FmtDst(remoteDest.GetDestinationUUID())).Info(`Found destination gets updated in remote but not in local`)
 				ctx, cancel := thrift.NewContext(localReplicatorCallTimeOut)

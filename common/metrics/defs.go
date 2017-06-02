@@ -453,6 +453,8 @@ const (
 	ReplicatorSetAckOffsetScope
 	// ReplicatorSetAckOffsetInRemoteScope represents replicator SetAckOffsetInRemote API
 	ReplicatorSetAckOffsetInRemoteScope
+	// ReplicatorReadDestinationInRemoteZoneScope represents replicator ReadDestinationInRemoteZone API
+	ReplicatorReadDestinationInRemoteZoneScope
 	// ReplicatorReconcileScope represents replicator's reconcile process
 	ReplicatorReconcileScope
 )

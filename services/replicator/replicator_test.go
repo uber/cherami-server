@@ -1162,6 +1162,52 @@ func (s *ReplicatorSuite) TestDestMetadataReconcileRemoteUpdate() {
 	s.mockMeta.AssertExpectations(s.T())
 }
 
+// destination zone config is updated in remote zone. Expect a update request is generated
+func (s *ReplicatorSuite) TestDestMetadataReconcileRemoteUpdateZoneConfig() {
+	localZone := `zone2`
+	destUUID := uuid.New()
+	destPath := `path`
+	var remoteZoneConfigs []*shared.DestinationZoneConfig
+	var localZoneConfigs []*shared.DestinationZoneConfig
+	for _, zone := range []string{`zone1`, `zone2`} {
+		remoteZoneConfigs = append(remoteZoneConfigs, &shared.DestinationZoneConfig{
+			Zone:         common.StringPtr(zone),
+			AllowPublish: common.BoolPtr(true),
+			AllowConsume: common.BoolPtr(true),
+		})
+		localZoneConfigs = append(localZoneConfigs, &shared.DestinationZoneConfig{
+			Zone:         common.StringPtr(zone),
+			AllowPublish: common.BoolPtr(false),
+			AllowConsume: common.BoolPtr(false),
+		})
+	}
+
+	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
+	reconciler, _ := NewMetadataReconciler(repliator.metaClient, repliator, localZone, repliator.logger, repliator.m3Client).(*metadataReconciler)
+
+	// setup mock
+	s.mockMeta.On("UpdateDestination", mock.Anything, mock.Anything).Return(shared.NewDestinationDescription(), nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.UpdateDestinationRequest)
+		s.Equal(destUUID, req.GetDestinationUUID())
+		s.True(common.AreDestinationZoneConfigsEqual(remoteZoneConfigs, req.GetZoneConfigs()))
+	})
+
+	var localDests []*shared.DestinationDescription
+	localDests = append(localDests, &shared.DestinationDescription{
+		DestinationUUID: common.StringPtr(destUUID),
+		Path:            common.StringPtr(destPath),
+		ZoneConfigs:     localZoneConfigs,
+	})
+	var remoteDests []*shared.DestinationDescription
+	remoteDests = append(remoteDests, &shared.DestinationDescription{
+		DestinationUUID: common.StringPtr(destUUID),
+		Path:            common.StringPtr(destPath),
+		ZoneConfigs:     remoteZoneConfigs,
+	})
+	reconciler.reconcileDest(localDests, remoteDests)
+	s.mockMeta.AssertExpectations(s.T())
+}
+
 // local zone is missing one cg compared to remote. Expect to create the missing cg
 func (s *ReplicatorSuite) TestCgMetadataReconcileLocalMissing() {
 	localZone := `zone2`

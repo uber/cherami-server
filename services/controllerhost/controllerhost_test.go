@@ -21,6 +21,7 @@
 package controllerhost
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -1099,6 +1100,136 @@ func (s *McpSuite) TestMultiZoneDestCUD() {
 	s.Error(err)
 	s.Nil(destDesc)
 	assert.IsType(s.T(), &shared.EntityNotExistsError{}, err)
+}
+
+func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
+	/*********TEST CREATION*****************/
+	destPath := s.generateName("/cherami/mcp-test")
+	createReq := &shared.CreateDestinationRequest{
+		Path:        common.StringPtr(destPath),
+		IsMultiZone: common.BoolPtr(false),
+	}
+
+	// issue create request
+	destDesc, err := s.mcp.CreateDestination(nil, createReq)
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destPath, destDesc.GetPath())
+	s.False(destDesc.GetIsMultiZone())
+
+	destUUID := destDesc.GetDestinationUUID()
+
+	// verify local read
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destPath, destDesc.GetPath())
+	s.False(destDesc.GetIsMultiZone())
+
+	/*********update to a multi-zone destination, expect to fail because path exists in remote but uuid is different*****************/
+	var zoneConfigs []*shared.DestinationZoneConfig
+	for _, zone := range []string{`zone1`, `zone2`} {
+		zoneConfigs = append(zoneConfigs, &shared.DestinationZoneConfig{
+			Zone:         common.StringPtr(zone),
+			AllowPublish: common.BoolPtr(true),
+			AllowConsume: common.BoolPtr(true),
+		})
+	}
+	updateReq := &shared.UpdateDestinationRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+		ZoneConfigs:     zoneConfigs,
+	}
+
+	// path exists in remote but uuid is different
+	s.mockReplicator.On("ReadDestinationInRemoteZone", mock.Anything, mock.Anything).Return(&shared.DestinationDescription{
+		Path:            common.StringPtr(destPath),
+		DestinationUUID: common.StringPtr(uuid.New()),
+	}, nil).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadDestinationInRemoteZoneRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetPath())
+	}).Once()
+
+	// issue request, expect BadRequestError
+	destDesc, err = s.mcp.UpdateDestination(nil, updateReq)
+	s.Error(err)
+	assert.IsType(s.T(), &shared.BadRequestError{}, err)
+	s.Nil(destDesc)
+
+	/*********update to a multi-zone destination, expect to fail because ReadDestinationInRemoteZone returns an random error*****************/
+	// ReadDestinationInRemoteZone returns a random error
+	s.mockReplicator.On("ReadDestinationInRemoteZone", mock.Anything, mock.Anything).Return(nil, errors.New("random error")).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadDestinationInRemoteZoneRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetPath())
+	}).Once()
+
+	// issue request, expect error
+	destDesc, err = s.mcp.UpdateDestination(nil, updateReq)
+	s.Error(err)
+	s.Nil(destDesc)
+
+	/*********update to a multi-zone destination, expect to succeed (same uuid exists in remote already)*****************/
+	// uuid exists in remote already
+	s.mockReplicator.On("ReadDestinationInRemoteZone", mock.Anything, mock.Anything).Return(&shared.DestinationDescription{
+		Path:            common.StringPtr(destPath),
+		DestinationUUID: common.StringPtr(destUUID),
+	}, nil).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadDestinationInRemoteZoneRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetPath())
+	}).Twice()
+	s.mockReplicator.On("UpdateRemoteDestination", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.UpdateDestinationRequest)
+		s.Equal(destUUID, req.GetDestinationUUID())
+	}).Once()
+
+	// issue request
+	destDesc, err = s.mcp.UpdateDestination(nil, updateReq)
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destUUID, destDesc.GetDestinationUUID())
+	s.Equal(destPath, destDesc.GetPath())
+	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
+	s.True(destDesc.GetIsMultiZone())
+
+	// verify local read
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destUUID, destDesc.GetDestinationUUID())
+	s.Equal(destPath, destDesc.GetPath())
+	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
+	s.True(destDesc.GetIsMultiZone())
+
+	/*********update to a multi-zone destination, expect to succeed (path doesn't exist in remote)*****************/
+	zoneConfigs[0].AllowConsume = common.BoolPtr(!zoneConfigs[0].GetAllowConsume()) // flip some config
+	zoneConfigs[1].AllowPublish = common.BoolPtr(!zoneConfigs[1].GetAllowPublish()) // flip some config
+
+	// path doesn't exist in remote
+	s.mockReplicator.On("ReadDestinationInRemoteZone", mock.Anything, mock.Anything).Return(nil, &shared.EntityNotExistsError{}).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadDestinationInRemoteZoneRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetPath())
+	}).Twice()
+	s.mockReplicator.On("UpdateRemoteDestination", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.UpdateDestinationRequest)
+		s.Equal(destUUID, req.GetDestinationUUID())
+	}).Once()
+
+	// issue request
+	destDesc, err = s.mcp.UpdateDestination(nil, updateReq)
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destUUID, destDesc.GetDestinationUUID())
+	s.Equal(destPath, destDesc.GetPath())
+	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
+	s.True(destDesc.GetIsMultiZone())
+
+	// verify local read
+	destDesc, err = s.mClient.ReadDestination(nil, &shared.ReadDestinationRequest{Path: common.StringPtr(destPath)})
+	s.NoError(err)
+	s.NotNil(destDesc)
+	s.Equal(destUUID, destDesc.GetDestinationUUID())
+	s.Equal(destPath, destDesc.GetPath())
+	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
+	s.True(destDesc.GetIsMultiZone())
 }
 
 func (s *McpSuite) TestCreateConsumerGroup() {

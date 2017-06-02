@@ -456,3 +456,25 @@ func (m *MockTChanReplicator) SetAckOffsetInRemote(ctx thrift.Context, request *
 
 	return r0
 }
+
+func (m *MockTChanReplicator) ReadDestinationInRemoteZone(ctx thrift.Context, listRequest *shared.ReadDestinationInRemoteZoneRequest) (*shared.DestinationDescription, error) {
+	ret := m.Called(ctx, listRequest)
+
+	var r0 *shared.DestinationDescription
+	if rf, ok := ret.Get(0).(func(thrift.Context, *shared.ReadDestinationInRemoteZoneRequest) *shared.DestinationDescription); ok {
+		r0 = rf(ctx, listRequest)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*shared.DestinationDescription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(thrift.Context, *shared.ReadDestinationInRemoteZoneRequest) error); ok {
+		r1 = rf(ctx, listRequest)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}

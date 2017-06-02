@@ -866,6 +866,20 @@ func (mcp *Mcp) UpdateDestination(ctx thrift.Context, updateRequest *shared.Upda
 
 	lclLg := context.log.WithField(common.TagDst, common.FmtDst(updateRequest.GetDestinationUUID()))
 
+	if updateRequest.IsSetZoneConfigs() {
+		valid, err := mcp.ValidateZoneConfigUpdateRequest(ctx, lclLg, updateRequest)
+		if !valid {
+			context.m3Client.IncCounter(metrics.ControllerUpdateDestinationScope, metrics.ControllerFailures)
+			if err != nil {
+				lclLg.WithField(common.TagErr, err).Error("UpdateDestination: ValidateZoneConfigUpdateRequest returned error")
+				return nil, err
+			}
+
+			lclLg.Error("UpdateDestination: zone config validation failed")
+			return nil, &shared.BadRequestError{Message: "zone config validation failed"}
+		}
+	}
+
 	// update local destination
 	destDesc, err := mcp.mClient.UpdateDestination(ctx, updateRequest)
 	if err != nil {
@@ -1250,4 +1264,50 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 
 	lclLg.Info("CreateRemoteZoneConsumerGroupExtent: Extent added to consumer group")
 	return nil
+}
+
+// ValidateZoneConfigUpdateRequest validates the zone configs for a UpdateDestinationRequest
+func (mcp *Mcp) ValidateZoneConfigUpdateRequest(ctx thrift.Context, logger bark.Logger, updateRequest *shared.UpdateDestinationRequest) (bool, error) {
+	// first read the destination
+	destDesc, err := mcp.mClient.ReadDestination(ctx, &shared.ReadDestinationRequest{
+		DestinationUUID: common.StringPtr(updateRequest.GetDestinationUUID()),
+	})
+	if err != nil {
+		logger.WithField(common.TagErr, err).Error("ValidateZoneConfigUpdateRequest: ReadDestination in local failed")
+		return false, err
+	}
+
+	destPath := destDesc.GetPath()
+
+	localReplicator, err := mcp.GetClientFactory().GetReplicatorClient()
+	if err != nil {
+		logger.WithField(common.TagErr, err).Error("ValidateZoneConfigUpdateRequest: GetReplicatorClient failed")
+		return false, err
+	}
+
+	for _, zoneConfig := range updateRequest.GetZoneConfigs() {
+		if strings.EqualFold(zoneConfig.GetZone(), mcp.context.localZone) {
+			continue
+		}
+
+		remoteDest, err := localReplicator.ReadDestinationInRemoteZone(ctx, &shared.ReadDestinationInRemoteZoneRequest{
+			Zone: common.StringPtr(zoneConfig.GetZone()),
+			Request: &shared.ReadDestinationRequest{
+				Path: common.StringPtr(destPath),
+			},
+		})
+		if err == nil {
+			// path exists in remote. If uuid is different, then fail the validation
+			if remoteDest.GetDestinationUUID() != updateRequest.GetDestinationUUID() {
+				return false, nil
+			}
+		} else if _, ok := err.(*shared.EntityNotExistsError); ok {
+			// path doesn't exist in remote, validation succeeds
+			continue
+		} else {
+			// some other error
+			return false, err
+		}
+	}
+	return true, nil
 }

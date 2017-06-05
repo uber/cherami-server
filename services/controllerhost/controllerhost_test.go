@@ -1103,7 +1103,6 @@ func (s *McpSuite) TestMultiZoneDestCUD() {
 }
 
 func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
-	/*********TEST CREATION*****************/
 	destPath := s.generateName("/cherami/mcp-test")
 	createReq := &shared.CreateDestinationRequest{
 		Path:        common.StringPtr(destPath),
@@ -1341,7 +1340,6 @@ func (s *McpSuite) TestDeleteConsumerGroup() {
 }
 
 func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
-	/*********TEST CREATION*****************/
 	destPath := s.generateName("/cherami/mcp-test")
 	cgName := s.generateName("/cherami/mcp-test-cg")
 	_, err := s.createDestination(destPath, shared.DestinationType_PLAIN)

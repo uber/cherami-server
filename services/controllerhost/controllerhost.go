@@ -867,11 +867,11 @@ func (mcp *Mcp) UpdateDestination(ctx thrift.Context, updateRequest *shared.Upda
 	lclLg := context.log.WithField(common.TagDst, common.FmtDst(updateRequest.GetDestinationUUID()))
 
 	if updateRequest.IsSetZoneConfigs() {
-		valid, err := mcp.ValidateZoneConfigUpdateRequest(ctx, lclLg, updateRequest)
+		valid, err := mcp.ValidateDestZoneConfigUpdateRequest(ctx, lclLg, updateRequest)
 		if !valid {
 			context.m3Client.IncCounter(metrics.ControllerUpdateDestinationScope, metrics.ControllerFailures)
 			if err != nil {
-				lclLg.WithField(common.TagErr, err).Error("UpdateDestination: ValidateZoneConfigUpdateRequest returned error")
+				lclLg.WithField(common.TagErr, err).Error("UpdateDestination: ValidateDestZoneConfigUpdateRequest returned error")
 				return nil, err
 			}
 
@@ -1053,6 +1053,20 @@ func (mcp *Mcp) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shared.Up
 		common.TagDstPth: common.FmtDstPth(updateRequest.GetDestinationPath()),
 		common.TagCnsPth: common.FmtCnsPth(updateRequest.GetConsumerGroupName()),
 	})
+
+	if updateRequest.IsSetZoneConfigs() {
+		valid, err := mcp.ValidateCgZoneConfigUpdateRequest(ctx, lclLg, updateRequest)
+		if !valid {
+			context.m3Client.IncCounter(metrics.ControllerUpdateConsumerGroupScope, metrics.ControllerFailures)
+			if err != nil {
+				lclLg.WithField(common.TagErr, err).Error("UpdateConsumerGroup: ValidateCgZoneConfigUpdateRequest returned error")
+				return nil, err
+			}
+
+			lclLg.Error("UpdateConsumerGroup: zone config validation failed")
+			return nil, &shared.BadRequestError{Message: "zone config validation failed"}
+		}
+	}
 
 	// update local consumer group
 	cgDesc, err := mcp.mClient.UpdateConsumerGroup(ctx, updateRequest)
@@ -1266,14 +1280,14 @@ func (mcp *Mcp) CreateRemoteZoneConsumerGroupExtent(ctx thrift.Context, createRe
 	return nil
 }
 
-// ValidateZoneConfigUpdateRequest validates the zone configs for a UpdateDestinationRequest
-func (mcp *Mcp) ValidateZoneConfigUpdateRequest(ctx thrift.Context, logger bark.Logger, updateRequest *shared.UpdateDestinationRequest) (bool, error) {
+// ValidateDestZoneConfigUpdateRequest validates the zone configs for a UpdateDestinationRequest
+func (mcp *Mcp) ValidateDestZoneConfigUpdateRequest(ctx thrift.Context, logger bark.Logger, updateRequest *shared.UpdateDestinationRequest) (bool, error) {
 	// first read the destination
 	destDesc, err := mcp.mClient.ReadDestination(ctx, &shared.ReadDestinationRequest{
 		DestinationUUID: common.StringPtr(updateRequest.GetDestinationUUID()),
 	})
 	if err != nil {
-		logger.WithField(common.TagErr, err).Error("ValidateZoneConfigUpdateRequest: ReadDestination in local failed")
+		logger.WithField(common.TagErr, err).Error("ValidateDestZoneConfigUpdateRequest: ReadDestination in local failed")
 		return false, err
 	}
 
@@ -1281,7 +1295,7 @@ func (mcp *Mcp) ValidateZoneConfigUpdateRequest(ctx thrift.Context, logger bark.
 
 	localReplicator, err := mcp.GetClientFactory().GetReplicatorClient()
 	if err != nil {
-		logger.WithField(common.TagErr, err).Error("ValidateZoneConfigUpdateRequest: GetReplicatorClient failed")
+		logger.WithField(common.TagErr, err).Error("ValidateDestZoneConfigUpdateRequest: GetReplicatorClient failed")
 		return false, err
 	}
 
@@ -1299,10 +1313,58 @@ func (mcp *Mcp) ValidateZoneConfigUpdateRequest(ctx thrift.Context, logger bark.
 		if err == nil {
 			// path exists in remote. If uuid is different, then fail the validation
 			if remoteDest.GetDestinationUUID() != updateRequest.GetDestinationUUID() {
+				logger.WithField(common.TagZoneName, common.FmtZoneName(zoneConfig.GetZone())).Error(`destination exists in remote but UUID is different`)
 				return false, nil
 			}
 		} else if _, ok := err.(*shared.EntityNotExistsError); ok {
 			// path doesn't exist in remote, validation succeeds
+			continue
+		} else {
+			// some other error
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// ValidateCgZoneConfigUpdateRequest validates the zone configs for a UpdateConsumerGroupRequest
+func (mcp *Mcp) ValidateCgZoneConfigUpdateRequest(ctx thrift.Context, logger bark.Logger, updateRequest *shared.UpdateConsumerGroupRequest) (bool, error) {
+	// first read the cg
+	cgDesc, err := mcp.mClient.ReadConsumerGroup(ctx, &shared.ReadConsumerGroupRequest{
+		DestinationPath:   common.StringPtr(updateRequest.GetDestinationPath()),
+		ConsumerGroupName: common.StringPtr(updateRequest.GetConsumerGroupName()),
+	})
+	if err != nil {
+		logger.WithField(common.TagErr, err).Error("ValidateCgZoneConfigUpdateRequest: ReadConsumerGroup in local failed")
+		return false, err
+	}
+
+	localReplicator, err := mcp.GetClientFactory().GetReplicatorClient()
+	if err != nil {
+		logger.WithField(common.TagErr, err).Error("ValidateCgZoneConfigUpdateRequest: GetReplicatorClient failed")
+		return false, err
+	}
+
+	for _, zoneConfig := range updateRequest.GetZoneConfigs() {
+		if strings.EqualFold(zoneConfig.GetZone(), mcp.context.localZone) {
+			continue
+		}
+
+		remoteCg, err := localReplicator.ReadConsumerGroupInRemoteZone(ctx, &shared.ReadConsumerGroupInRemoteRequest{
+			Zone: common.StringPtr(zoneConfig.GetZone()),
+			Request: &shared.ReadConsumerGroupRequest{
+				DestinationPath:   common.StringPtr(updateRequest.GetDestinationPath()),
+				ConsumerGroupName: common.StringPtr(updateRequest.GetConsumerGroupName()),
+			},
+		})
+		if err == nil {
+			// cg exists in remote. If uuid is different, then fail the validation
+			if remoteCg.GetDestinationUUID() != cgDesc.GetDestinationUUID() || remoteCg.GetConsumerGroupUUID() != cgDesc.GetConsumerGroupUUID() {
+				logger.WithField(common.TagZoneName, common.FmtZoneName(zoneConfig.GetZone())).Error(`cg exists in remote but UUID is different`)
+				return false, nil
+			}
+		} else if _, ok := err.(*shared.EntityNotExistsError); ok {
+			// cg doesn't exist in remote, validation succeeds
 			continue
 		} else {
 			// some other error

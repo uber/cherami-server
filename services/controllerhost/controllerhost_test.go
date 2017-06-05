@@ -1340,6 +1340,149 @@ func (s *McpSuite) TestDeleteConsumerGroup() {
 	assert.IsType(s.T(), &shared.EntityNotExistsError{}, err)
 }
 
+func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
+	/*********TEST CREATION*****************/
+	destPath := s.generateName("/cherami/mcp-test")
+	cgName := s.generateName("/cherami/mcp-test-cg")
+	_, err := s.createDestination(destPath, shared.DestinationType_PLAIN)
+	s.Nil(err, "Failed to create destination")
+	cgDesc, err := s.createConsumerGroup(destPath, cgName)
+	s.Nil(err, "Failed to create consumer group")
+
+	destUUID := cgDesc.GetDestinationUUID()
+	cgUUID := cgDesc.GetConsumerGroupUUID()
+
+	// verify local read
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
+		DestinationPath:   common.StringPtr(destPath),
+		ConsumerGroupName: common.StringPtr(cgName),
+	})
+	s.NoError(err)
+	s.NotNil(cgDesc)
+	s.Equal(destUUID, cgDesc.GetDestinationUUID())
+	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
+	s.False(cgDesc.GetIsMultiZone())
+
+	/*********update to a multi-zone cg, expect to fail because path exists in remote but uuid is different*****************/
+	var zoneConfigs []*shared.ConsumerGroupZoneConfig
+	for _, zone := range []string{`zone1`, `zone2`} {
+		zoneConfigs = append(zoneConfigs, &shared.ConsumerGroupZoneConfig{
+			Zone:    common.StringPtr(zone),
+			Visible: common.BoolPtr(true),
+		})
+	}
+	updateReq := &shared.UpdateConsumerGroupRequest{
+		DestinationPath:   common.StringPtr(destPath),
+		ConsumerGroupName: common.StringPtr(cgName),
+		ZoneConfigs:       zoneConfigs,
+	}
+
+	// path exists in remote but uuid is different
+	s.mockReplicator.On("ReadConsumerGroupInRemoteZone", mock.Anything, mock.Anything).Return(&shared.ConsumerGroupDescription{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ConsumerGroupUUID: common.StringPtr(uuid.New()),
+	}, nil).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadConsumerGroupInRemoteRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetDestinationPath())
+		s.Equal(cgName, readRemoteReq.GetRequest().GetConsumerGroupName())
+	}).Once()
+
+	// issue request, expect BadRequestError
+	cgDesc, err = s.mcp.UpdateConsumerGroup(nil, updateReq)
+	s.Error(err)
+	assert.IsType(s.T(), &shared.BadRequestError{}, err)
+	s.Nil(cgDesc)
+
+	/*********update to a multi-zone cg, expect to fail because ReadCgInRemoteZone returns an random error*****************/
+	// ReadConsumerGroupInRemoteZone returns a random error
+	s.mockReplicator.On("ReadConsumerGroupInRemoteZone", mock.Anything, mock.Anything).Return(nil, errors.New("random error")).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadConsumerGroupInRemoteRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetDestinationPath())
+		s.Equal(cgName, readRemoteReq.GetRequest().GetConsumerGroupName())
+	}).Once()
+
+	// issue request, expect error
+	cgDesc, err = s.mcp.UpdateConsumerGroup(nil, updateReq)
+	s.Error(err)
+	s.Nil(cgDesc)
+
+	/*********update to a multi-zone cg, expect to succeed (same uuid exists in remote already)*****************/
+	// uuid exists in remote already
+	s.mockReplicator.On("ReadConsumerGroupInRemoteZone", mock.Anything, mock.Anything).Return(&shared.ConsumerGroupDescription{
+		DestinationUUID:   common.StringPtr(destUUID),
+		ConsumerGroupUUID: common.StringPtr(cgUUID),
+	}, nil).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadConsumerGroupInRemoteRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetDestinationPath())
+		s.Equal(cgName, readRemoteReq.GetRequest().GetConsumerGroupName())
+	}).Twice()
+	s.mockReplicator.On("UpdateRemoteConsumerGroup", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.UpdateConsumerGroupRequest)
+		s.Equal(destPath, req.GetDestinationPath())
+		s.Equal(cgName, req.GetConsumerGroupName())
+		s.True(common.AreCgZoneConfigsEqual(req.GetZoneConfigs(), zoneConfigs))
+	}).Once()
+
+	// issue request
+	cgDesc, err = s.mcp.UpdateConsumerGroup(nil, updateReq)
+	s.NoError(err)
+	s.NotNil(cgDesc)
+	s.Equal(destUUID, cgDesc.GetDestinationUUID())
+	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
+	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
+	s.True(cgDesc.GetIsMultiZone())
+
+	// verify local read
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
+		DestinationPath:   common.StringPtr(destPath),
+		ConsumerGroupName: common.StringPtr(cgName),
+	})
+	s.NoError(err)
+	s.NotNil(cgDesc)
+	s.Equal(destUUID, cgDesc.GetDestinationUUID())
+	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
+	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
+	s.True(cgDesc.GetIsMultiZone())
+
+	/*********update to a multi-zone cg, expect to succeed (path doesn't exist in remote)*****************/
+	zoneConfigs[0].Visible = common.BoolPtr(!zoneConfigs[0].GetVisible()) // flip some config
+	zoneConfigs[1].Visible = common.BoolPtr(!zoneConfigs[1].GetVisible()) // flip some config
+
+	// path doesn't exist in remote
+	s.mockReplicator.On("ReadConsumerGroupInRemoteZone", mock.Anything, mock.Anything).Return(nil, &shared.EntityNotExistsError{}).Run(func(args mock.Arguments) {
+		readRemoteReq := args.Get(1).(*shared.ReadConsumerGroupInRemoteRequest)
+		s.Equal(destPath, readRemoteReq.GetRequest().GetDestinationPath())
+		s.Equal(cgName, readRemoteReq.GetRequest().GetConsumerGroupName())
+	}).Twice()
+	s.mockReplicator.On("UpdateRemoteConsumerGroup", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		req := args.Get(1).(*shared.UpdateConsumerGroupRequest)
+		s.Equal(destPath, req.GetDestinationPath())
+		s.Equal(cgName, req.GetConsumerGroupName())
+		s.True(common.AreCgZoneConfigsEqual(req.GetZoneConfigs(), zoneConfigs))
+	}).Once()
+
+	// issue request
+	cgDesc, err = s.mcp.UpdateConsumerGroup(nil, updateReq)
+	s.NoError(err)
+	s.NotNil(cgDesc)
+	s.Equal(destUUID, cgDesc.GetDestinationUUID())
+	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
+	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
+	s.True(cgDesc.GetIsMultiZone())
+
+	// verify local read
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
+		DestinationPath:   common.StringPtr(destPath),
+		ConsumerGroupName: common.StringPtr(cgName),
+	})
+	s.NoError(err)
+	s.NotNil(cgDesc)
+	s.Equal(destUUID, cgDesc.GetDestinationUUID())
+	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
+	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
+	s.True(cgDesc.GetIsMultiZone())
+}
+
 func (s *McpSuite) TestCreateRemoteZoneExtent() {
 	destUUID := uuid.New()
 	extentUUID := uuid.New()

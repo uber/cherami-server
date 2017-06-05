@@ -831,3 +831,27 @@ func AreDestinationZoneConfigsEqual(left []*shared.DestinationZoneConfig, right 
 	}
 	return true
 }
+
+// AreCgZoneConfigsEqual determines whether two zone configs have the same content
+func AreCgZoneConfigsEqual(left []*shared.ConsumerGroupZoneConfig, right []*shared.ConsumerGroupZoneConfig) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for _, l := range left {
+		zone := l.GetZone()
+		foundMatch := false
+		for _, r := range right {
+			if r.GetZone() == zone {
+				foundMatch = true
+				if l.GetVisible() != r.GetVisible() {
+					return false
+				}
+				break
+			}
+		}
+		if !foundMatch {
+			return false
+		}
+	}
+	return true
+}

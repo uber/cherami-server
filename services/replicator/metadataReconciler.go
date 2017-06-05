@@ -409,6 +409,10 @@ func (r *metadataReconciler) compareAndUpdateCg(remoteCg *shared.ConsumerGroupDe
 		updateRequest.ActiveZone = common.StringPtr(remoteCg.GetActiveZone())
 		cgUpdated = true
 	}
+	if !common.AreCgZoneConfigsEqual(localCg.GetZoneConfigs(), remoteCg.GetZoneConfigs()) {
+		updateRequest.ZoneConfigs = remoteCg.GetZoneConfigs()
+		cgUpdated = true
+	}
 
 	if cgUpdated {
 		logger.Info(`Found cg gets updated in remote but not in local`)

@@ -1533,6 +1533,13 @@ func updateCGDescIfChanged(req *shared.UpdateConsumerGroupRequest, cgDesc *share
 		isChanged = true
 		cgDesc.ActiveZone = common.StringPtr(req.GetActiveZone())
 	}
+
+	if req.IsSetZoneConfigs() && !common.AreCgZoneConfigsEqual(cgDesc.GetZoneConfigs(), req.GetZoneConfigs()) {
+		isChanged = true
+		cgDesc.ZoneConfigs = req.GetZoneConfigs()
+		cgDesc.IsMultiZone = common.BoolPtr(true)
+	}
+
 	return isChanged
 }
 

@@ -868,13 +868,13 @@ func (mcp *Mcp) UpdateDestination(ctx thrift.Context, updateRequest *shared.Upda
 
 	if updateRequest.IsSetZoneConfigs() {
 		valid, err := mcp.ValidateDestZoneConfig(ctx, lclLg, updateRequest)
+		if err != nil {
+			context.m3Client.IncCounter(metrics.ControllerUpdateDestinationScope, metrics.ControllerFailures)
+			lclLg.WithField(common.TagErr, err).Error("UpdateDestination: ValidateDestZoneConfig returned error")
+			return nil, err
+		}
 		if !valid {
 			context.m3Client.IncCounter(metrics.ControllerUpdateDestinationScope, metrics.ControllerFailures)
-			if err != nil {
-				lclLg.WithField(common.TagErr, err).Error("UpdateDestination: ValidateDestZoneConfigUpdateRequest returned error")
-				return nil, err
-			}
-
 			lclLg.Error("UpdateDestination: zone config validation failed")
 			return nil, &shared.BadRequestError{Message: "zone config validation failed"}
 		}
@@ -1056,13 +1056,13 @@ func (mcp *Mcp) UpdateConsumerGroup(ctx thrift.Context, updateRequest *shared.Up
 
 	if updateRequest.IsSetZoneConfigs() {
 		valid, err := mcp.ValidateCgZoneConfig(ctx, lclLg, updateRequest)
+		if err != nil {
+			context.m3Client.IncCounter(metrics.ControllerUpdateConsumerGroupScope, metrics.ControllerFailures)
+			lclLg.WithField(common.TagErr, err).Error("UpdateConsumerGroup: ValidateCgZoneConfig returned error")
+			return nil, err
+		}
 		if !valid {
 			context.m3Client.IncCounter(metrics.ControllerUpdateConsumerGroupScope, metrics.ControllerFailures)
-			if err != nil {
-				lclLg.WithField(common.TagErr, err).Error("UpdateConsumerGroup: ValidateCgZoneConfigUpdateRequest returned error")
-				return nil, err
-			}
-
 			lclLg.Error("UpdateConsumerGroup: zone config validation failed")
 			return nil, &shared.BadRequestError{Message: "zone config validation failed"}
 		}

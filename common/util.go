@@ -814,7 +814,7 @@ func AreDestinationZoneConfigsEqual(left []*shared.DestinationZoneConfig, right 
 		zone := l.GetZone()
 		foundMatch := false
 		for _, r := range right {
-			if r.GetZone() == zone {
+			if strings.EqualFold(r.GetZone(), zone) {
 				foundMatch = true
 				if l.GetAllowConsume() != r.GetAllowConsume() ||
 					l.GetAllowPublish() != r.GetAllowPublish() ||
@@ -841,7 +841,7 @@ func AreCgZoneConfigsEqual(left []*shared.ConsumerGroupZoneConfig, right []*shar
 		zone := l.GetZone()
 		foundMatch := false
 		for _, r := range right {
-			if r.GetZone() == zone {
+			if strings.EqualFold(r.GetZone(), zone) {
 				foundMatch = true
 				if l.GetVisible() != r.GetVisible() {
 					return false

@@ -1116,14 +1116,14 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		common.TagCnsPth: common.FmtCnsPth(createRequest.GetConsumerGroupName()),
 	})
 
-	// Check auth for read desitnation
+	// Check auth for read destination
 	authResource := common.GetResourceURNReadDestination(h.SCommon, createRequest.DestinationPath)
 	err = h.checkAuth(ctx, authResource, common.OperationRead, lclLg)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check auth for create destination
+	// Check auth for create consumer group
 	authResource = common.GetResourceURNCreateConsumerGroup(h.SCommon, createRequest.ConsumerGroupName)
 	err = h.checkAuth(ctx, authResource, common.OperationCreate, lclLg)
 	if err != nil {

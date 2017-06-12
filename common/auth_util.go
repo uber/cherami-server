@@ -27,7 +27,7 @@ import (
 
 const (
 	resourceURNTemplateCreateDestination   = "urn:cherami:dst:%v:%v"
-	resourceURNTemplateReadDestination     = "urn:cherami:dst:%v:%v"
+	resourceURNTemplateOperateDestination  = "urn:cherami:dst:%v:%v"
 	resourceURNTemplateCreateConsumerGroup = "urn:cherami:cg:%v:%v"
 )
 
@@ -44,9 +44,9 @@ func GetResourceURNCreateDestination(scommon SCommon, dstPath *string) string {
 	return fmt.Sprintf(resourceURNTemplateCreateDestination, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
 }
 
-// GetResourceURNReadDestination returns the resource URN to read destination, e.g. urn:cherami:dst:zone1_prod:/dst_prefix/dst1
+// GetResourceURNOperateDestination returns the resource URN to operate destination (read, delete), e.g. urn:cherami:dst:zone1_prod:/dst_prefix/dst1
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
-func GetResourceURNReadDestination(scommon SCommon, dstPath *string) string {
+func GetResourceURNOperateDestination(scommon SCommon, dstPath *string) string {
 	var dstPathString string
 	if dstPath == nil {
 		dstPathString = ""
@@ -54,7 +54,7 @@ func GetResourceURNReadDestination(scommon SCommon, dstPath *string) string {
 		dstPathString = *dstPath
 	}
 	deploymentName := scommon.GetConfig().GetDeploymentName()
-	return fmt.Sprintf(resourceURNTemplateReadDestination, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
+	return fmt.Sprintf(resourceURNTemplateOperateDestination, strings.ToLower(deploymentName), strings.ToLower(dstPathString))
 }
 
 // GetResourceURNCreateConsumerGroup returns the resource URN to create consumer group, e.g. urn:cherami:dst:zone1_prod:/cg_prefix

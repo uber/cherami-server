@@ -1378,16 +1378,24 @@ func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
 	destUUID := cgDesc.GetDestinationUUID()
 	cgUUID := cgDesc.GetConsumerGroupUUID()
 
-	// verify local read
-	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
+	readReq := &shared.ReadConsumerGroupRequest{
 		DestinationPath:   common.StringPtr(destPath),
 		ConsumerGroupName: common.StringPtr(cgName),
-	})
+	}
+	listReq := &shared.ListConsumerGroupRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+	}
+
+	// verify local read
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, readReq)
 	s.NoError(err)
 	s.NotNil(cgDesc)
 	s.Equal(destUUID, cgDesc.GetDestinationUUID())
 	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
 	s.False(cgDesc.GetIsMultiZone())
+	listRes, err := s.mClient.ListConsumerGroups(nil, listReq)
+	s.NoError(err)
+	s.False(ListCgResultContainsMultiZoneCg(listRes, cgUUID))
 
 	/*********update to a multi-zone cg, expect to fail because path exists in remote but uuid is different*****************/
 	var zoneConfigs []*shared.ConsumerGroupZoneConfig
@@ -1418,6 +1426,9 @@ func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
 	s.Error(err)
 	assert.IsType(s.T(), &shared.BadRequestError{}, err)
 	s.Nil(cgDesc)
+	listRes, err = s.mClient.ListConsumerGroups(nil, listReq)
+	s.NoError(err)
+	s.False(ListCgResultContainsMultiZoneCg(listRes, cgUUID))
 
 	/*********update to a multi-zone cg, expect to fail because ReadCgInRemoteZone returns an random error*****************/
 	// ReadConsumerGroupInRemoteZone returns a random error
@@ -1431,6 +1442,9 @@ func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
 	cgDesc, err = s.mcp.UpdateConsumerGroup(nil, updateReq)
 	s.Error(err)
 	s.Nil(cgDesc)
+	listRes, err = s.mClient.ListConsumerGroups(nil, listReq)
+	s.NoError(err)
+	s.False(ListCgResultContainsMultiZoneCg(listRes, cgUUID))
 
 	/*********update to a multi-zone cg, expect to succeed (same uuid exists in remote already)*****************/
 	// uuid exists in remote already
@@ -1459,16 +1473,16 @@ func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
 	s.True(cgDesc.GetIsMultiZone())
 
 	// verify local read
-	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
-		DestinationPath:   common.StringPtr(destPath),
-		ConsumerGroupName: common.StringPtr(cgName),
-	})
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, readReq)
 	s.NoError(err)
 	s.NotNil(cgDesc)
 	s.Equal(destUUID, cgDesc.GetDestinationUUID())
 	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
 	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
 	s.True(cgDesc.GetIsMultiZone())
+	listRes, err = s.mClient.ListConsumerGroups(nil, listReq)
+	s.NoError(err)
+	s.True(ListCgResultContainsMultiZoneCg(listRes, cgUUID))
 
 	/*********update to a multi-zone cg, expect to succeed (path doesn't exist in remote)*****************/
 	zoneConfigs[0].Visible = common.BoolPtr(!zoneConfigs[0].GetVisible()) // flip some config
@@ -1497,16 +1511,25 @@ func (s *McpSuite) TestMultiZoneCgConfigUpdate() {
 	s.True(cgDesc.GetIsMultiZone())
 
 	// verify local read
-	cgDesc, err = s.mClient.ReadConsumerGroup(nil, &shared.ReadConsumerGroupRequest{
-		DestinationPath:   common.StringPtr(destPath),
-		ConsumerGroupName: common.StringPtr(cgName),
-	})
+	cgDesc, err = s.mClient.ReadConsumerGroup(nil, readReq)
 	s.NoError(err)
 	s.NotNil(cgDesc)
 	s.Equal(destUUID, cgDesc.GetDestinationUUID())
 	s.Equal(cgUUID, cgDesc.GetConsumerGroupUUID())
 	s.True(common.AreCgZoneConfigsEqual(zoneConfigs, cgDesc.GetZoneConfigs()))
 	s.True(cgDesc.GetIsMultiZone())
+	listRes, err = s.mClient.ListConsumerGroups(nil, listReq)
+	s.NoError(err)
+	s.True(ListCgResultContainsMultiZoneCg(listRes, cgUUID))
+}
+
+func ListCgResultContainsMultiZoneCg(result *shared.ListConsumerGroupResult_, uuid string) bool {
+	for _, cg := range result.GetConsumerGroups() {
+		if cg.GetIsMultiZone() && cg.GetConsumerGroupUUID() == uuid {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *McpSuite) TestCreateRemoteZoneExtent() {

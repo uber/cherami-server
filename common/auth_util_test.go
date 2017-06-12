@@ -66,11 +66,11 @@ func (s *AuthUtilSuite) TestGetResourceURNCreateDestination() {
 	s.Equal("urn:cherami:dst:zone1:/", GetResourceURNCreateDestination(mockService, StringPtr("//")))
 
 	config.deploymentName = "Zone2_ABC"
-	s.Equal("urn:cherami:dst:zone2_abc:/dst1", GetResourceURNCreateDestination(mockService, StringPtr("/Dst1")))
-	s.Equal("urn:cherami:dst:zone2_abc:/root2", GetResourceURNCreateDestination(mockService, StringPtr("/Root2/Dst2")))
+	s.Equal("urn:cherami:dst:zone2:/dst1", GetResourceURNCreateDestination(mockService, StringPtr("/Dst1")))
+	s.Equal("urn:cherami:dst:zone2:/root2", GetResourceURNCreateDestination(mockService, StringPtr("/Root2/Dst2")))
 
-	s.Equal("urn:cherami:dst:zone2_abc:dst2", GetResourceURNCreateDestination(mockService, StringPtr("Dst2")))
-	s.Equal("urn:cherami:dst:zone2_abc:root2", GetResourceURNCreateDestination(mockService, StringPtr("Root2/Dst2")))
+	s.Equal("urn:cherami:dst:zone2:dst2", GetResourceURNCreateDestination(mockService, StringPtr("Dst2")))
+	s.Equal("urn:cherami:dst:zone2:root2", GetResourceURNCreateDestination(mockService, StringPtr("Root2/Dst2")))
 }
 
 func (s *AuthUtilSuite) TestGetResourceURNOperateDestination() {
@@ -90,11 +90,11 @@ func (s *AuthUtilSuite) TestGetResourceURNOperateDestination() {
 	s.Equal("urn:cherami:dst:zone1://", GetResourceURNOperateDestination(mockService, StringPtr("//")))
 
 	config.deploymentName = "Zone2_ABC"
-	s.Equal("urn:cherami:dst:zone2_abc:/dst1", GetResourceURNOperateDestination(mockService, StringPtr("/Dst1")))
-	s.Equal("urn:cherami:dst:zone2_abc:/root2/dst2", GetResourceURNOperateDestination(mockService, StringPtr("/Root2/Dst2")))
+	s.Equal("urn:cherami:dst:zone2:/dst1", GetResourceURNOperateDestination(mockService, StringPtr("/Dst1")))
+	s.Equal("urn:cherami:dst:zone2:/root2/dst2", GetResourceURNOperateDestination(mockService, StringPtr("/Root2/Dst2")))
 
-	s.Equal("urn:cherami:dst:zone2_abc:dst2", GetResourceURNOperateDestination(mockService, StringPtr("Dst2")))
-	s.Equal("urn:cherami:dst:zone2_abc:root2/dst2", GetResourceURNOperateDestination(mockService, StringPtr("Root2/Dst2")))
+	s.Equal("urn:cherami:dst:zone2:dst2", GetResourceURNOperateDestination(mockService, StringPtr("Dst2")))
+	s.Equal("urn:cherami:dst:zone2:root2/dst2", GetResourceURNOperateDestination(mockService, StringPtr("Root2/Dst2")))
 }
 
 func (s *AuthUtilSuite) TestGetResourceURNCreateConsumerGroup() {
@@ -114,9 +114,9 @@ func (s *AuthUtilSuite) TestGetResourceURNCreateConsumerGroup() {
 	s.Equal("urn:cherami:cg:zone1:/", GetResourceURNCreateConsumerGroup(mockService, StringPtr("//")))
 
 	config.deploymentName = "Zone2_ABC"
-	s.Equal("urn:cherami:cg:zone2_abc:/dst1", GetResourceURNCreateConsumerGroup(mockService, StringPtr("/Dst1")))
-	s.Equal("urn:cherami:cg:zone2_abc:/root2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("/Root2/Dst2")))
+	s.Equal("urn:cherami:cg:zone2:/dst1", GetResourceURNCreateConsumerGroup(mockService, StringPtr("/Dst1")))
+	s.Equal("urn:cherami:cg:zone2:/root2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("/Root2/Dst2")))
 
-	s.Equal("urn:cherami:cg:zone2_abc:dst2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("Dst2")))
-	s.Equal("urn:cherami:cg:zone2_abc:root2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("Root2/Dst2")))
+	s.Equal("urn:cherami:cg:zone2:dst2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("Dst2")))
+	s.Equal("urn:cherami:cg:zone2:root2", GetResourceURNCreateConsumerGroup(mockService, StringPtr("Root2/Dst2")))
 }

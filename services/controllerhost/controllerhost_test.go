@@ -1108,6 +1108,10 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 		Path:        common.StringPtr(destPath),
 		IsMultiZone: common.BoolPtr(false),
 	}
+	listReq := &shared.ListDestinationsByUUIDRequest{
+		MultiZoneOnly:            common.BoolPtr(true),
+		ValidateAgainstPathTable: common.BoolPtr(true),
+	}
 
 	// issue create request
 	destDesc, err := s.mcp.CreateDestination(nil, createReq)
@@ -1124,6 +1128,9 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 	s.NotNil(destDesc)
 	s.Equal(destPath, destDesc.GetPath())
 	s.False(destDesc.GetIsMultiZone())
+	listRes, err := s.mClient.ListDestinationsByUUID(nil, listReq)
+	s.NoError(err)
+	s.False(ListDestResultContains(listRes, destUUID))
 
 	/*********update to a multi-zone destination, expect to fail because path exists in remote but uuid is different*****************/
 	var zoneConfigs []*shared.DestinationZoneConfig
@@ -1153,6 +1160,9 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 	s.Error(err)
 	assert.IsType(s.T(), &shared.BadRequestError{}, err)
 	s.Nil(destDesc)
+	listRes, err = s.mClient.ListDestinationsByUUID(nil, listReq)
+	s.NoError(err)
+	s.False(ListDestResultContains(listRes, destUUID))
 
 	/*********update to a multi-zone destination, expect to fail because ReadDestinationInRemoteZone returns an random error*****************/
 	// ReadDestinationInRemoteZone returns a random error
@@ -1165,6 +1175,9 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 	destDesc, err = s.mcp.UpdateDestination(nil, updateReq)
 	s.Error(err)
 	s.Nil(destDesc)
+	listRes, err = s.mClient.ListDestinationsByUUID(nil, listReq)
+	s.NoError(err)
+	s.False(ListDestResultContains(listRes, destUUID))
 
 	/*********update to a multi-zone destination, expect to succeed (same uuid exists in remote already)*****************/
 	// uuid exists in remote already
@@ -1197,6 +1210,9 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 	s.Equal(destPath, destDesc.GetPath())
 	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
 	s.True(destDesc.GetIsMultiZone())
+	listRes, err = s.mClient.ListDestinationsByUUID(nil, listReq)
+	s.NoError(err)
+	s.True(ListDestResultContains(listRes, destUUID))
 
 	/*********update to a multi-zone destination, expect to succeed (path doesn't exist in remote)*****************/
 	zoneConfigs[0].AllowConsume = common.BoolPtr(!zoneConfigs[0].GetAllowConsume()) // flip some config
@@ -1229,6 +1245,18 @@ func (s *McpSuite) TestMultiZoneDestConfigUpdate() {
 	s.Equal(destPath, destDesc.GetPath())
 	s.True(common.AreDestinationZoneConfigsEqual(zoneConfigs, destDesc.GetZoneConfigs()))
 	s.True(destDesc.GetIsMultiZone())
+	listRes, err = s.mClient.ListDestinationsByUUID(nil, listReq)
+	s.NoError(err)
+	s.True(ListDestResultContains(listRes, destUUID))
+}
+
+func ListDestResultContains(result *shared.ListDestinationsResult_, uuid string) bool {
+	for _, dest := range result.GetDestinations() {
+		if dest.GetDestinationUUID() == uuid {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *McpSuite) TestCreateConsumerGroup() {

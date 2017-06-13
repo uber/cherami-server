@@ -29,7 +29,7 @@ const (
 	resourceURNTemplateCreateDestination    = "urn:cherami:dst:%v:%v"
 	resourceURNTemplateOperateDestination   = "urn:cherami:dst:%v:%v"
 	resourceURNTemplateCreateConsumerGroup  = "urn:cherami:cg:%v:%v"
-	resourceURNTemplateOperateConsumerGroup = "urn:cherami:cg:%v:%v"
+	resourceURNTemplateOperateConsumerGroup = "urn:cherami:cg:%v:%v:%v"
 )
 
 // GetResourceURNCreateDestination returns the resource URN to create destination, e.g. urn:cherami:dst:zone1_prod:/dst_prefix
@@ -70,14 +70,21 @@ func GetResourceURNCreateConsumerGroup(scommon SCommon, cgPath *string) string {
 
 // GetResourceURNOperateConsumerGroup returns the resource URN to operate consumer group (read, delete), e.g. urn:cherami:dst:zone1_prod:/cg_prefix/cg1
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
-func GetResourceURNOperateConsumerGroup(scommon SCommon, cgPath *string) string {
+func GetResourceURNOperateConsumerGroup(scommon SCommon, dstPath *string, cgPath *string) string {
+	var dstPathString string
+	if dstPath == nil {
+		dstPathString = ""
+	} else {
+		dstPathString = *dstPath
+	}
+
 	var cgPathString string
 	if cgPath == nil {
 		cgPathString = ""
 	} else {
 		cgPathString = *cgPath
 	}
-	return fmt.Sprintf(resourceURNTemplateOperateConsumerGroup, getTenancyLowerCase(scommon), strings.ToLower(cgPathString))
+	return fmt.Sprintf(resourceURNTemplateOperateConsumerGroup, getTenancyLowerCase(scommon), strings.ToLower(dstPathString), strings.ToLower(cgPathString))
 }
 
 func getPathRootName(path *string) string {

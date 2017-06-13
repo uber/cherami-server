@@ -1168,7 +1168,7 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		return nil, err
 	}
 
-	cgResource := common.GetResourceURNOperateConsumerGroup(h.SCommon, createRequest.ConsumerGroupName)
+	cgResource := common.GetResourceURNOperateConsumerGroup(h.SCommon, createRequest.DestinationPath, createRequest.ConsumerGroupName)
 	h.addPermissions(authSubject,
 		cgResource,
 		[]common.Operation{common.OperationRead, common.OperationUpdate, common.OperationDelete},

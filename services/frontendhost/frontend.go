@@ -1174,6 +1174,12 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		[]common.Operation{common.OperationRead, common.OperationUpdate, common.OperationDelete},
 		lclLg)
 
+	dlqDstResource := common.GetResourceURNCreateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
+	h.addPermissions(authSubject,
+		dlqDstResource,
+		[]common.Operation{common.OperationRead, common.OperationUpdate},
+		lclLg)
+
 	lclLg.Info("Created consumer group")
 	return
 }

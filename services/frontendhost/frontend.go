@@ -647,6 +647,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 		return nil, err
 	}
 
+	// Add Read/Update/Delete permissions for the current user on the destination
 	dstResource := common.GetResourceURNOperateDestination(h.SCommon, createRequest.Path)
 	h.addPermissions(authSubject,
 		dstResource,
@@ -1168,13 +1169,15 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		return nil, err
 	}
 
+	// Add Read/Update/Delete permissions for the current user on the consumer group
 	cgResource := common.GetResourceURNOperateConsumerGroup(h.SCommon, createRequest.DestinationPath, createRequest.ConsumerGroupName)
 	h.addPermissions(authSubject,
 		cgResource,
 		[]common.Operation{common.OperationRead, common.OperationUpdate, common.OperationDelete},
 		lclLg)
 
-	dlqDstResource := common.GetResourceURNCreateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
+	// Add Read/Update permissions for the current user on the DLQ destination
+	dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
 	h.addPermissions(authSubject,
 		dlqDstResource,
 		[]common.Operation{common.OperationRead, common.OperationUpdate},
@@ -1730,7 +1733,7 @@ func (h *Frontend) addPermissions(authSubject common.Subject, authResource strin
 				common.TagSubject:   authSubject,
 				common.TagResource:  authResource,
 				common.TagOperation: operation,
-			}).Info("Failed to add permission")
+			}).Error("Failed to add permission")
 			// TODO add metrics
 			return err
 		}

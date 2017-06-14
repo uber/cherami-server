@@ -56,7 +56,7 @@ func GetResourceURNOperateDestination(scommon SCommon, dstPath *string) string {
 	return fmt.Sprintf(resourceURNTemplateOperateDestination, getTenancyLowerCase(scommon), strings.ToLower(dstPathString))
 }
 
-// GetResourceURNCreateConsumerGroup returns the resource URN to create consumer group, e.g. urn:cherami:dst:zone1_prod:/cg_prefix
+// GetResourceURNCreateConsumerGroup returns the resource URN to create consumer group, e.g. urn:cherami:cg:zone1:/cg_prefix
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
 func GetResourceURNCreateConsumerGroup(scommon SCommon, cgPath *string) string {
 	var cgPathString string
@@ -68,7 +68,7 @@ func GetResourceURNCreateConsumerGroup(scommon SCommon, cgPath *string) string {
 	return fmt.Sprintf(resourceURNTemplateCreateConsumerGroup, getTenancyLowerCase(scommon), strings.ToLower(cgPathString))
 }
 
-// GetResourceURNOperateConsumerGroup returns the resource URN to operate consumer group (read, delete), e.g. urn:cherami:dst:zone1_prod:/cg_prefix/cg1
+// GetResourceURNOperateConsumerGroup returns the resource URN to operate consumer group (read, delete), e.g. urn:cherami:cg:zone1:/dst_prefix/dst1:/cg_prefix/cg1
 // We use URN (Uniform Resource Name) like this: https://www.ietf.org/rfc/rfc2141.txt
 func GetResourceURNOperateConsumerGroup(scommon SCommon, dstPath *string, cgPath *string) string {
 	var dstPathString string

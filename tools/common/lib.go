@@ -808,9 +808,8 @@ func ReadDestination(c *cli.Context, mClient mcli.Client) {
 // metadata call doesn't handle that. This helper function strips the password if there's any.
 // TODO: we should remove this once the hacky security check is removed
 func readDestinationFromMetadata(mClient mcli.Client, path string) (*shared.DestinationDescription, error) {
-	parts := strings.Split(path, `+`)
 	return mClient.ReadDestination(&shared.ReadDestinationRequest{
-		Path: &parts[0],
+		Path: common.StringPtr(strings.Split(path, `+`)[0]),
 	})
 }
 

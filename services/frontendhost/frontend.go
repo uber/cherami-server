@@ -1176,12 +1176,14 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 		[]common.Operation{common.OperationRead, common.OperationUpdate, common.OperationDelete},
 		lclLg)
 
-	// Add Read/Update permissions for the current user on the DLQ destination
-	dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
-	h.addPermissions(authSubject,
-		dlqDstResource,
-		[]common.Operation{common.OperationRead, common.OperationUpdate},
-		lclLg)
+	if _cgDesc.DeadLetterQueueDestinationUUID != nil && *_cgDesc.DeadLetterQueueDestinationUUID != "" {
+		// Add Read/Update permissions for the current user on the DLQ destination
+		dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
+		h.addPermissions(authSubject,
+			dlqDstResource,
+			[]common.Operation{common.OperationRead, common.OperationUpdate},
+			lclLg)
+	}
 
 	lclLg.Info("Created consumer group")
 	return

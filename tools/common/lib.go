@@ -327,7 +327,7 @@ func UpdateDestination(c *cli.Context, cClient ccli.Client, mClient mcli.Client,
 	// issue with cross zone replication(for example, network down between zones)
 	existingDesc, err := readDestinationFromMetadata(mClient, path)
 	ExitIfError(err)
-	if existingDesc.GetIsMultiZone() || len(request.GetZoneConfigs().GetConfigs()) > 0 {
+	if existingDesc.GetIsMultiZone() || (request.IsSetZoneConfigs() && len(request.GetZoneConfigs().GetConfigs()) > 0) {
 		if c.IsSet(`unconsumed_messages_retention`) && int32(c.Int(`unconsumed_messages_retention`)) < MinUnconsumedMessagesRetentionForMultiZoneDest {
 			ExitIfError(errors.New(strUnconsumedRetentionTooSmall))
 		}

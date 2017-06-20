@@ -1797,6 +1797,10 @@ func (h *Frontend) checkAuth(ctx thrift.Context, authResource string, operation 
 }
 
 func (h *Frontend) addPermissions(authSubject common.Subject, authResource string, operations []common.Operation, logger bark.Logger) error {
+	if authSubject.Name == "" {
+		return nil
+	}
+
 	for _, operation := range operations {
 		err := h.GetAuthManager().AddPermission(authSubject, operation, common.Resource(authResource))
 		if err != nil {

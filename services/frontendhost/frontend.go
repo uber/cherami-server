@@ -659,7 +659,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 			Type: common.SubjectTypeEmployee,
 			Name: *createRequest.OwnerEmail,
 		}
-		subjects := append(subjects, ownerSubject)
+		subjects = append(subjects, ownerSubject)
 	}
 
 	for _, subject := range subjects {

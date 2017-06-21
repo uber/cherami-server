@@ -654,7 +654,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	// Add Read/Update/Delete permissions for the current user and owner on the destination
 	subjects := []common.Subject{authSubject}
-	if createRequest.OwnerEmail != nil && (*createRequest.OwnerEmail) != "" {
+	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" {
 		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
 			Name: *createRequest.OwnerEmail,
@@ -991,7 +991,7 @@ func (h *Frontend) UpdateDestination(ctx thrift.Context, updateRequest *c.Update
 		return
 	}
 
-	if updateRequest.OwnerEmail != nil && (*updateRequest.OwnerEmail) != "" {
+	if updateRequest.OwnerEmail != nil && *updateRequest.OwnerEmail != "" {
 		// Add Read/Update/Delete permissions for the owner on the destination
 		// TODO check whether the new owner is different from old one, delete old permissions for old owner
 		ownerSubject := common.Subject{
@@ -1207,7 +1207,7 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 
 	// Add permissions for the current user and owner on the consumer group
 	subjects := []common.Subject{authSubject}
-	if _cgDesc.DeadLetterQueueDestinationUUID != nil && *_cgDesc.DeadLetterQueueDestinationUUID != "" {
+	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" {
 		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
 			Name: *createRequest.OwnerEmail,
@@ -1271,15 +1271,15 @@ func (h *Frontend) UpdateConsumerGroup(ctx thrift.Context, updateRequest *c.Upda
 		return nil, err
 	}
 
-	if updateRequest.OwnerEmail != nil && (*updateRequest.OwnerEmail) != "" {
+	if updateRequest.OwnerEmail != nil && *updateRequest.OwnerEmail != "" {
 		// Add permissions for the owner on the consumer group
 		// TODO check whether the new owner is different from old one, delete old permissions for old owner
-		subject := common.Subject{
+		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
 			Name: *updateRequest.OwnerEmail,
 		}
 		cgResource := common.GetResourceURNOperateConsumerGroup(h.SCommon, updateRequest.DestinationPath, updateRequest.ConsumerGroupName)
-		h.addPermissions(subject,
+		h.addPermissions(ownerSubject,
 			cgResource,
 			[]common.Operation{common.OperationRead, common.OperationUpdate, common.OperationDelete},
 			lclLg)
@@ -1287,7 +1287,7 @@ func (h *Frontend) UpdateConsumerGroup(ctx thrift.Context, updateRequest *c.Upda
 		if _cgDesc.DeadLetterQueueDestinationUUID != nil && *_cgDesc.DeadLetterQueueDestinationUUID != "" {
 			// Add Read/Update permissions for the owner on the DLQ destination
 			dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
-			h.addPermissions(subject,
+			h.addPermissions(ownerSubject,
 				dlqDstResource,
 				[]common.Operation{common.OperationRead, common.OperationUpdate},
 				lclLg)

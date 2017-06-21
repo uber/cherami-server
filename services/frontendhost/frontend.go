@@ -654,7 +654,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 
 	// Add Read/Update/Delete permissions for the current user and owner on the destination
 	subjects := []common.Subject{authSubject}
-	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" {
+	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" && *createRequest.OwnerEmail != authSubject.Name {
 		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
 			Name: *createRequest.OwnerEmail,
@@ -1207,7 +1207,7 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 
 	// Add permissions for the current user and owner on the consumer group
 	subjects := []common.Subject{authSubject}
-	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" {
+	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" && *createRequest.OwnerEmail != authSubject.Name {
 		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
 			Name: *createRequest.OwnerEmail,

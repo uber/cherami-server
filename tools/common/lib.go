@@ -82,11 +82,11 @@ const (
 	// MaxUnconsumedMessagesRetention is the maximum unconsumed retention
 	MaxUnconsumedMessagesRetention = 7 * 24 * 3600
 	// MinLockTimeoutSeconds is the minimum lock timeout seconds
-	MinLockTimeoutSeconds = 0
+	MinLockTimeoutSeconds = 10
 	// MaxLockTimeoutSeconds is the maximum lock timeout seconds
 	MaxLockTimeoutSeconds = 3600
 	// MinMaxDeliveryCount is the minimum value for max delivery count
-	MinMaxDeliveryCount = 0
+	MinMaxDeliveryCount = 1
 	// MaxMaxDeliveryCount is the maximum value for max delivery count
 	MaxMaxDeliveryCount = 1000
 	// MinSkipOlderMessageSeconds is the minimum value for skipping older message

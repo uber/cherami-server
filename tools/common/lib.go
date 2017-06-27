@@ -74,23 +74,23 @@ const (
 	// MinUnconsumedMessagesRetentionForMultiZoneDest is the minimum unconsumed retention allowed
 	MinUnconsumedMessagesRetentionForMultiZoneDest = 3 * 24 * 3600
 	// MinConsumedMessagesRetention is the minimum consumed retention
-	MinConsumedMessagesRetention = 60
+	MinConsumedMessagesRetention = 180
 	// MaxConsumedMessagesRetention is the maximum consumed retention
-	MaxConsumedMessagesRetention = 100 * 24 * 3600
+	MaxConsumedMessagesRetention = 7 * 24 * 3600
 	// MinUnconsumedMessagesRetention is the minimum unconsumed retention
-	MinUnconsumedMessagesRetention = 60
+	MinUnconsumedMessagesRetention = 180
 	// MaxUnconsumedMessagesRetention is the maximum unconsumed retention
-	MaxUnconsumedMessagesRetention = 100 * 24 * 3600
+	MaxUnconsumedMessagesRetention = 7 * 24 * 3600
 	// MinLockTimeoutSeconds is the minimum lock timeout seconds
 	MinLockTimeoutSeconds = 0
 	// MaxLockTimeoutSeconds is the maximum lock timeout seconds
-	MaxLockTimeoutSeconds = 100 * 24 * 3600
+	MaxLockTimeoutSeconds = 3600
 	// MinMaxDeliveryCount is the minimum value for max delivery count
 	MinMaxDeliveryCount = 0
 	// MaxMaxDeliveryCount is the maximum value for max delivery count
-	MaxMaxDeliveryCount = math.MaxInt32
+	MaxMaxDeliveryCount = 1000
 	// MinSkipOlderMessageSeconds is the minimum value for skipping older message
-	MinSkipOlderMessageSeconds = 0
+	MinSkipOlderMessageSeconds = 1800
 	// MaxSkipOlderMessageSeconds is the maximum value for skipping older message
 	MaxSkipOlderMessageSeconds = 2 * 24 * 3600
 	// MinDelayMessageSeconds is the minimum value for delaying message
@@ -118,12 +118,12 @@ const (
 	strUnconsumedRetentionTooSmall    = "Unconsumed retention period for multi zone destination should be at least 3 days"
 	strKafkaNaming                    = "Kafka destinations and consumer groups must begin with \"" + kafkaPrefix + "\""
 	strKafkaNotEnoughArgs             = "Kafka destinations must specify the Kafka cluster and at least one topic"
-	strInvalidConsumedRetention       = "Invalid consumed message retention %v (must between %v and %v)"
-	strInvalidUnconsumedRetention     = "Invalid unconsumed message retention %v (must between %v and %v)"
-	strInvalidLockTimeoutSeconds      = "Invalid lock timeout seconds %v (must between %v and %v)"
-	strInvalidMaxDeliveryCount        = "Invalid max delivery count %v (must between %v and %v)"
-	strInvalidSkipOlderMessageSeconds = "Invalid skip older message seconds %v (must between %v and %v)"
-	strInvalidDelayMessageSeconds     = "Invalid delay message seconds %v (must between %v and %v)"
+	strInvalidConsumedRetention       = "Invalid consumed message retention %v (must be between %v and %v), please contact cherami team"
+	strInvalidUnconsumedRetention     = "Invalid unconsumed message retention %v (must be between %v and %v), please contact cherami team"
+	strInvalidLockTimeoutSeconds      = "Invalid lock timeout seconds %v (must be between %v and %v), please contact cherami team"
+	strInvalidMaxDeliveryCount        = "Invalid max delivery count %v (must be between %v and %v), please contact cherami team"
+	strInvalidSkipOlderMessageSeconds = "Invalid skip older message seconds %v (must be zero or between %v and %v), please contact cherami team"
+	strInvalidDelayMessageSeconds     = "Invalid delay message seconds %v (must be between %v and %v), please contact cherami team"
 )
 
 var uuidRegex, _ = regexp.Compile(`^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$`)
@@ -232,6 +232,9 @@ func CreateDestination(c *cli.Context, cClient ccli.Client, cliHelper common.Cli
 	if len(c.Args()) < 1 {
 		ExitIfError(errors.New(strNotEnoughArgs))
 	}
+
+	adminMode := c.GlobalBool("admin_mode")
+
 	path := c.Args().First()
 	kafkaCluster := c.String("kafka_cluster")
 	kafkaTopics := c.StringSlice("kafka_topics")
@@ -251,12 +254,12 @@ func CreateDestination(c *cli.Context, cClient ccli.Client, cliHelper common.Cli
 	}
 
 	consumedMessagesRetention := int32(c.Int("consumed_messages_retention"))
-	if consumedMessagesRetention < MinConsumedMessagesRetention || consumedMessagesRetention > MaxConsumedMessagesRetention {
+	if !adminMode && (consumedMessagesRetention < MinConsumedMessagesRetention || consumedMessagesRetention > MaxConsumedMessagesRetention) {
 		ExitIfError(fmt.Errorf(strInvalidConsumedRetention, consumedMessagesRetention, MinConsumedMessagesRetention, MaxConsumedMessagesRetention))
 	}
 
 	unconsumedMessagesRetention := int32(c.Int("unconsumed_messages_retention"))
-	if unconsumedMessagesRetention < MinUnconsumedMessagesRetention || unconsumedMessagesRetention > MaxUnconsumedMessagesRetention {
+	if !adminMode && (unconsumedMessagesRetention < MinUnconsumedMessagesRetention || unconsumedMessagesRetention > MaxUnconsumedMessagesRetention) {
 		ExitIfError(fmt.Errorf(strInvalidUnconsumedRetention, unconsumedMessagesRetention, MinUnconsumedMessagesRetention, MaxUnconsumedMessagesRetention))
 	}
 
@@ -401,6 +404,8 @@ func CreateConsumerGroup(c *cli.Context, cClient ccli.Client, mClient mcli.Clien
 		ExitIfError(errors.New(strNotEnoughArgs))
 	}
 
+	adminMode := c.GlobalBool("admin_mode")
+
 	path := c.Args()[0]
 	name := c.Args()[1]
 
@@ -413,22 +418,22 @@ func CreateConsumerGroup(c *cli.Context, cClient ccli.Client, mClient mcli.Clien
 	startTime := int64(c.Int("start_time")) * 1e9
 
 	lockTimeout := int32(c.Int("lock_timeout_seconds"))
-	if lockTimeout < MinLockTimeoutSeconds || lockTimeout > MaxLockTimeoutSeconds {
+	if !adminMode && (lockTimeout < MinLockTimeoutSeconds || lockTimeout > MaxLockTimeoutSeconds) {
 		ExitIfError(fmt.Errorf(strInvalidLockTimeoutSeconds, lockTimeout, MinLockTimeoutSeconds, MaxLockTimeoutSeconds))
 	}
 
 	maxDelivery := int32(c.Int("max_delivery_count"))
-	if maxDelivery < MinMaxDeliveryCount || maxDelivery > MaxMaxDeliveryCount {
+	if !adminMode && (maxDelivery < MinMaxDeliveryCount || maxDelivery > MaxMaxDeliveryCount) {
 		ExitIfError(fmt.Errorf(strInvalidMaxDeliveryCount, maxDelivery, MinMaxDeliveryCount, MaxMaxDeliveryCount))
 	}
 
 	skipOlder := int32(c.Int("skip_older_messages_in_seconds"))
-	if skipOlder < MinSkipOlderMessageSeconds || skipOlder > MaxSkipOlderMessageSeconds {
+	if !adminMode && skipOlder != 0 && (skipOlder < MinSkipOlderMessageSeconds || skipOlder > MaxSkipOlderMessageSeconds) {
 		ExitIfError(fmt.Errorf(strInvalidSkipOlderMessageSeconds, skipOlder, MinSkipOlderMessageSeconds, MaxSkipOlderMessageSeconds))
 	}
 
 	delay := int32(c.Int("delay_seconds"))
-	if delay < MinDelayMessageSeconds || delay > MaxDelayMessageSeconds {
+	if !adminMode && (delay < MinDelayMessageSeconds || delay > MaxDelayMessageSeconds) {
 		ExitIfError(fmt.Errorf(strInvalidDelayMessageSeconds, delay, MinDelayMessageSeconds, MaxDelayMessageSeconds))
 	}
 

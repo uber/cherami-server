@@ -48,6 +48,10 @@ type (
 
 		// SetTChannel sets the tchannel used by thrift client
 		SetTChannel(ch *tchannel.Channel)
+
+		GetHostsForDeployment(deployment string) []string
+
+		GetHostsForAllDeployment() map[string][]string
 	}
 
 	// replicatorClientCache is the cache to hold a client for local replicator instance
@@ -62,20 +66,18 @@ type (
 		deploymentClients map[string][]replicator.TChanReplicator
 		lk                sync.RWMutex
 
-		hostUpdater       common.ReplicatorHostUpdater
-		hosts             map[string][]string
-		hostLk            sync.RWMutex
+		hosts  map[string][]string
+		hostLk sync.RWMutex
 	}
 )
 
 // NewReplicatorClientFactory instantiates a ReplicatorClientFactory object
-func NewReplicatorClientFactory(config configure.CommonAppConfig, logger bark.Logger, hosts map[string][]string, hostUpdater common.ReplicatorHostUpdater) ClientFactory {
+func NewReplicatorClientFactory(config configure.CommonAppConfig, logger bark.Logger, hosts map[string][]string) ClientFactory {
 	factory := &repCltFactoryImpl{
 		AppConfig:         config,
 		logger:            logger,
 		deploymentClients: make(map[string][]replicator.TChanReplicator),
 		hosts:             hosts,
-		hostUpdater:       hostUpdater,
 	}
 	return factory
 }
@@ -119,7 +121,7 @@ func (f *repCltFactoryImpl) GetReplicatorClient(zone string) (replicator.TChanRe
 		return clients[rand.Intn(len(clients))], nil
 	}
 
-	hosts := f.getHostsForDeployment(deployment)
+	hosts := f.GetHostsForDeployment(deployment)
 	clients := make([]replicator.TChanReplicator, 0, len(hosts))
 
 	for _, host := range hosts {
@@ -143,13 +145,27 @@ func (f *repCltFactoryImpl) hasHostsForDeployment(deployment string) bool {
 	f.hostLk.RLock()
 	defer f.hostLk.RUnlock()
 
-	_, hasHosts := f.hosts[deployment];
+	_, hasHosts := f.hosts[deployment]
 	return hasHosts
 }
 
-func (f *repCltFactoryImpl) getHostsForDeployment(deployment string) []string{
+func (f *repCltFactoryImpl) GetHostsForDeployment(deployment string) []string {
 	f.hostLk.RLock()
 	defer f.hostLk.RUnlock()
 
 	return f.hosts[deployment]
+}
+
+func (f *repCltFactoryImpl) GetHostsForAllDeployment() map[string][]string {
+	f.hostLk.RLock()
+	defer f.hostLk.RUnlock()
+
+	return f.hosts
+}
+
+func (f *repCltFactoryImpl) UpdateHostsForDeployment(deployment string, hosts []string) {
+	f.hostLk.Lock()
+	defer f.hostLk.Unlock()
+
+	f.hosts[deployment] = hosts
 }

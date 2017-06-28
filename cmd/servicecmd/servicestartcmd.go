@@ -255,11 +255,15 @@ func StartReplicatorService() {
 	sCommon := common.NewService(serviceName, uuid.New(), cfg.GetServiceConfig(serviceName), common.NewUUIDResolver(meta), hwInfoReader, reporter, dClient, common.NewBypassAuthManager())
 
 	allHosts := cfg.GetReplicatorConfig().GetReplicatorHosts()
-	allSplitHosts := make(map[][]string)
+	allSplitHosts := make(map[string][]string)
 	for deployment, hosts := range allHosts {
 		allSplitHosts[deployment] = strings.Split(hosts, `,`)
 	}
-	h, tc := replicator.NewReplicator(serviceName, sCommon, meta, replicator.NewReplicatorClientFactory(cfg, common.GetDefaultLogger(), allSplitHosts, common.NewDummyReplicatorHostUpdater()), cfg)
+
+	replicatorClient := replicator.NewReplicatorClientFactory(cfg, common.GetDefaultLogger(), allSplitHosts)
+	h, tc := replicator.NewReplicator(serviceName, sCommon, meta, replicatorClient, cfg)
+	replicatorHostUpdator := replicator.NewDummyHostUpdater(replicatorClient)
+	replicatorHostUpdator.Start()
 	h.Start(tc)
 
 	// start websocket server

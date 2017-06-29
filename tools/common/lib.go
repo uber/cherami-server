@@ -103,9 +103,9 @@ const (
 )
 
 const (
-	strNotEnoughArgs                  = "Not enough arguments. Try \"--help\""
-	strTooManyArgs                    = "Too many arguments. Try \"--help\""
-	strNoChange                       = "Update must update something. Try \"--help\""
+	strNotEnoughArgs                  = "Not enough arguments. Try \"-help\""
+	strTooManyArgs                    = "Too many arguments. Try \"-help\""
+	strNoChange                       = "Update must update something. Try \"-help\""
 	strCGSpecIncorrectArgs            = "Incorrect consumer group specification. Use \"<cg_uuid>\" or \"<dest_path> <cg_name>\""
 	strDestStatus                     = "Destination status must be \"enabled\", \"disabled\", \"sendonly\", or \"recvonly\""
 	strCGStatus                       = "Consumer group status must be \"enabled\", or \"disabled\""
@@ -131,7 +131,7 @@ var uuidRegex, _ = regexp.Compile(`^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]
 // ExitIfError exit while err is not nil and print the calling stack also
 func ExitIfError(err error) {
 	const stacksEnv = `CHERAMI_SHOW_STACKS`
-	envReminder := "\n--env=staging is now the default. Did you mean '--env=prod' ?\n"
+	envReminder := "\n-env=staging is now the default. Did you mean '-env=prod' ?\n"
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		fmt.Fprintln(os.Stderr, envReminder)
@@ -1263,7 +1263,7 @@ func ListDestinations(c *cli.Context, mClient mcli.Client) {
 				}
 			}
 
-			// if --status option not provide, show all the destination path
+			// if -status option not provide, show all the destination path
 			status := desc.GetStatus()
 			if len(destStatus) == 0 || matchDestStatus(destStatus, status) {
 				outputDest := &destJSONOutputFields{

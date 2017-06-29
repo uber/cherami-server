@@ -518,12 +518,30 @@ func getCgZoneConfigs(c *cli.Context, mClient mcli.Client, cliHelper common.CliH
 
 // UpdateConsumerGroup update the consumer group based on cli.Context
 func UpdateConsumerGroup(c *cli.Context, cClient ccli.Client, mClient mcli.Client, cliHelper common.CliHelper) {
-	if len(c.Args()) < 2 {
+
+	var path, name string
+
+	switch {
+	case len(c.Args()) < 1:
 		ExitIfError(errors.New(strNotEnoughArgs))
+
+	case len(c.Args()) == 1: // assume the arg is a uuid
+
+		respCG, err := mClient.ReadConsumerGroupByUUID(&shared.ReadConsumerGroupRequest{
+			ConsumerGroupUUID: &c.Args()[0],
+		})
+		ExitIfError(err)
+
+		respDest, err := mClient.ReadDestination(&shared.ReadDestinationRequest{
+			DestinationUUID: respCG.DestinationUUID,
+		})
+
+		path, name = respDest.GetPath(), respCG.GetConsumerGroupUUID()
+
+	default:
+		path, name = c.Args()[0], c.Args()[1]
 	}
 
-	path := c.Args()[0]
-	name := c.Args()[1]
 	status := cherami.ConsumerGroupStatus_ENABLED
 	if c.String("status") == "disabled" {
 		status = cherami.ConsumerGroupStatus_DISABLED

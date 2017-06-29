@@ -536,7 +536,7 @@ func UpdateConsumerGroup(c *cli.Context, cClient ccli.Client, mClient mcli.Clien
 			DestinationUUID: respCG.DestinationUUID,
 		})
 
-		path, name = respDest.GetPath(), respCG.GetConsumerGroupUUID()
+		path, name = respDest.GetPath(), respCG.GetConsumerGroupName()
 
 	default:
 		path, name = c.Args()[0], c.Args()[1]

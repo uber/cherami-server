@@ -225,11 +225,29 @@ func (r *Replicator) OpenReplicationReadStreamHandler(w http.ResponseWriter, req
 		inStream.Done()
 		return
 	}
-	outConn := newOutConnection(extUUID, outStream, r.logger, r.m3Client, metrics.OpenReplicationReadScope)
+
+	destDesc, err := r.metaClient.ReadDestination(nil, &shared.ReadDestinationRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+	})
+	if err != nil {
+		r.logger.WithFields(bark.Fields{
+			common.TagErr: err,
+			common.TagExt: common.FmtExt(*request.OpenReadStreamRequest.ExtentUUID),
+			common.TagDst: common.FmtDst(*request.OpenReadStreamRequest.DestinationUUID),
+		}).Error("Failed to read destination")
+		r.m3Client.IncCounter(metrics.OpenReplicationReadScope, metrics.ReplicatorFailures)
+
+		// Must close the connection on server side because closing on client side doesn't actually close the
+		// underlying TCP connection
+		inStream.Done()
+		return
+	}
+
+	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationReadScope, metrics.OpenReplicationReadPerDestScope)
 	outConn.open()
 	r.addStoreHostConn(extUUID, outConn)
 
-	inConn := newInConnection(extUUID, inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationReadScope)
+	inConn := newInConnection(extUUID, destDesc.GetPath(), inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationReadScope, metrics.OpenReplicationReadPerDestScope)
 	inConn.open()
 
 	go r.manageInOutConn(inConn, outConn)
@@ -286,11 +304,29 @@ func (r *Replicator) OpenReplicationRemoteReadStreamHandler(w http.ResponseWrite
 		inStream.Done()
 		return
 	}
-	outConn := newOutConnection(extUUID, outStream, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope)
+
+	destDesc, err := r.metaClient.ReadDestination(nil, &shared.ReadDestinationRequest{
+		DestinationUUID: common.StringPtr(destUUID),
+	})
+	if err != nil {
+		r.logger.WithFields(bark.Fields{
+			common.TagErr: err,
+			common.TagExt: common.FmtExt(*request.OpenReadStreamRequest.ExtentUUID),
+			common.TagDst: common.FmtDst(*request.OpenReadStreamRequest.DestinationUUID),
+		}).Error("Failed to read destination")
+		r.m3Client.IncCounter(metrics.OpenReplicationRemoteReadScope, metrics.ReplicatorFailures)
+
+		// Must close the connection on server side because closing on client side doesn't actually close the
+		// underlying TCP connection
+		inStream.Done()
+		return
+	}
+
+	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope, metrics.OpenReplicationRemoteReadPerDestScope)
 	outConn.open()
 	r.addRemoteReplicatorConn(extUUID, outConn)
 
-	inConn := newInConnection(extUUID, inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope)
+	inConn := newInConnection(extUUID, destDesc.GetPath(), inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope, metrics.OpenReplicationRemoteReadPerDestScope)
 	inConn.open()
 
 	go r.manageInOutConn(inConn, outConn)

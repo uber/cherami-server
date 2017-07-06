@@ -22,6 +22,7 @@ package replicator
 
 import (
 	"sync"
+	"time"
 
 	"github.com/uber-common/bark"
 	"github.com/uber/cherami-server/common"
@@ -37,9 +38,11 @@ type (
 		stream  storeStream.BStoreOpenReadStreamOutCall
 		msgsCh  chan *store.ReadMessageContent
 
-		logger     bark.Logger
-		m3Client   metrics.Client
-		metricsTag int
+		logger              bark.Logger
+		m3Client            metrics.Client
+		destM3Client        metrics.Client
+		metricsScope        int
+		perDestMetricsScope int
 
 		readMsgCountChannel chan int32    // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
 		closeChannel        chan struct{} // channel to indicate the connection should be closed
@@ -58,14 +61,21 @@ const (
 	creditBatchSize = initialCreditSize / 10
 )
 
-func newOutConnection(extUUID string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsTag int) *outConnection {
+func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int, perDestMetricsScope int) *outConnection {
+	localLogger := logger.WithFields(bark.Fields{
+		common.TagExt:    extUUID,
+		common.TagDstPth: destPath,
+		`scope`:          `outConnection`,
+	})
 	conn := &outConnection{
 		extUUID:             extUUID,
 		stream:              stream,
 		msgsCh:              make(chan *store.ReadMessageContent, msgBufferSize),
-		logger:              logger.WithField(common.TagExt, extUUID).WithField(`scope`, "outConnection"),
+		logger:              localLogger,
 		m3Client:            m3Client,
-		metricsTag:          metricsTag,
+		destM3Client:        metrics.NewClientWithTags(m3Client, metrics.Replicator, common.GetDestinationTags(destPath, localLogger)),
+		metricsScope:        metricsScope,
+		perDestMetricsScope: perDestMetricsScope,
 		readMsgCountChannel: make(chan int32, 10),
 		closeChannel:        make(chan struct{}),
 	}
@@ -189,7 +199,10 @@ func (conn *outConnection) readMsgStream() {
 				// update the lastSeqNum to this value
 				lastSeqNum = msg.Message.GetSequenceNumber()
 
-				conn.m3Client.IncCounter(conn.metricsTag, metrics.ReplicatorOutConnMsgRead)
+				conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
+
+				latency := time.Duration(time.Now().UnixNano() - msg.Message.GetEnqueueTimeUtc())
+				conn.destM3Client.RecordTimer(conn.perDestMetricsScope, metrics.ReplicatorOutConnPerDestMsgLatency, latency)
 
 				// now push msg to the msg channel (which will in turn be pushed to client)
 				// Note this is a blocking call here
@@ -237,7 +250,7 @@ func (conn *outConnection) sendCredits(credits int32) error {
 		err = conn.stream.Flush()
 	}
 
-	conn.m3Client.AddCounter(conn.metricsTag, metrics.ReplicatorOutConnCreditsSent, int64(credits))
+	conn.m3Client.AddCounter(conn.metricsScope, metrics.ReplicatorOutConnCreditsSent, int64(credits))
 
 	return err
 }

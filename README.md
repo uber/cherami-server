@@ -4,6 +4,9 @@ cherami-server [![Build Status](https://travis-ci.org/uber/cherami-server.svg?br
 
 This repo contains the source code of Cherami server, cross-zone replicator server, and several tools. Your application needs to use the client to interact with the server. The client can be found [here](https://github.com/uber/cherami-client-go).
 
+
+test
+
 Getting started
 ---------------
 To get cherami-server:

@@ -22,474 +22,155 @@ package main
 
 import (
 	"os"
-	"time"
 
 	"github.com/codegangsta/cli"
-	"github.com/uber/cherami-server/common"
+	lib "github.com/uber/cherami-server/cmd/tools/common"
 	"github.com/uber/cherami-server/tools/admin"
-	toolscommon "github.com/uber/cherami-server/tools/common"
 )
 
 const (
-	usageCGStartTime                  = `Consume messages newer than this time in unix-nanos (default: Now; ie, consume no previously published messages)`
-	usageCGLockTimeoutSeconds         = `Acknowledgement timeout for prefetched/received messages`
-	usageCGMaxDeliveryCount           = `Max number of times a message is delivered before it is sent to the DLQ (dead-letter queue)`
-	usageCGSkipOlderMessagesInSeconds = `Skip messages older than this duration, in seconds ('0' to skip none)`
-	usageCGDelaySeconds               = `Delay, in seconds, to defer all messages by`
-	usageCGOwnerEmail                 = "Owner email"
-	usageCGZoneConfig                 = "Zone configs for multi-zone CG. For each zone, specify \"Zone,PreferedActiveZone\"; ex: \"zone1,false\""
+	adminToolService = "cherami-admin"
 )
 
 func main() {
 	app := cli.NewApp()
-	cliHelper := common.NewCliHelper()
-	// SetCanonicalZones. For now just "zone1", "zone2", "z1"
-	// and "z2" are valid and they map to "zone1" and "zone2"
-	// canonical zones.
-	// We can use this API to set any valid zones
-	cliHelper.SetCanonicalZones(map[string]string{
-		"zone1": "zone1",
-		"zone2": "zone2",
-		"z1":    "zone1",
-		"z2":    "zone2",
-	})
 	app.Name = "cherami"
 	app.Usage = "A command-line tool for cherami developer, including debugging tool"
 	app.Version = "1.2.1"
-	app.Flags = []cli.Flag{
-		cli.BoolTFlag{
-			Name:  "hyperbahn",
-			Usage: "use hyperbahn",
-		},
-		cli.IntFlag{
-			Name:  "timeout, t",
-			Value: 60,
-			Usage: "timeout in seconds",
-		},
-		cli.StringFlag{
-			Name:  "env",
-			Value: "staging",
-			Usage: "env to connect. By default connects to staging, use \"prod\" to connect to production",
-		},
-		cli.StringFlag{
-			Name:   "hyperbahn_bootstrap_file, hbfile",
-			Value:  "/etc/uber/hyperbahn/hosts.json",
-			Usage:  "hyperbahn boostrap file",
-			EnvVar: "HYPERBAHN_BOOSTRAP_FILE",
-		},
-		cli.StringFlag{
-			Name:   "hostport",
-			Value:  "",
-			Usage:  "Host:port for frontend host",
-			EnvVar: "CHERAMI_FRONTEND_HOSTPORT",
-		},
-		cli.BoolTFlag{
-			Name:  "admin_mode",
-			Usage: "use admin mode (bypass range checking for input arguments)",
-		},
-	}
-	app.Commands = []cli.Command{
-		{
-			Name:    "create",
-			Aliases: []string{"c", "cr"},
-			Usage:   "create (destination | consumergroup)",
-			Subcommands: []cli.Command{
-				{
-					Name:    "destination",
-					Aliases: []string{"d", "dst"},
-					Usage:   "create destination <path> [options]",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "type, t",
-							Value: "plain",
-							Usage: "Type of the destination: 'plain' or 'timer'",
-						},
+	app.Flags = lib.GetCommonFlags()
+	app.Flags = append(app.Flags, cli.BoolTFlag{
+		Name:  "admin_mode",
+		Usage: "use admin mode (bypass range checking for input arguments)",
+	})
 
-						cli.IntFlag{
-							Name:  "consumed_messages_retention, cr",
-							Value: toolscommon.DefaultConsumedMessagesRetention,
-							Usage: "Consumed messages retention period specified in seconds. Default is 1 hour.",
-						},
+	app.Commands = lib.GetCommonCommands(adminToolService)
 
-						cli.IntFlag{
-							Name:  "unconsumed_messages_retention, ur",
-							Value: toolscommon.DefaultUnconsumedMessagesRetention,
-							Usage: "Unconsumed messages retention period specified in seconds. Default is two hours.",
-						},
-						cli.StringFlag{
-							Name:  "checksum_option, co",
-							Value: "crcIEEE",
-							Usage: "Checksum_options, can be one of the crcIEEE, md5",
-						},
-						cli.StringFlag{
-							Name:  "owner_email, oe",
-							Value: cliHelper.GetDefaultOwnerEmail(),
-							Usage: "The owner's email who commits the request. Default is the $USER@uber.com",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.CreateDestination(c, cliHelper)
-					},
+	showCommand := getCommand(app.Commands, "show")
+	showCommand.Usage = "show (destination | consumergroup | extent | storehost | message | dlq | cgAckID | cgqueue | destqueue | cgBacklog)"
+	showCommand.Subcommands = append(showCommand.Subcommands, []cli.Command{
+		{
+			Name:    "extent",
+			Aliases: []string{"e"},
+			Usage:   "show extent <extent_uuid>",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "showcg, sc",
+					Value: "false",
+					Usage: "show consumer group(false, true), default to false",
 				},
-				{
-					Name:    "consumergroup",
-					Aliases: []string{"c", "cg"},
-					Usage:   "create consumergroup <destination_path> <consumer_group_name> [options]",
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "start_time, s",
-							Value: int(time.Now().Unix()),
-							Usage: usageCGStartTime,
-						},
-						cli.IntFlag{
-							Name:  "lock_timeout_seconds, l",
-							Value: toolscommon.DefaultLockTimeoutSeconds,
-							Usage: usageCGLockTimeoutSeconds,
-						},
-						cli.IntFlag{
-							Name:  "max_delivery_count, m",
-							Value: toolscommon.DefaultMaxDeliveryCount,
-							Usage: usageCGMaxDeliveryCount,
-						},
-						cli.IntFlag{
-							Name:  "skip_older_messages_in_seconds, k",
-							Value: toolscommon.DefaultSkipOlderMessageSeconds,
-							Usage: usageCGSkipOlderMessagesInSeconds,
-						},
-						cli.IntFlag{
-							Name:  "delay_seconds, d",
-							Value: toolscommon.DefaultDelayMessageSeconds,
-							Usage: usageCGDelaySeconds,
-						},
-						cli.StringFlag{
-							Name:  "owner_email, oe",
-							Value: cliHelper.GetDefaultOwnerEmail(),
-							Usage: usageCGOwnerEmail,
-						},
-						cli.StringSliceFlag{
-							Name:  "zone_config, zc",
-							Usage: usageCGZoneConfig,
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.CreateConsumerGroup(c, cliHelper)
-					},
-				},
+			},
+			Action: func(c *cli.Context) {
+				admin.ReadExtent(c)
 			},
 		},
 		{
-			Name:    "show",
-			Aliases: []string{"s", "sh", "info", "i"},
-			Usage:   "show (destination | consumergroup | extent | storehost | message | dlq | cgAckID | cgqueue | destqueue | cgBacklog)",
-			Subcommands: []cli.Command{
-				{
-					Name:    "destination",
-					Aliases: []string{"d", "dst"},
-					Usage:   "show destination <name>",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "showcg, sc",
-							Value: "false",
-							Usage: "show consumer group(false, true), default to false",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ReadDestination(c)
-					},
+			Name:    "storehost",
+			Aliases: []string{"s"},
+			Usage:   "show storehost <storehostAddr>",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "top, tp",
+					Value: 5,
+					Usage: "show the top k heavy extents in this storehost",
 				},
-				{
-					Name:    "consumergroup",
-					Aliases: []string{"c", "cg"},
-					Usage:   "show consumergroup (<consumer_group_uuid> | <destination_path> <consumer_group_name>)",
-					Action: func(c *cli.Context) {
-						admin.ReadConsumerGroup(c)
-					},
-				},
-				{
-					Name:    "extent",
-					Aliases: []string{"e"},
-					Usage:   "show extent <extent_uuid>",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "showcg, sc",
-							Value: "false",
-							Usage: "show consumer group(false, true), default to false",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ReadExtent(c)
-					},
-				},
-				{
-					Name:    "storehost",
-					Aliases: []string{"s"},
-					Usage:   "show storehost <storehostAddr>",
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "top, tp",
-							Value: 5,
-							Usage: "show the top k heavy extents in this storehost",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ReadStoreHost(c)
-					},
-				},
-				{
-					Name:    "message",
-					Aliases: []string{"m"},
-					Usage:   "show message <extent_uuid> <address>",
-					Action: func(c *cli.Context) {
-						admin.ReadMessage(c)
-					},
-				},
-				{
-					Name:    "dlq",
-					Aliases: []string{"dl"},
-					Usage:   "show dlq <uuid>",
-					Action: func(c *cli.Context) {
-						admin.ReadDlq(c)
-					},
-				},
-				{
-					Name:    "cgAckID",
-					Aliases: []string{"aid"},
-					Usage:   "show cgAckID <cgAckID>",
-					Action: func(c *cli.Context) {
-						admin.ReadCgAckID(c)
-					},
-				},
-				{
-					Name:    "cgqueue",
-					Aliases: []string{"cq", "cgq"},
-					Usage:   "show cgqueue (<consumer_group_uuid> | <consumer_group_uuid> <extent_uuid>)",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "status, s",
-							Value: "",
-							Usage: "status: open | consumed | deleted, if empty, return all",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ReadCgQueue(c)
-					},
-				},
-				{
-					Name:    "destqueue",
-					Aliases: []string{"dq", "destq"},
-					Usage:   "show destqueue (<destination_uuid> | <destination_path>)",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "status, s",
-							Value: "open",
-							Usage: "status: open | sealed | consumed archived | deleted, if empty, return all",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ReadDestQueue(c)
-					},
-				},
-				{
-					Name:    "cgBacklog",
-					Aliases: []string{"cgb", "cb"},
-					Usage:   "show cgBacklog <consumer_group_uuid>",
-					Action: func(c *cli.Context) {
-						admin.ReadCgBacklog(c)
-					},
-				},
+			},
+			Action: func(c *cli.Context) {
+				admin.ReadStoreHost(c)
+			},
+		}, {
+			Name:    "cgAckID",
+			Aliases: []string{"aid"},
+			Usage:   "show cgAckID <cgAckID>",
+			Action: func(c *cli.Context) {
+				admin.ReadCgAckID(c)
 			},
 		},
 		{
-			Name:    "update",
-			Aliases: []string{"u"},
-			Usage:   "update (destination | consumergroup | storehost)",
-			Subcommands: []cli.Command{
-				{
-					Name:    "destination",
-					Aliases: []string{"d", "dst"},
-					Usage:   "update destination <name>",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "status, s",
-							Usage: "status: enabled | disabled | sendonly | recvonly",
-						},
-						cli.IntFlag{
-							Name:  "consumed_messages_retention, cr",
-							Usage: "Consumed messages retention period specified in seconds. Default is one hour.",
-						},
-						cli.IntFlag{
-							Name:  "unconsumed_messages_retention, ur",
-							Usage: "Unconsumed messages retention period specified in seconds. Default is two hours.",
-						},
-						cli.StringFlag{
-							Name:  "checksum_option, co",
-							Usage: "Checksum_options, can be one of the crcIEEE, md5",
-						},
-						cli.StringFlag{
-							Name:  "owner_email, oe",
-							Usage: "The updated owner's email",
-						},
-						cli.StringSliceFlag{
-							Name:  "zone_config, zc",
-							Usage: "Zone configs for multi_zone destinations. Format for each zone should be \"ZoneName,AllowPublish,AllowConsume,ReplicaCount\". For example: \"zone1,true,true,3\"",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.UpdateDestination(c, cliHelper)
-					},
+			Name:    "cgqueue",
+			Aliases: []string{"cq", "cgq"},
+			Usage:   "show cgqueue (<consumer_group_uuid> | <consumer_group_uuid> <extent_uuid>)",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "status, s",
+					Value: "",
+					Usage: "status: open | consumed | deleted, if empty, return all",
 				},
-				{
-					Name:    "consumergroup",
-					Aliases: []string{"c", "cg"},
-					Usage:   "update consumergroup (<consumer_group_uuid> | <destination_path> <consumer_group_name>)",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "status, s",
-							Usage: "status: enabled | disabled",
-						},
-						cli.IntFlag{
-							Name:  "lock_timeout_seconds, l",
-							Usage: "Ack timeout for each message",
-						},
-						cli.IntFlag{
-							Name:  "max_delivery_count, m",
-							Usage: "Maximum delivery count for a message before it sents to dead-letter queue",
-						},
-						cli.IntFlag{
-							Name:  "skip_older_messages_in_seconds, k",
-							Usage: "Skip messages older than this duration in seconds.",
-						},
-						cli.IntFlag{
-							Name:  "delay_seonds, d",
-							Usage: "Delay to add to every message, in seconds.",
-						},
-						cli.StringFlag{
-							Name:  "owner_email, oe",
-							Usage: "The updated owner's email",
-						},
-						cli.StringFlag{
-							Name:  "active_zone, az",
-							Usage: "The updated active zone",
-						},
-						cli.StringSliceFlag{
-							Name:  "zone_config, zc",
-							Usage: "Zone configs for multi_zone consumer group. Format for each zone should be \"ZoneName,PreferedActiveZone\". For example: \"zone1,false\"",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.UpdateConsumerGroup(c, cliHelper)
-					},
-				},
+			},
+			Action: func(c *cli.Context) {
+				admin.ReadCgQueue(c)
 			},
 		},
 		{
-			Name:    "delete",
-			Aliases: []string{"d"},
-			Usage:   "delete (destination | consumergroup)",
-			Subcommands: []cli.Command{
-				{
-					Name:    "destination",
-					Aliases: []string{"d", "dst"},
-					Usage:   "delete destination <name>",
-					Action: func(c *cli.Context) {
-						admin.DeleteDestination(c)
-						println("deleted destination: ", c.Args().First())
-					},
+			Name:    "destqueue",
+			Aliases: []string{"dq", "destq"},
+			Usage:   "show destqueue (<destination_uuid> | <destination_path>)",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "status, s",
+					Value: "open",
+					Usage: "status: open | sealed | consumed archived | deleted, if empty, return all",
 				},
-				{
-					Name:    "consumergroup",
-					Aliases: []string{"c", "cg"},
-					Usage:   "delete consumergroup <destination_path> <consumer_group_name>",
-					Action: func(c *cli.Context) {
-						admin.DeleteConsumerGroup(c)
-						println("deleted consumergroup: ", c.Args()[0], c.Args()[1])
-					},
+			},
+			Action: func(c *cli.Context) {
+				admin.ReadDestQueue(c)
+			},
+		},
+	}...)
+
+	listCommand := getCommand(app.Commands, "list")
+	listCommand.Usage = "list (destination | consumergroup | extents | consumergroupextents | hosts)"
+	listCommand.Subcommands = append(listCommand.Subcommands, []cli.Command{
+		{
+			Name:    "extents",
+			Aliases: []string{"e", "es"},
+			Usage:   "list extents <destination_path>",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "prefix, pf",
+					Usage: "only show extents of prefix",
 				},
+			},
+			Action: func(c *cli.Context) {
+				admin.ListExtents(c)
 			},
 		},
 		{
-			Name:    "list",
-			Aliases: []string{"l", "ls"},
-			Usage:   "list (destination | consumergroup | extents | consumergroupextents | hosts)",
-			Subcommands: []cli.Command{
-				{
-					Name:    "destination",
-					Aliases: []string{"d", "dst"},
-					Usage:   "list destination [options]",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "prefix, pf",
-							Value: "/",
-							Usage: "only show destinations of prefix",
-						},
-						cli.StringFlag{
-							Name:  "status, s",
-							Value: "",
-							Usage: "status: enabled | disabled | sendonly | recvonly, if empty, return all",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ListDestinations(c)
-					},
-				},
-				{
-					Name:    "consumergroup",
-					Aliases: []string{"c", "cg"},
-					Usage:   "list consumergroup <destination_path> [<consumer_group>]",
-					Action: func(c *cli.Context) {
-						admin.ListConsumerGroups(c)
-					},
-				},
-				{
-					Name:    "extents",
-					Aliases: []string{"e", "es"},
-					Usage:   "list extents <destination_path>",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "prefix, pf",
-							Usage: "only show extents of prefix",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ListExtents(c)
-					},
-				},
-				{
-					Name:    "consumergroupextents",
-					Aliases: []string{"cge", "cges"},
-					Usage:   "list consumergroupextents <destination_path> <consumergroup_path>",
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "limit, lm",
-							Value: 10,
-							Usage: "show top n consumer group extents",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ListConsumerGroupExtents(c)
-					},
-				},
-				{
-					Name:    "hosts",
-					Aliases: []string{"h", "hs"},
-					Usage:   "list hosts [options] ",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:  "service, s",
-							Usage: "only show hosts of service(input,output,frontend,store,controller)",
-						},
-						cli.StringFlag{
-							Name:  "type, t",
-							Value: "active",
-							Usage: "show hosts from specific table(active, history), default to active",
-						},
-					},
-					Action: func(c *cli.Context) {
-						admin.ListHosts(c)
-					},
+			Name:    "consumergroupextents",
+			Aliases: []string{"cge", "cges"},
+			Usage:   "list consumergroupextents <destination_path> <consumergroup_path>",
+			Flags: []cli.Flag{
+				cli.IntFlag{
+					Name:  "limit, lm",
+					Value: 10,
+					Usage: "show top n consumer group extents",
 				},
 			},
+			Action: func(c *cli.Context) {
+				admin.ListConsumerGroupExtents(c)
+			},
 		},
+		{
+			Name:    "hosts",
+			Aliases: []string{"h", "hs"},
+			Usage:   "list hosts [options] ",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "service, s",
+					Usage: "only show hosts of service(input,output,frontend,store,controller)",
+				},
+				cli.StringFlag{
+					Name:  "type, t",
+					Value: "active",
+					Usage: "show hosts from specific table(active, history), default to active",
+				},
+			},
+			Action: func(c *cli.Context) {
+				admin.ListHosts(c)
+			},
+		},
+	}...)
+
+	app.Commands = append(app.Commands, []cli.Command{
 		{
 			Name:    "listAll",
 			Aliases: []string{"la", "lsa"},
@@ -520,33 +201,6 @@ func main() {
 						admin.ListAllDestinations(c)
 					},
 				},
-			},
-		},
-		{
-			Name:    "publish",
-			Aliases: []string{"p", "pub", "w", "write"},
-			Usage:   "publish <destination_name>",
-			Action: func(c *cli.Context) {
-				admin.Publish(c)
-			},
-		},
-		{
-			Name:    "consume",
-			Aliases: []string{"sub", "r", "read"},
-			Usage:   "consume <destination_name> <consumer_group_name> [options]",
-			Flags: []cli.Flag{
-				cli.BoolTFlag{
-					Name:  "autoack, a",
-					Usage: "automatically ack each message as it's printed",
-				},
-				cli.IntFlag{
-					Name:  "prefetch_count, p",
-					Value: 1,
-					Usage: "prefetch count",
-				},
-			},
-			Action: func(c *cli.Context) {
-				admin.Consume(c)
 			},
 		},
 		{
@@ -588,14 +242,6 @@ func main() {
 			Usage:   "hostport2uuid <host:port>",
 			Action: func(c *cli.Context) {
 				admin.HostAddr2uuid(c)
-			},
-		},
-		{
-			Name:    "merge_dlq",
-			Aliases: []string{"m"},
-			Usage:   "merge_dlq <consumer_group_name> [options]",
-			Action: func(c *cli.Context) {
-				println("**not implemented** merged DLQ in consumer group: ", c.Args().First())
 			},
 		},
 		{
@@ -815,7 +461,16 @@ func main() {
 				admin.StoreListExtents(c)
 			},
 		},
-	}
+	}...)
 
 	app.Run(os.Args)
+}
+
+func getCommand(commands []cli.Command, name string) *cli.Command {
+	for _, command := range commands {
+		if command.Name == name {
+			return &command
+		}
+	}
+	return &cli.Command{}
 }

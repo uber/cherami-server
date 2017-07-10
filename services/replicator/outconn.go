@@ -34,9 +34,10 @@ import (
 
 type (
 	outConnection struct {
-		extUUID string
-		stream  storeStream.BStoreOpenReadStreamOutCall
-		msgsCh  chan *store.ReadMessageContent
+		startTime int64
+		extUUID   string
+		stream    storeStream.BStoreOpenReadStreamOutCall
+		msgsCh    chan *store.ReadMessageContent
 
 		logger              bark.Logger
 		m3Client            metrics.Client
@@ -68,6 +69,7 @@ func newOutConnection(extUUID string, destPath string, stream storeStream.BStore
 		`scope`:          `outConnection`,
 	})
 	conn := &outConnection{
+		startTime:           time.Now().UnixNano(),
 		extUUID:             extUUID,
 		stream:              stream,
 		msgsCh:              make(chan *store.ReadMessageContent, msgBufferSize),

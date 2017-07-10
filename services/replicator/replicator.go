@@ -40,6 +40,7 @@ import (
 	mm "github.com/uber/cherami-server/common/metadata"
 	"github.com/uber/cherami-server/common/metrics"
 	storeStream "github.com/uber/cherami-server/stream"
+	"github.com/uber/cherami-thrift/.generated/go/admin"
 	"github.com/uber/cherami-thrift/.generated/go/metadata"
 	rgen "github.com/uber/cherami-thrift/.generated/go/replicator"
 	"github.com/uber/cherami-thrift/.generated/go/shared"
@@ -133,7 +134,7 @@ func NewReplicator(serviceName string, sVice common.SCommon, metadataClient meta
 	r.uconfigClient = sVice.GetDConfigClient()
 	r.dynamicConfigManage()
 
-	return r, []thrift.TChanServer{rgen.NewTChanReplicatorServer(r)}
+	return r, []thrift.TChanServer{rgen.NewTChanReplicatorServer(r), admin.NewTChanReplicatorAdminServer(r)}
 }
 
 // Start starts the replicator service

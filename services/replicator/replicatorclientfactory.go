@@ -49,8 +49,13 @@ type (
 		// SetTChannel sets the tchannel used by thrift client
 		SetTChannel(ch *tchannel.Channel)
 
+		// get hosts for a given deployment
 		GetHostsForDeployment(deployment string) []string
 
+		// set hosts for a given deployment
+		UpdateHostsForDeployment(deployment string, hosts []string)
+
+		// get hosts for all deployments
 		GetHostsForAllDeployment() map[string][]string
 	}
 

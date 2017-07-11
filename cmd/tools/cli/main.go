@@ -36,8 +36,10 @@ func main() {
 	app.Name = "cherami"
 	app.Usage = "A command-line tool for cherami users"
 	app.Version = "1.1.10"
-	app.Flags = lib.GetCommonFlags()
-	app.Commands = lib.GetCommonCommands(serviceName)
+
+	lib.SetCommonFlags(&app.Flags)
+
+	lib.SetCommonCommands(&app.Commands, serviceName)
 
 	app.Run(os.Args)
 }

@@ -15,7 +15,7 @@ type (
 )
 
 // NewDummyHostUpdater creates a dummy replicator host updater
-func NewDummyHostUpdater(factory ClientFactory) HostUpdater {
+func NewDummyHostUpdater() HostUpdater {
 	return &dummyHostUpdater{}
 }
 

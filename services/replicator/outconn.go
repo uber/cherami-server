@@ -33,6 +33,11 @@ import (
 )
 
 type (
+	outConnStatus struct {
+		lastMsgReplicatedTime int64
+		totalMsgReplicated    int32
+	}
+
 	outConnection struct {
 		startTime int64
 		extUUID   string
@@ -44,6 +49,10 @@ type (
 		destM3Client        metrics.Client
 		metricsScope        int
 		perDestMetricsScope int
+
+		status         outConnStatus
+		statusUpdateCh chan outConnStatus
+		statusRWLk     sync.RWMutex
 
 		readMsgCountChannel chan int32    // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
 		closeChannel        chan struct{} // channel to indicate the connection should be closed
@@ -60,6 +69,8 @@ const (
 	initialCreditSize = 10000
 
 	creditBatchSize = initialCreditSize / 10
+
+	statusUpdateInterval = 5 * time.Second
 )
 
 func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int, perDestMetricsScope int) *outConnection {
@@ -92,6 +103,7 @@ func (conn *outConnection) open() {
 	if !conn.opened {
 		go conn.writeCreditsStream()
 		go conn.readMsgStream()
+		go conn.updateStatus()
 
 		conn.opened = true
 	}
@@ -150,12 +162,29 @@ func (conn *outConnection) readMsgStream() {
 	var lastSeqNum int64 = -1
 
 	var sealMsgRead bool
-
 	var numMsgsRead int32
+	var totalMsgReplicated int32
+	var lastMsgReplicatedTime int64
+
+	statusUpdateTicker := time.NewTicker(statusUpdateInterval)
+	defer statusUpdateTicker.Stop()
+
 	for {
 		select {
 		case <-conn.closeChannel:
 			return
+		case <-statusUpdateTicker.C:
+			select {
+			case conn.statusUpdateCh <- outConnStatus{
+				lastMsgReplicatedTime: lastMsgReplicatedTime,
+				totalMsgReplicated:    totalMsgReplicated,
+			}:
+			default:
+				conn.logger.WithFields(bark.Fields{
+					`last_msg_replicated_time`: lastMsgReplicatedTime,
+					`total_msg_replicated`:     totalMsgReplicated,
+				}).Error("readMsgStream: status update channel blocked")
+			}
 		default:
 			if numMsgsRead >= creditBatchSize {
 				select {
@@ -211,6 +240,8 @@ func (conn *outConnection) readMsgStream() {
 				select {
 				case conn.msgsCh <- rmc:
 					numMsgsRead++
+					totalMsgReplicated++
+					lastMsgReplicatedTime = time.Now().UnixNano()
 				case <-conn.closeChannel:
 					conn.logger.Info(`writing msg to the channel failed because of shutdown`)
 					return
@@ -226,6 +257,8 @@ func (conn *outConnection) readMsgStream() {
 				select {
 				case conn.msgsCh <- rmc:
 					numMsgsRead++
+					totalMsgReplicated++
+					lastMsgReplicatedTime = time.Now().UnixNano()
 				case <-conn.closeChannel:
 					conn.logger.Info(`writing msg to the channel failed because of shutdown`)
 					return
@@ -255,4 +288,24 @@ func (conn *outConnection) sendCredits(credits int32) error {
 	conn.m3Client.AddCounter(conn.metricsScope, metrics.ReplicatorOutConnCreditsSent, int64(credits))
 
 	return err
+}
+
+func (conn *outConnection) updateStatus() {
+	for {
+		select {
+		case <-conn.closeChannel:
+			return
+		case s := <-conn.statusUpdateCh:
+			conn.statusRWLk.Lock()
+			conn.status = s
+			conn.statusRWLk.Unlock()
+		}
+	}
+}
+
+func (conn *outConnection) getStatus() outConnStatus {
+	conn.statusRWLk.RLock()
+	defer conn.statusRWLk.RUnlock()
+
+	return conn.status
 }

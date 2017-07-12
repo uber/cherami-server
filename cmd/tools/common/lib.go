@@ -30,10 +30,10 @@ import (
 )
 
 const (
-	strLockTimeoutSeconds = `Acknowledgement timeout for prefetched/received messages`
-	strMaxDeliveryCount = "Maximum number of times a message is delivered before it is sent to the DLQ (dead-letter queue)"
+	strLockTimeoutSeconds         = `Acknowledgement timeout for prefetched/received messages`
+	strMaxDeliveryCount           = "Maximum number of times a message is delivered before it is sent to the DLQ (dead-letter queue)"
 	strSkipOlderMessagesInSeconds = `Skip messages older than this duration in seconds ('0' to skip none)`
-	strDelaySeconds = `Delay, in seconds, to defer all messages by`
+	strDelaySeconds               = `Delay, in seconds, to defer all messages by`
 )
 
 // SetCommonFlags sets the common flags for both cli and admin commands

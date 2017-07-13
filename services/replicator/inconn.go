@@ -172,7 +172,17 @@ func (conn *inConnection) writeMsgsStream() {
 				}
 
 				conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorInConnMsgWritten)
-				conn.destM3Client.IncCounter(conn.perDestMetricsScope, metrics.ReplicatorInConnPerDestMsgWritten)
+
+				// Only update per destination metrics for OpenReplicationRemoteRead call (initiated by local store).
+				// This means:
+				// 1. metrics are more meaningful (because we update metrics only after msg is sent to local store).
+				// 2. in the two-way replication scenario, metrics won't be mixed by both way traffic.
+				if conn.metricsScope == metrics.OpenReplicationRemoteReadScope {
+					conn.destM3Client.IncCounter(conn.perDestMetricsScope, metrics.ReplicatorInConnPerDestMsgWritten)
+					latency := time.Duration(time.Now().UnixNano() - msg.GetMessage().Message.GetEnqueueTimeUtc())
+					conn.destM3Client.RecordTimer(conn.perDestMetricsScope, metrics.ReplicatorInConnPerDestMsgLatency, latency)
+				}
+
 				localCredits--
 			case credit := <-conn.creditsCh:
 				conn.extentCreditExpiration()

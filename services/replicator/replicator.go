@@ -244,7 +244,7 @@ func (r *Replicator) OpenReplicationReadStreamHandler(w http.ResponseWriter, req
 		return
 	}
 
-	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationReadScope, metrics.OpenReplicationReadPerDestScope)
+	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationReadScope)
 	outConn.open()
 	r.addStoreHostConn(extUUID, outConn)
 
@@ -323,7 +323,7 @@ func (r *Replicator) OpenReplicationRemoteReadStreamHandler(w http.ResponseWrite
 		return
 	}
 
-	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope, metrics.OpenReplicationRemoteReadPerDestScope)
+	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope)
 	outConn.open()
 	r.addRemoteReplicatorConn(extUUID, outConn)
 

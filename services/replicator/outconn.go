@@ -22,6 +22,7 @@ package replicator
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/uber-common/bark"
@@ -33,26 +34,18 @@ import (
 )
 
 type (
-	outConnStatus struct {
-		lastMsgReplicatedTime int64
-		totalMsgReplicated    int32
-	}
-
 	outConnection struct {
 		startTime int64
 		extUUID   string
 		stream    storeStream.BStoreOpenReadStreamOutCall
 		msgsCh    chan *store.ReadMessageContent
 
-		logger              bark.Logger
-		m3Client            metrics.Client
-		destM3Client        metrics.Client
-		metricsScope        int
-		perDestMetricsScope int
+		logger       bark.Logger
+		m3Client     metrics.Client
+		metricsScope int
 
-		status         outConnStatus
-		statusUpdateCh chan outConnStatus
-		statusRWLk     sync.RWMutex
+		lastMsgReplicatedTime int64
+		totalMsgReplicated    int32
 
 		readMsgCountChannel chan int32    // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
 		closeChannel        chan struct{} // channel to indicate the connection should be closed
@@ -69,11 +62,9 @@ const (
 	initialCreditSize = 10000
 
 	creditBatchSize = initialCreditSize / 10
-
-	statusUpdateInterval = 5 * time.Second
 )
 
-func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int, perDestMetricsScope int) *outConnection {
+func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int) *outConnection {
 	localLogger := logger.WithFields(bark.Fields{
 		common.TagExt:    extUUID,
 		common.TagDstPth: destPath,
@@ -86,9 +77,7 @@ func newOutConnection(extUUID string, destPath string, stream storeStream.BStore
 		msgsCh:              make(chan *store.ReadMessageContent, msgBufferSize),
 		logger:              localLogger,
 		m3Client:            m3Client,
-		destM3Client:        metrics.NewClientWithTags(m3Client, metrics.Replicator, common.GetDestinationTags(destPath, localLogger)),
 		metricsScope:        metricsScope,
-		perDestMetricsScope: perDestMetricsScope,
 		readMsgCountChannel: make(chan int32, 10),
 		closeChannel:        make(chan struct{}),
 	}
@@ -103,7 +92,6 @@ func (conn *outConnection) open() {
 	if !conn.opened {
 		go conn.writeCreditsStream()
 		go conn.readMsgStream()
-		go conn.updateStatus()
 
 		conn.opened = true
 	}
@@ -163,28 +151,11 @@ func (conn *outConnection) readMsgStream() {
 
 	var sealMsgRead bool
 	var numMsgsRead int32
-	var totalMsgReplicated int32
-	var lastMsgReplicatedTime int64
-
-	statusUpdateTicker := time.NewTicker(statusUpdateInterval)
-	defer statusUpdateTicker.Stop()
 
 	for {
 		select {
 		case <-conn.closeChannel:
 			return
-		case <-statusUpdateTicker.C:
-			select {
-			case conn.statusUpdateCh <- outConnStatus{
-				lastMsgReplicatedTime: lastMsgReplicatedTime,
-				totalMsgReplicated:    totalMsgReplicated,
-			}:
-			default:
-				conn.logger.WithFields(bark.Fields{
-					`last_msg_replicated_time`: lastMsgReplicatedTime,
-					`total_msg_replicated`:     totalMsgReplicated,
-				}).Error("readMsgStream: status update channel blocked")
-			}
 		default:
 			if numMsgsRead >= creditBatchSize {
 				select {
@@ -232,16 +203,13 @@ func (conn *outConnection) readMsgStream() {
 
 				conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
 
-				latency := time.Duration(time.Now().UnixNano() - msg.Message.GetEnqueueTimeUtc())
-				conn.destM3Client.RecordTimer(conn.perDestMetricsScope, metrics.ReplicatorOutConnPerDestMsgLatency, latency)
-
 				// now push msg to the msg channel (which will in turn be pushed to client)
 				// Note this is a blocking call here
 				select {
 				case conn.msgsCh <- rmc:
 					numMsgsRead++
-					totalMsgReplicated++
-					lastMsgReplicatedTime = time.Now().UnixNano()
+					atomic.AddInt32(&conn.totalMsgReplicated, 1)
+					atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
 				case <-conn.closeChannel:
 					conn.logger.Info(`writing msg to the channel failed because of shutdown`)
 					return
@@ -257,8 +225,8 @@ func (conn *outConnection) readMsgStream() {
 				select {
 				case conn.msgsCh <- rmc:
 					numMsgsRead++
-					totalMsgReplicated++
-					lastMsgReplicatedTime = time.Now().UnixNano()
+					atomic.AddInt32(&conn.totalMsgReplicated, 1)
+					atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
 				case <-conn.closeChannel:
 					conn.logger.Info(`writing msg to the channel failed because of shutdown`)
 					return
@@ -288,24 +256,4 @@ func (conn *outConnection) sendCredits(credits int32) error {
 	conn.m3Client.AddCounter(conn.metricsScope, metrics.ReplicatorOutConnCreditsSent, int64(credits))
 
 	return err
-}
-
-func (conn *outConnection) updateStatus() {
-	for {
-		select {
-		case <-conn.closeChannel:
-			return
-		case s := <-conn.statusUpdateCh:
-			conn.statusRWLk.Lock()
-			conn.status = s
-			conn.statusRWLk.Unlock()
-		}
-	}
-}
-
-func (conn *outConnection) getStatus() outConnStatus {
-	conn.statusRWLk.RLock()
-	defer conn.statusRWLk.RUnlock()
-
-	return conn.status
 }

@@ -1078,8 +1078,8 @@ const (
 	ReplicatorInConnMsgWritten
 	// ReplicatorInConnPerDestMsgWritten indicates how many messages InConn writes to client per destination
 	ReplicatorInConnPerDestMsgWritten
-	// ReplicatorOutConnPerDestMsgLatency indicates the per destination replication latency
-	ReplicatorOutConnPerDestMsgLatency
+	// ReplicatorInConnPerDestMsgLatency indicates the per destination replication latency
+	ReplicatorInConnPerDestMsgLatency
 	// ReplicatorOutConnCreditsSent indicates how many credits OutConn sent
 	ReplicatorOutConnCreditsSent
 	// ReplicatorOutConnMsgRead indicates how many messages OutConn read
@@ -1374,8 +1374,8 @@ var dynamicMetricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ControllerCGBacklogProgress:    {Gauge, "controller.backlog.progress.cg"},
 	},
 	Replicator: {
-		ReplicatorInConnPerDestMsgWritten:  {Counter, "replicator.inconn.perdestmsgwritten"},
-		ReplicatorOutConnPerDestMsgLatency: {Timer, "replicator.outconn.perdestmsglatency"},
+		ReplicatorInConnPerDestMsgWritten: {Counter, "replicator.inconn.perdestmsgwritten"},
+		ReplicatorInConnPerDestMsgLatency: {Timer, "replicator.inconn.perdestmsglatency"},
 	},
 }
 

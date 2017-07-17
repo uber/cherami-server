@@ -1102,7 +1102,26 @@ func (r *Replicator) SetAckOffset(ctx thrift.Context, request *shared.SetAckOffs
 	})
 	r.m3Client.IncCounter(metrics.ReplicatorSetAckOffsetScope, metrics.ReplicatorRequests)
 
-	err := r.metaClient.SetAckOffset(nil, request)
+	// make sure the cg extent is created locally before accepting the SetAckOffset call.
+	// otherwise SetAckOffset will create the cg extent entry with no store uuid or output host uuid
+	// and we may not be able to clean up the entry eventually.
+	extent, err := r.metaClient.ReadConsumerGroupExtent(nil, &metadata.ReadConsumerGroupExtentRequest{
+		ConsumerGroupUUID: common.StringPtr(request.GetConsumerGroupUUID()),
+		ExtentUUID:        common.StringPtr(request.GetExtentUUID()),
+	})
+	if err != nil {
+		lcllg.WithField(common.TagErr, err).Error(`SetAckOffset: Failed to read cg extent locally`)
+		r.m3Client.IncCounter(metrics.ReplicatorSetAckOffsetScope, metrics.ReplicatorFailures)
+		return err
+	}
+	if len(extent.GetExtent().GetStoreUUIDs()) < 1 {
+		err = fmt.Errorf(`empty store uuid from cg extent`)
+		lcllg.Error(`SetAckOffset: empty store uuid from cg extent`)
+		r.m3Client.IncCounter(metrics.ReplicatorSetAckOffsetScope, metrics.ReplicatorFailures)
+		return err
+	}
+
+	err = r.metaClient.SetAckOffset(nil, request)
 	if err != nil {
 		lcllg.WithField(common.TagErr, err).Error(`Error calling metadata to set ack offset`)
 		r.m3Client.IncCounter(metrics.ReplicatorSetAckOffsetScope, metrics.ReplicatorFailures)

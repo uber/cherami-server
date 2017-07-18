@@ -991,29 +991,6 @@ func (s *ReplicatorSuite) TestSetAckOffsetFailure_ReadExtentFail() {
 	s.mockMeta.AssertExpectations(s.T())
 }
 
-func (s *ReplicatorSuite) TestSetAckOffsetFailure_NoStoreUUID() {
-	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
-	cgUUID := uuid.New()
-	extentUUID := uuid.New()
-	ackLevel := int64(20)
-	req := &shared.SetAckOffsetRequest{
-		ConsumerGroupUUID: common.StringPtr(cgUUID),
-		ExtentUUID:        common.StringPtr(extentUUID),
-		AckLevelAddress:   common.Int64Ptr(ackLevel),
-	}
-
-	s.mockMeta.On("ReadConsumerGroupExtent", mock.Anything, mock.Anything).Return(&metadata.ReadConsumerGroupExtentResult_{
-		Extent: &shared.ConsumerGroupExtent{},
-	}, nil).Run(func(args mock.Arguments) {
-		req := args.Get(1).(*metadata.ReadConsumerGroupExtentRequest)
-		s.Equal(extentUUID, req.GetExtentUUID())
-		s.Equal(cgUUID, req.GetConsumerGroupUUID())
-	})
-	err := repliator.SetAckOffset(nil, req)
-	s.Error(err)
-	s.mockMeta.AssertExpectations(s.T())
-}
-
 func (s *ReplicatorSuite) TestRemoteSetAckOffsetFailed() {
 	repliator, _ := NewReplicator("replicator-test", s.mockService, s.mockMeta, s.mockReplicatorClientFactory, s.cfg)
 	extentUUID := uuid.New()

@@ -260,10 +260,8 @@ func StartReplicatorService() {
 		allSplitHosts[deployment] = strings.Split(hosts, `,`)
 	}
 
-	replicatorClient := replicator.NewReplicatorClientFactory(cfg, common.GetDefaultLogger(), allSplitHosts)
-	h, tc := replicator.NewReplicator(serviceName, sCommon, meta, replicatorClient, cfg)
-	replicatorHostUpdator := replicator.NewDummyHostUpdater(replicatorClient)
-	replicatorHostUpdator.Start()
+	replicatorClientFactory := replicator.NewReplicatorClientFactory(cfg, common.GetDefaultLogger(), allSplitHosts)
+	h, tc := replicator.NewReplicator(serviceName, sCommon, meta, replicatorClientFactory, cfg)
 	h.Start(tc)
 
 	// start websocket server

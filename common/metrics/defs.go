@@ -1314,8 +1314,8 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 		ReplicatorReconcileCgExtentFoundMissing:                 {Gauge, "replicator.reconcile.cgextent.foundmissing"},
 		ReplicatorReconcileCgExtentRemoteConsumedLocalMissing:   {Gauge, "replicator.reconcile.cgextent.remote-consumed-local-missing"},
 		ReplicatorReconcileCgExtentRemoteDeletedLocalMissing:    {Gauge, "replicator.reconcile.cgextent.remote-deleted-local-missing"},
-		ReplicatorInvalidHostsUpdate:                            {Gauge, "replicator.hostupdater.invalid"},
-		ReplicatorHostUpdated:                                   {Gauge, "replicator.hostupdater.success"},
+		ReplicatorInvalidHostsUpdate:                            {Counter, "replicator.hostupdater.invalid"},
+		ReplicatorHostUpdated:                                   {Counter, "replicator.hostupdater.success"},
 	},
 }
 

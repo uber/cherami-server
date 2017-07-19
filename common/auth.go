@@ -32,8 +32,6 @@ const (
 
 	// OperationCreate indicates Create
 	OperationCreate Operation = "Create"
-	// OperationRead indicates Read
-	OperationRead Operation = "Read"
 	// OperationUpdate indicates Update
 	OperationUpdate Operation = "Update"
 	// OperationDelete indicates Delete

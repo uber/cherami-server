@@ -652,7 +652,7 @@ func (h *Frontend) CreateDestination(ctx thrift.Context, createRequest *c.Create
 		return nil, err
 	}
 
-	// Add Read/Update/Delete permissions for the current user and owner on the destination
+	// Add Update/Delete permissions for the current user and owner on the destination
 	subjects := []common.Subject{authSubject}
 	if createRequest.OwnerEmail != nil && *createRequest.OwnerEmail != "" && *createRequest.OwnerEmail != authSubject.Name {
 		ownerSubject := common.Subject{
@@ -993,7 +993,7 @@ func (h *Frontend) UpdateDestination(ctx thrift.Context, updateRequest *c.Update
 	}
 
 	if updateRequest.OwnerEmail != nil && *updateRequest.OwnerEmail != "" {
-		// Add Read/Update/Delete permissions for the owner on the destination
+		// Add Update/Delete permissions for the owner on the destination
 		// TODO check whether the new owner is different from old one, delete old permissions for old owner
 		ownerSubject := common.Subject{
 			Type: common.SubjectTypeEmployee,
@@ -1217,7 +1217,7 @@ func (h *Frontend) CreateConsumerGroup(ctx thrift.Context, createRequest *c.Crea
 			lclLg)
 
 		if _cgDesc.DeadLetterQueueDestinationUUID != nil && *_cgDesc.DeadLetterQueueDestinationUUID != "" {
-			// Add Read/Update permissions for the user on the DLQ destination
+			// Add Update permissions for the user on the DLQ destination
 			dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
 			h.addPermissions(subject,
 				dlqDstResource,
@@ -1285,7 +1285,7 @@ func (h *Frontend) UpdateConsumerGroup(ctx thrift.Context, updateRequest *c.Upda
 			lclLg)
 
 		if _cgDesc.DeadLetterQueueDestinationUUID != nil && *_cgDesc.DeadLetterQueueDestinationUUID != "" {
-			// Add Read/Update permissions for the owner on the DLQ destination
+			// Add Update permissions for the owner on the DLQ destination
 			dlqDstResource := common.GetResourceURNOperateDestination(h.SCommon, _cgDesc.DeadLetterQueueDestinationUUID)
 			h.addPermissions(ownerSubject,
 				dlqDstResource,

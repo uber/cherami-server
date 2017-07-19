@@ -79,7 +79,7 @@ func (s *ReplicatorSuite) SetupCommonMock() {
 	s.mockClientFactory = new(mockcommon.MockClientFactory)
 	s.mockClientFactory.On("GetControllerClient").Return(s.mockControllerClient, nil)
 	s.mockClientFactory.On("GetThriftStoreClientUUID", mock.Anything, mock.Anything).Return(s.mockStoreClient, "hostport", nil)
-	
+
 	s.mockWSConnector = new(mockcommon.MockWSConnector)
 	s.mockWSConnector.On("AcceptReplicationReadStream", mock.Anything, mock.Anything).Return(s.mockInStream, nil)
 	s.mockWSConnector.On("OpenReadStream", mock.Anything, mock.Anything).Return(s.mockOutStream, nil)

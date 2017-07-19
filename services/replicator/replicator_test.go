@@ -73,12 +73,13 @@ func (s *ReplicatorSuite) SetupCommonMock() {
 	s.mockInStream = new(mockreplicator.MockBStoreOpenReadStreamInCallForReplicator)
 	s.mockOutStream = new(mockreplicator.MockBStoreOpenReadStreamOutCallForReplicator)
 	s.mockReplicatorClientFactory = new(mockreplicator.MockReplicatorClientFactory)
+	s.mockReplicatorClientFactory.On("GetHostsForAllDeployment").Return(nil)
 	s.mockStoreClient = new(mockStore.MockStoreHost)
 	s.mockControllerClient = new(mockcontroller.MockControllerHost)
 	s.mockClientFactory = new(mockcommon.MockClientFactory)
 	s.mockClientFactory.On("GetControllerClient").Return(s.mockControllerClient, nil)
 	s.mockClientFactory.On("GetThriftStoreClientUUID", mock.Anything, mock.Anything).Return(s.mockStoreClient, "hostport", nil)
-
+	
 	s.mockWSConnector = new(mockcommon.MockWSConnector)
 	s.mockWSConnector.On("AcceptReplicationReadStream", mock.Anything, mock.Anything).Return(s.mockInStream, nil)
 	s.mockWSConnector.On("OpenReadStream", mock.Anything, mock.Anything).Return(s.mockOutStream, nil)

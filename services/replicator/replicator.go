@@ -253,6 +253,7 @@ func (r *Replicator) OpenReplicationReadStreamHandler(w http.ResponseWriter, req
 	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationReadScope)
 	outConn.open()
 	r.addStoreHostConn(outConn)
+	defer r.removeStoreHostConn(outConn)
 
 	inConn := newInConnection(extUUID, destDesc.GetPath(), inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationReadScope, metrics.OpenReplicationReadPerDestScope)
 	inConn.open()
@@ -260,7 +261,7 @@ func (r *Replicator) OpenReplicationReadStreamHandler(w http.ResponseWriter, req
 	go r.manageInOutConn(inConn, outConn)
 	<-inConn.closeChannel
 	<-outConn.closeChannel
-	r.removeStoreHostConn(outConn)
+
 	return
 }
 
@@ -333,6 +334,7 @@ func (r *Replicator) OpenReplicationRemoteReadStreamHandler(w http.ResponseWrite
 	outConn := newOutConnection(extUUID, destDesc.GetPath(), outStream, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope)
 	outConn.open()
 	r.addRemoteReplicatorConn(outConn)
+	defer r.removeRemoteReplicatorConn(outConn)
 
 	inConn := newInConnection(extUUID, destDesc.GetPath(), inStream, outConn.msgsCh, r.logger, r.m3Client, metrics.OpenReplicationRemoteReadScope, metrics.OpenReplicationRemoteReadPerDestScope)
 	inConn.open()
@@ -340,7 +342,7 @@ func (r *Replicator) OpenReplicationRemoteReadStreamHandler(w http.ResponseWrite
 	go r.manageInOutConn(inConn, outConn)
 	<-inConn.closeChannel
 	<-outConn.closeChannel
-	r.removeRemoteReplicatorConn(outConn)
+
 	return
 }
 

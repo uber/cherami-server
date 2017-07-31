@@ -53,16 +53,18 @@ type (
 		logger   bark.Logger
 		m3Client metrics.Client
 		common.SCommon
-		hostIDHeartbeater         common.HostIDHeartbeater
-		AppConfig                 configure.CommonAppConfig
-		uconfigClient             dconfig.Client
-		metaClient                metadata.TChanMetadataService
-		allZones                  map[string][]string
-		localZone                 string
-		authoritativeZone         string
-		tenancy                   string
-		defaultAuthoritativeZone  string
-		replicatorclientFactory   ClientFactory
+		hostIDHeartbeater        common.HostIDHeartbeater
+		AppConfig                configure.CommonAppConfig
+		uconfigClient            dconfig.Client
+		metaClient               metadata.TChanMetadataService
+		allZones                 map[string][]string
+		localZone                string
+		authoritativeZone        string
+		tenancy                  string
+		defaultAuthoritativeZone string
+		replicatorclientFactory  ClientFactory
+
+		// for debug via admin API only
 		remoteReplicatorConn      map[string]*outConnection
 		remoteReplicatorConnMutex sync.RWMutex
 		storehostConn             map[string]*outConnection

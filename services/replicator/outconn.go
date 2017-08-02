@@ -153,16 +153,6 @@ func (conn *outConnection) readMsgStream() {
 	var numMsgsRead int32
 
 	for {
-		if numMsgsRead >= creditBatchSize {
-			select {
-			case conn.readMsgCountChannel <- numMsgsRead:
-				numMsgsRead = 0
-			default:
-				// Not the end of world if the channel is blocked
-				conn.logger.WithField(`credit`, numMsgsRead).Info("readMsgStream: blocked sending credits; accumulating credits to send later")
-			}
-		}
-
 		rmc, err := conn.stream.Read()
 		if err != nil {
 			conn.logger.WithField(common.TagErr, err).Error(`Error reading msg`)
@@ -236,6 +226,16 @@ func (conn *outConnection) readMsgStream() {
 			return
 		default:
 			conn.logger.WithField(`Type`, rmc.GetType()).Error(`received ReadMessageContent with unrecognized type`)
+		}
+
+		if numMsgsRead >= creditBatchSize {
+			select {
+			case conn.readMsgCountChannel <- numMsgsRead:
+				numMsgsRead = 0
+			default:
+				// Not the end of world if the channel is blocked
+				conn.logger.WithField(`credit`, numMsgsRead).Info("readMsgStream: blocked sending credits; accumulating credits to send later")
+			}
 		}
 	}
 }

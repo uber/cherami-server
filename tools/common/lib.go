@@ -1686,6 +1686,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 	seal := c.Bool("seal")
 	verbose := c.Bool("verbose")
 	veryVerbose := c.Bool("veryverbose")
+	dlq := c.Bool("dlq")
 
 	storeClients := newStoreClientCache(mClient)
 	defer storeClients.close()
@@ -1697,152 +1698,173 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 		sealKeyTimestamp = math.MaxInt64 & timestampBitmask
 	)
 
-	reqListDest := &shared.ListDestinationsRequest{
-		Prefix: common.StringPtr(prefix),
-		Limit:  common.Int64Ptr(DefaultPageSize),
-	}
+	checkDest := func(destUUID string) {
 
-iterate_listdestinations_pages:
-	for {
-		if veryVerbose {
-			fmt.Printf("querying metadata: ListDestinations(prefix=\"%s\")\n", prefix)
+		// find all sealed extents for the destination that are "local" -- ie, we skip
+		// extents that belong to a multi-zone destination, but are not in the "origin"
+		// zone, because they could potentially be still being replicated.
+		listExtentsStats := &shared.ListExtentsStatsRequest{
+			DestinationUUID:  common.StringPtr(string(destUUID)),
+			Status:           shared.ExtentStatusPtr(shared.ExtentStatus_SEALED),
+			LocalExtentsOnly: common.BoolPtr(true), // FIXME: make arg
+			Limit:            common.Int64Ptr(DefaultPageSize),
 		}
 
-		respListDest, err := mClient.ListDestinations(reqListDest)
-
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ListDestinations error: %v\n", err)
-			break iterate_listdestinations_pages
-		}
-
-		for _, desc := range respListDest.GetDestinations() {
-
-			destUUID := desc.GetDestinationUUID()
-
-			listExtentsStats := &shared.ListExtentsStatsRequest{
-				DestinationUUID:  common.StringPtr(string(destUUID)),
-				Status:           shared.ExtentStatusPtr(shared.ExtentStatus_SEALED),
-				LocalExtentsOnly: common.BoolPtr(true), // FIXME: make arg
-				Limit:            common.Int64Ptr(DefaultPageSize),
+	iterate_listextents_pages:
+		for {
+			if veryVerbose {
+				fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v LocalOnly=%v Limit=%v)",
+					destUUID, shared.ExtentStatus_SEALED, true, DefaultPageSize)
 			}
 
-		iterate_listextents_pages:
-			for {
-				if veryVerbose {
-					fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v LocalOnly=%v Limit=%v)",
-						destUUID, shared.ExtentStatus_SEALED, true, DefaultPageSize)
-				}
+			listExtentStatsResult, err1 := mClient.ListExtentsStats(listExtentsStats)
 
-				listExtentStatsResult, err1 := mClient.ListExtentsStats(listExtentsStats)
+			if err1 != nil {
+				fmt.Fprintf(os.Stderr, "ListExtentsStats(dest=%v) error: %v\n", destUUID, err)
+				break iterate_listextents_pages
+			}
 
-				if err1 != nil {
-					fmt.Fprintf(os.Stderr, "ListExtentsStats(dest=%v) error: %v\n", destUUID, err)
-					break iterate_listextents_pages
-				}
+			for _, stats := range listExtentStatsResult.ExtentStatsList {
 
-				for _, stats := range listExtentStatsResult.ExtentStatsList {
+				extent := stats.GetExtent()
+				extentUUID := extent.GetExtentUUID()
+				storeUUIDs := extent.GetStoreUUIDs()
 
-					extent := stats.GetExtent()
-					extentUUID := extent.GetExtentUUID()
-					storeUUIDs := extent.GetStoreUUIDs()
+			iterate_stores:
+				for _, storeUUID := range storeUUIDs {
 
-				iterate_stores:
-					for _, storeUUID := range storeUUIDs {
+					storeClient, err1 := storeClients.get(storeUUID)
 
-						storeClient, err1 := storeClients.get(storeUUID)
+					if err1 != nil {
+						fmt.Fprintf(os.Stderr, "error getting store client (store=%v): %v\n", storeUUID, err)
+						continue iterate_stores
+					}
 
-						if err1 != nil {
-							fmt.Fprintf(os.Stderr, "error getting store client (store=%v): %v\n", storeUUID, err)
+					req := store.NewGetAddressFromTimestampRequest()
+					req.ExtentUUID = common.StringPtr(string(extentUUID))
+					req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
+
+					// query storage to find address of the message with the given timestamp
+					resp, err1 := storeClient.GetAddressFromTimestamp(req)
+
+					var extentNotFound bool
+
+					if err1 != nil {
+						_, extentNotFound = err1.(*store.ExtentNotFoundError)
+
+						if !extentNotFound {
+							fmt.Fprintf(os.Stderr, "dest=%v extent=%v store=%v: GetAddressFromTimestamp error: %v\n",
+								destUUID, extentUUID, storeUUID, err1)
 							continue iterate_stores
 						}
+					}
 
-						req := store.NewGetAddressFromTimestampRequest()
-						req.ExtentUUID = common.StringPtr(string(extentUUID))
-						req.Timestamp = common.Int64Ptr(sealKeyTimestamp)
+					switch {
+					case extentNotFound || !resp.GetSealed(): // handle un-sealed extent
 
-						// query storage to find address of the message with the given timestamp
-						resp, err1 := storeClient.GetAddressFromTimestamp(req)
+						output := &sealcheckJSONOutputFields{
+							DestinationUUID: destUUID,
+							ExtentUUID:      extentUUID,
+							StoreUUID:       storeUUID,
+							IsSealed:        false,
+							IsMissing:       extentNotFound,
+							IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
+						}
 
-						var extentNotFound bool
+						outputStr, _ := json.Marshal(output)
+						fmt.Fprintln(os.Stdout, string(outputStr))
 
-						if err1 != nil {
-							_, extentNotFound = err1.(*store.ExtentNotFoundError)
+						// now seal the extent
+						if seal {
 
-							if !extentNotFound {
+							fmt.Printf("sealing extent on replica: %v %v %v", destUUID, extentUUID, storeUUID)
+
+							req := store.NewSealExtentRequest()
+							req.ExtentUUID = common.StringPtr(string(extentUUID))
+							req.SequenceNumber = nil // seal at 'unspecified' seqnum
+
+							// seal the extent on the store
+							err2 := storeClient.SealExtent(req)
+
+							if err2 != nil {
 								fmt.Fprintf(os.Stderr, "dest=%v extent=%v store=%v: GetAddressFromTimestamp error: %v\n",
 									destUUID, extentUUID, storeUUID, err1)
 								continue iterate_stores
 							}
 						}
 
-						switch {
-						case extentNotFound || !resp.GetSealed(): // handle un-sealed extent
+					default:
+
+						if verbose {
 
 							output := &sealcheckJSONOutputFields{
 								DestinationUUID: destUUID,
 								ExtentUUID:      extentUUID,
 								StoreUUID:       storeUUID,
-								IsSealed:        false,
+								IsSealed:        resp.GetSealed(),
 								IsMissing:       extentNotFound,
 								IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
 							}
 
 							outputStr, _ := json.Marshal(output)
 							fmt.Fprintln(os.Stdout, string(outputStr))
-
-							// now seal the extent
-							if seal {
-
-								fmt.Printf("sealing extent on replica: %v %v %v", destUUID, extentUUID, storeUUID)
-
-								req := store.NewSealExtentRequest()
-								req.ExtentUUID = common.StringPtr(string(extentUUID))
-								req.SequenceNumber = nil // seal at 'unspecified' seqnum
-
-								// seal the extent on the store
-								err2 := storeClient.SealExtent(req)
-
-								if err2 != nil {
-									fmt.Fprintf(os.Stderr, "dest=%v extent=%v store=%v: GetAddressFromTimestamp error: %v\n",
-										destUUID, extentUUID, storeUUID, err1)
-									continue iterate_stores
-								}
-							}
-
-						default:
-
-							if verbose {
-
-								output := &sealcheckJSONOutputFields{
-									DestinationUUID: destUUID,
-									ExtentUUID:      extentUUID,
-									StoreUUID:       storeUUID,
-									IsSealed:        resp.GetSealed(),
-									IsMissing:       extentNotFound,
-									IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
-								}
-
-								outputStr, _ := json.Marshal(output)
-								fmt.Fprintln(os.Stdout, string(outputStr))
-							}
 						}
 					}
-
 				}
 
-				if len(listExtentStatsResult.GetNextPageToken()) == 0 {
-					break iterate_listextents_pages
-				}
-
-				listExtentsStats.PageToken = listExtentStatsResult.GetNextPageToken()
 			}
+
+			if len(listExtentStatsResult.GetNextPageToken()) == 0 {
+				break iterate_listextents_pages
+			}
+
+			listExtentsStats.PageToken = listExtentStatsResult.GetNextPageToken()
+		}
+	}
+
+	if len(c.Args()) > 0 {
+
+		desc, err := mClient.ReadDestination(&shared.ReadDestinationRequest{
+			Path: c.Args()[0],
+		})
+
+		ExitIfError(err)
+
+		checkDest(dsc.GetDestinationUUID())
+
+	} else {
+
+		reqListDest := &shared.ListDestinationsRequest{
+			Prefix: common.StringPtr(prefix),
+			Limit:  common.Int64Ptr(DefaultPageSize),
 		}
 
-		if len(respListDest.GetNextPageToken()) == 0 {
-			break iterate_listdestinations_pages
-		}
+	iterate_listdestinations_pages:
+		for {
+			if veryVerbose {
+				fmt.Printf("querying metadata: ListDestinations(prefix=\"%s\")\n", prefix)
+			}
 
-		reqListDest.PageToken = respListDest.GetNextPageToken()
+			respListDest, err := mClient.ListDestinations(reqListDest)
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "ListDestinations error: %v\n", err)
+				break iterate_listdestinations_pages
+			}
+
+			for _, desc := range respListDest.GetDestinations() {
+
+				destUUID := desc.GetDestinationUUID()
+
+				checkDest(destUUID)
+			}
+
+			if len(respListDest.GetNextPageToken()) == 0 {
+				break iterate_listdestinations_pages
+			}
+
+			reqListDest.PageToken = respListDest.GetNextPageToken()
+		}
 	}
 }
 

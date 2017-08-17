@@ -44,8 +44,8 @@ type (
 		metricsScope        int
 		perDestMetricsScope int
 
-		creditsCh            chan int32    // channel to pass credits from readCreditsStream to writeMsgsStream
-		creditFlowExpiration time.Time     // credit expiration is used to close the stream if we don't receive any credit for some period of time
+		creditsCh            chan int32 // channel to pass credits from readCreditsStream to writeMsgsStream
+		creditFlowExpiration time.Time  // credit expiration is used to close the stream if we don't receive any credit for some period of time
 
 		wg sync.WaitGroup
 	}
@@ -86,7 +86,7 @@ func (conn *inConnection) open() {
 	conn.logger.Info("in connection opened")
 }
 
-func (conn *inConnection) Done() {
+func (conn *inConnection) WaitUntilDone() {
 	conn.wg.Wait()
 }
 

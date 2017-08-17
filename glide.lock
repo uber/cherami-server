@@ -1,12 +1,12 @@
-hash: b12fd38476eb4ee5e70317142d9f4b93947bb227b65effeab80625d3860a5970
-updated: 2017-08-10T16:40:49.314326452-07:00
+hash: 7d4b0931a902e44d045d9bc610a9c83702861579f0a4fdf3b6e567af2d219a2a
+updated: 2017-08-17T14:58:43.667751163-07:00
 imports:
 - name: github.com/apache/thrift
   version: b2a4d4ae21c789b689dd162deb819665567f481c
   subpackages:
   - lib/go/thrift
 - name: github.com/aws/aws-sdk-go
-  version: cf66c348f82c79de333bd788d4f782c4d623ebad
+  version: 2063d937ea693f6f5c8b213906785ff9e36ba0b6
   subpackages:
   - aws
   - aws/awserr
@@ -52,7 +52,7 @@ imports:
 - name: github.com/cockroachdb/c-snappy
   version: c0cd3c9ce92f195001595e1fbbe66f045daad34f
 - name: github.com/codegangsta/cli
-  version: b99aa811b4c1dd84cc6bccb8499c82c72098085a
+  version: f017f86fccc5a039a98f23311f34fdf78b014f78
 - name: github.com/davecgh/go-spew
   version: adab96458c51a58dc1783b3335dcce5461522e75
   subpackages:
@@ -68,9 +68,9 @@ imports:
 - name: github.com/eapache/queue
   version: 44cc805cf13205b55f69e14bcb69867d1ae92f98
 - name: github.com/go-ini/ini
-  version: 3d73f4b845efdf9989fffd4b4e562727744a34ba
+  version: c787282c39ac1fc618827141a1f762240def08a3
 - name: github.com/gocql/gocql
-  version: 77431609f517cb41ee9afdcdd373561c4d935316
+  version: b9337fa4c59ce1db20300290bd7a9a7063fb6784
   subpackages:
   - internal/lru
   - internal/murmur
@@ -80,7 +80,7 @@ imports:
 - name: github.com/google/uuid
   version: 064e2069ce9c359c118179501254f67d7d37ba24
 - name: github.com/gorilla/websocket
-  version: a91eba7f97777409bc2c443f5534d41dd20c5720
+  version: a69d9f6de432e2c6b296a947d8a5ee88f68522cf
 - name: github.com/hailocab/go-hostpool
   version: e80d13ce29ede4452c43dea11e79b9bc8a15b478
 - name: github.com/jmespath/go-jmespath
@@ -108,7 +108,7 @@ imports:
   version: c01858abb625b73a3af51d0798e4ad42c8147093
   repo: http://github.com/Shopify/sarama
 - name: github.com/sirupsen/logrus
-  version: 181d419aa9e2223811b824e8f0b4af96f9ba9302
+  version: 68806b4b77355d6c8577a2c8bbc6d547a5272491
 - name: github.com/stretchr/objx
   version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
 - name: github.com/stretchr/testify
@@ -134,7 +134,7 @@ imports:
   - common/websocket
   - stream
 - name: github.com/uber/cherami-thrift
-  version: 98e566b96cbe7142446508e5991a11bc394ab343
+  version: 2cb0e2eeb6570800a2dd86544909bf2693f50e7b
   subpackages:
   - .generated/go/admin
   - .generated/go/cherami
@@ -156,7 +156,7 @@ imports:
   - swim
   - util
 - name: github.com/uber/tchannel-go
-  version: b99c1d7cecb0fdc882bed0098e7cae6ec7459059
+  version: a7ad9ecb640b5f10a0395b38d6319175172b3ab2
   subpackages:
   - hyperbahn
   - hyperbahn/gen-go/hyperbahn
@@ -184,14 +184,14 @@ imports:
   - ipv4
   - ipv6
 - name: golang.org/x/sys
-  version: e42485b6e20ae7d2304ec72e535b103ed350cc02
+  version: 9f7170bcd8e9f4d3691c06401119c46a769a1e03
   subpackages:
   - unix
   - windows
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/validator.v2
-  version: 07ffaad256c8e957050ad83d6472eb97d785013d
+  version: 460c83432a98c35224a6fe352acf8b23e067ad06
 - name: gopkg.in/yaml.v2
-  version: 25c4ec802a7d637f88d584ab26798e94ad14c13b
+  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
 testImports: []

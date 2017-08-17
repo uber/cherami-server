@@ -49,7 +49,7 @@ type (
 		lastMsgReplicatedTime int64
 		totalMsgReplicated    int32
 
-		readMsgCountChannel chan int32    // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
+		readMsgCountChannel chan int32 // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
 
 		wg sync.WaitGroup
 	}
@@ -91,8 +91,8 @@ func (conn *outConnection) open() {
 	conn.logger.Info("out connection opened")
 }
 
-func (conn *outConnection) Done() {
-	conn.wg.Done()
+func (conn *outConnection) WaitUntilDone() {
+	conn.wg.Wait()
 }
 
 func (conn *outConnection) writeCreditsStream() {

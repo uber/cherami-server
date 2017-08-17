@@ -50,11 +50,8 @@ type (
 		totalMsgReplicated    int32
 
 		readMsgCountChannel chan int32    // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
-		closeChannel        chan struct{} // channel to indicate the connection should be closed
 
-		lk     sync.Mutex
-		opened bool
-		closed bool
+		wg sync.WaitGroup
 	}
 )
 
@@ -82,43 +79,28 @@ func newOutConnection(extUUID string, destPath string, stream storeStream.BStore
 		m3Client:            m3Client,
 		metricsScope:        metricsScope,
 		readMsgCountChannel: make(chan int32, 10),
-		closeChannel:        make(chan struct{}),
 	}
 
 	return conn
 }
 
 func (conn *outConnection) open() {
-	conn.lk.Lock()
-	defer conn.lk.Unlock()
-
-	if !conn.opened {
-		go conn.writeCreditsStream()
-		go conn.readMsgStream()
-
-		conn.opened = true
-	}
+	conn.wg.Add(2)
+	go conn.writeCreditsStream()
+	go conn.readMsgStream()
 	conn.logger.Info("out connection opened")
 }
 
-func (conn *outConnection) close() {
-	conn.lk.Lock()
-	defer conn.lk.Unlock()
-
-	if !conn.closed {
-		close(conn.closeChannel)
-		conn.closed = true
-	}
-
-	conn.logger.Info("out connection closed")
+func (conn *outConnection) Done() {
+	conn.wg.Done()
 }
 
 func (conn *outConnection) writeCreditsStream() {
 	defer conn.stream.Done()
+	defer conn.wg.Done()
+
 	if err := conn.sendCredits(initialCreditSize); err != nil {
 		conn.logger.Error(`error writing initial credits`)
-
-		go conn.close()
 		return
 	}
 
@@ -128,24 +110,27 @@ func (conn *outConnection) writeCreditsStream() {
 		if numMsgsRead > 0 {
 			if err := conn.sendCredits(numMsgsRead); err != nil {
 				conn.logger.Error(`error sending credits`)
-
-				go conn.close()
 				return
 			}
 			numMsgsRead = 0
 		} else {
 			select {
 			// Note: this will block until readMsgStream sends msg count to the channel, or the connection is closed
-			case msgsRead := <-conn.readMsgCountChannel:
+			case msgsRead, ok := <-conn.readMsgCountChannel:
 				numMsgsRead += msgsRead
-			case <-conn.closeChannel:
-				return
+				if !ok {
+					conn.logger.Info(`read msg count channel closed`)
+					return
+				}
 			}
 		}
 	}
 }
 
 func (conn *outConnection) readMsgStream() {
+	defer close(conn.readMsgCountChannel)
+	defer conn.wg.Done()
+
 	// lastSeqNum is used to track whether our sequence numbers are
 	// monotonically increasing
 	// We initialize this to -1 to skip the first message check
@@ -161,7 +146,6 @@ readloop:
 		rmc, err := conn.stream.Read()
 		if err != nil {
 			conn.logger.WithField(common.TagErr, err).Error(`Error reading msg`)
-			go conn.close()
 			return
 		}
 
@@ -173,8 +157,7 @@ readloop:
 				conn.logger.WithFields(bark.Fields{
 					"seqNum": msg.Message.GetSequenceNumber(),
 				}).Error("regular message read after seal message")
-				go conn.close()
-				continue readloop
+				return
 			}
 
 			// Sequence number check to make sure we get monotonically increasing sequence number.
@@ -185,8 +168,7 @@ readloop:
 					"seqNum":         msg.Message.GetSequenceNumber(),
 					"expectedSeqNum": expectedSeqNum,
 				}).Error("sequence number out of order")
-				go conn.close()
-				continue readloop
+				return
 			}
 
 			// update the lastSeqNum to this value
@@ -201,9 +183,6 @@ readloop:
 				numMsgsRead++
 				atomic.AddInt32(&conn.totalMsgReplicated, 1)
 				atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
-			case <-conn.closeChannel:
-				conn.logger.Info(`writing msg to the channel failed because of shutdown`)
-				continue readloop
 			}
 
 		case store.ReadMessageContentType_SEALED:
@@ -218,8 +197,6 @@ readloop:
 				numMsgsRead++
 				atomic.AddInt32(&conn.totalMsgReplicated, 1)
 				atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
-			case <-conn.closeChannel:
-				conn.logger.Info(`writing msg to the channel failed because of shutdown`)
 			}
 
 			continue readloop
@@ -227,7 +204,6 @@ readloop:
 		case store.ReadMessageContentType_ERROR:
 			msgErr := rmc.GetError()
 			conn.logger.WithField(`Message`, msgErr.GetMessage()).Error(`received error from reading msg`)
-			go conn.close()
 			continue readloop
 
 		default:

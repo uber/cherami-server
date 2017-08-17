@@ -44,13 +44,10 @@ type (
 		metricsScope        int
 		perDestMetricsScope int
 
-		closeChannel         chan struct{} // channel to indicate the connection should be closed
 		creditsCh            chan int32    // channel to pass credits from readCreditsStream to writeMsgsStream
 		creditFlowExpiration time.Time     // credit expiration is used to close the stream if we don't receive any credit for some period of time
 
-		lk     sync.Mutex
-		opened bool
-		closed bool
+		wg sync.WaitGroup
 	}
 )
 
@@ -75,7 +72,6 @@ func newInConnection(extUUID string, destPath string, stream storeStream.BStoreO
 		destM3Client:         metrics.NewClientWithTags(m3Client, metrics.Replicator, common.GetDestinationTags(destPath, localLogger)),
 		metricsScope:         metricsScope,
 		perDestMetricsScope:  perDestMetricsScope,
-		closeChannel:         make(chan struct{}),
 		creditsCh:            make(chan int32, 5),
 		creditFlowExpiration: time.Now().Add(creditFlowTimeout),
 	}
@@ -84,60 +80,44 @@ func newInConnection(extUUID string, destPath string, stream storeStream.BStoreO
 }
 
 func (conn *inConnection) open() {
-	conn.lk.Lock()
-	defer conn.lk.Unlock()
-
-	if !conn.opened {
-		go conn.writeMsgsStream()
-		go conn.readCreditsStream()
-
-		conn.opened = true
-	}
+	conn.wg.Add(2)
+	go conn.writeMsgsStream()
+	go conn.readCreditsStream()
 	conn.logger.Info("in connection opened")
 }
 
-func (conn *inConnection) close() {
-	conn.lk.Lock()
-	defer conn.lk.Unlock()
-
-	if !conn.closed {
-		close(conn.closeChannel)
-		conn.closed = true
-	}
-	conn.logger.Info("in connection closed")
+func (conn *inConnection) Done() {
+	conn.wg.Wait()
 }
 
 func (conn *inConnection) readCreditsStream() {
+	defer close(conn.creditsCh)
+	defer conn.wg.Done()
 	for {
-		select {
-		case <-conn.closeChannel:
+		msg, err := conn.stream.Read()
+		if err != nil {
+			conn.logger.WithField(common.TagErr, err).Info("read credit failed")
 			return
+		}
+
+		conn.m3Client.AddCounter(conn.metricsScope, metrics.ReplicatorInConnCreditsReceived, int64(msg.GetCredits()))
+
+		// send this to writeMsgsPump which keeps track of the local credits
+		// Make this non-blocking because writeMsgsStream could be closed before this
+		select {
+		case conn.creditsCh <- msg.GetCredits():
 		default:
-			msg, err := conn.stream.Read()
-			if err != nil {
-				conn.logger.WithField(common.TagErr, err).Info("read credit failed")
-				go conn.close()
-				return
-			}
-
-			conn.m3Client.AddCounter(conn.metricsScope, metrics.ReplicatorInConnCreditsReceived, int64(msg.GetCredits()))
-
-			// send this to writeMsgsPump which keeps track of the local credits
-			// Make this non-blocking because writeMsgsStream could be closed before this
-			select {
-			case conn.creditsCh <- msg.GetCredits():
-			default:
-				conn.logger.
-					WithField(`channelLen`, len(conn.creditsCh)).
-					WithField(`credits`, msg.GetCredits()).
-					Warn(`Dropped credits because of blocked channel`)
-			}
+			conn.logger.
+				WithField(`channelLen`, len(conn.creditsCh)).
+				WithField(`credits`, msg.GetCredits()).
+				Warn(`Dropped credits because of blocked channel`)
 		}
 	}
 }
 
 func (conn *inConnection) writeMsgsStream() {
 	defer conn.stream.Done()
+	defer conn.wg.Done()
 
 	flushTicker := time.NewTicker(flushTimeout)
 	defer flushTicker.Stop()
@@ -153,17 +133,14 @@ func (conn *inConnection) writeMsgsStream() {
 				conn.logger.Warn("credit flow timeout")
 				if conn.isCreditFlowExpired() {
 					conn.logger.Warn("credit flow expired")
-					go conn.close()
+					return
 				}
-			case <-conn.closeChannel:
-				return
 			}
 		} else {
 			select {
 			case msg := <-conn.msgCh:
 				if err := conn.stream.Write(msg); err != nil {
 					conn.logger.Error("write msg failed")
-					go conn.close()
 					return
 				}
 
@@ -188,10 +165,8 @@ func (conn *inConnection) writeMsgsStream() {
 			case <-flushTicker.C:
 				if err := conn.stream.Flush(); err != nil {
 					conn.logger.Error(`flush msg failed`)
-					go conn.close()
+					return
 				}
-			case <-conn.closeChannel:
-				return
 			}
 		}
 	}

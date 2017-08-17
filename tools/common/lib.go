@@ -1828,24 +1828,23 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 	var getDlqs = func(destUUID string) (dlqs []string) {
 
 		req := &shared.ListConsumerGroupRequest{
-			Limit: common.Int64Ptr(DefaultPageSize),
+			DestinationPath: common.StringPtr(destUUID),
+			Limit:           common.Int64Ptr(DefaultPageSize),
 		}
 
 		for {
-			resp, err1 := mClient.ListAllConsumerGroups(req)
-			ExitIfError(err1)
+			resp, err := mClient.ListConsumerGroups(req)
+			ExitIfError(err)
 
 			for _, cg := range resp.GetConsumerGroups() {
-				if destUUID == cg.GetDestinationUUID() {
-					dlqs = append(dlqs, cg.GetDeadLetterQueueDestinationUUID())
-				}
+				dlqs = append(dlqs, cg.GetDeadLetterQueueDestinationUUID())
 			}
 
 			if len(resp.GetNextPageToken()) == 0 {
 				return
+			} else {
+				req.PageToken = resp.GetNextPageToken()
 			}
-
-			req.PageToken = resp.NextPageToken
 		}
 	}
 

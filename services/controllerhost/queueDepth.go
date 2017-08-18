@@ -345,8 +345,9 @@ func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDesc
 			backlog = storeMetadata.lastSequence - storeMetadata.beginSequence + 1
 		}
 	} else {
-		// update backlog, only if there is an available seqnum
-		if storeMetadata.availableSequence != math.MaxInt64 {
+		// update backlog, only if there is an available seqnum. see comment above for interpretation
+		// of "0" and "MaxInt64".
+		if storeMetadata.availableSequence != 0 && storeMetadata.availableSequence != math.MaxInt64 {
 			backlog = storeMetadata.availableSequence - cgExtent.GetAckLevelSeqNo()
 		}
 	}

@@ -1715,7 +1715,7 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 		iterate_listextents_pages:
 			for {
 				if veryVerbose {
-					fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v LocalOnly=%v Limit=%v)",
+					fmt.Printf("querying metadata: ListExtentsStats(dest=%v status=%v LocalOnly=%v Limit=%v)\n",
 						destUUID, shared.ExtentStatus_SEALED, true, DefaultPageSize)
 				}
 
@@ -1773,13 +1773,12 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 								IsEmpty:         extentNotFound || resp.GetAddress() == store.ADDR_BEGIN,
 							}
 
-							outputStr, _ := json.Marshal(output)
-							fmt.Fprintln(os.Stdout, string(outputStr))
-
 							// now seal the extent
 							if seal {
 
-								fmt.Printf("sealing extent on replica: %v %v %v", destUUID, extentUUID, storeUUID)
+								if verbose {
+									fmt.Printf("sealing extent on replica: %v %v %v\n", destUUID, extentUUID, storeUUID)
+								}
 
 								req := store.NewSealExtentRequest()
 								req.ExtentUUID = common.StringPtr(string(extentUUID))
@@ -1793,7 +1792,12 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 										destUUID, extentUUID, storeUUID, err1)
 									continue iterate_stores
 								}
+
+								output.IsSealed = true
 							}
+
+							outputStr, _ := json.Marshal(output)
+							fmt.Fprintln(os.Stdout, string(outputStr))
 
 						default:
 
@@ -1837,7 +1841,10 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 			ExitIfError(err)
 
 			for _, cg := range resp.GetConsumerGroups() {
-				dlqs = append(dlqs, cg.GetDeadLetterQueueDestinationUUID())
+
+				if cg.IsSetDeadLetterQueueDestinationUUID() {
+					dlqs = append(dlqs, cg.GetDeadLetterQueueDestinationUUID())
+				}
 			}
 
 			if len(resp.GetNextPageToken()) == 0 {
@@ -1850,11 +1857,15 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 	var getAllDlqs = func() (dlqs map[string][]string) {
 
-		dlqs = make(map[string][]string)
+		if veryVerbose {
+			fmt.Printf("querying metadata: ListAllConsumerGroups()\n")
+		}
 
 		req := &shared.ListConsumerGroupRequest{
 			Limit: common.Int64Ptr(DefaultPageSize),
 		}
+
+		var nDlqs int
 
 		for {
 			resp, err1 := mClient.ListAllConsumerGroups(req)
@@ -1862,8 +1873,12 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 			for _, cg := range resp.GetConsumerGroups() {
 
-				destUUID := cg.GetDestinationUUID()
-				dlqs[destUUID] = append(dlqs[destUUID], cg.GetDeadLetterQueueDestinationUUID())
+				if cg.IsSetDeadLetterQueueDestinationUUID() {
+
+					destUUID := cg.GetDestinationUUID()
+					dlqs[destUUID] = append(dlqs[destUUID], cg.GetDeadLetterQueueDestinationUUID())
+					nDlqs++
+				}
 			}
 
 			if len(resp.GetNextPageToken()) == 0 {

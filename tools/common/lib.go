@@ -1849,9 +1849,9 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 			if len(resp.GetNextPageToken()) == 0 {
 				return
-			} else {
-				req.PageToken = resp.GetNextPageToken()
 			}
+
+			req.PageToken = resp.GetNextPageToken()
 		}
 	}
 

@@ -1857,6 +1857,8 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 	var getAllDlqs = func() (dlqs map[string][]string) {
 
+		dlqs = make(map[string][]string)
+
 		if veryVerbose {
 			fmt.Printf("querying metadata: ListAllConsumerGroups()\n")
 		}
@@ -1882,6 +1884,11 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 			}
 
 			if len(resp.GetNextPageToken()) == 0 {
+
+				if veryVerbose {
+					fmt.Printf("found %d DLQ destinations for %d destinations\n", nDlqs, len(dlqs))
+				}
+
 				return
 			}
 

@@ -335,8 +335,13 @@ func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDesc
 	var iter = &qdc.iter
 
 	if qdc.iter.isDLQ {
-		// update backog, only if the begin/first seqnums are available
-		if storeMetadata.lastSequence != math.MaxInt64 && storeMetadata.beginSequence != math.MaxInt64 {
+		// update backog, only if the begin/first seqnums are available.
+		// {begin,last}Sequence of:
+		// 0 -> extent created, but store has not reported metrics yet (no updates on store).
+		// MaxInt64 -> extent loaded on store, but no msgs actually written yet; so store
+		// 		reported begin/last seq as 'unknown'.
+		if storeMetadata.lastSequence != 0 && storeMetadata.lastSequence != math.MaxInt64 &&
+			storeMetadata.beginSequence != 0 && storeMetadata.beginSequence != math.MaxInt64 {
 			backlog = storeMetadata.lastSequence - storeMetadata.beginSequence + 1
 		}
 	} else {
@@ -351,6 +356,7 @@ func (qdc *queueDepthCalculator) computeBacklog(cgDesc *shared.ConsumerGroupDesc
 			common.TagStor:      storeID,
 			`rsStore`:           storeMetadata.storeID,
 			`rsAvailSeq`:        storeMetadata.availableSequence,
+			`rsBeginSeq`:        storeMetadata.beginSequence,
 			`rsLastSeq`:         storeMetadata.lastSequence,
 			`rsLastSeqRate`:     storeMetadata.lastSequenceRate,
 			`cgeAckLvlSeq`:      cgExtent.GetAckLevelSeqNo(),

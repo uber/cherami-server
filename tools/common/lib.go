@@ -1850,6 +1850,8 @@ func SealConsistencyCheck(c *cli.Context, mClient mcli.Client) {
 
 	var getAllDlqs = func() (dlqs map[string][]string) {
 
+		dlqs = make(map[string][]string)
+
 		req := &shared.ListConsumerGroupRequest{
 			Limit: common.Int64Ptr(DefaultPageSize),
 		}

@@ -158,14 +158,13 @@ func (r *Replicator) Start(thriftService []thrift.TChanServer) {
 func (r *Replicator) Stop() {
 	r.hostIDHeartbeater.Stop()
 	for _, conn := range r.remoteReplicatorConn {
-		conn.close()
+		conn.shutdown()
 	}
 	for _, conn := range r.storehostConn {
-		conn.close()
+		conn.shutdown()
 	}
 	r.metadataReconciler.Stop()
 	r.SCommon.Stop()
-
 }
 
 // RegisterWSHandler is the implementation of WSService interface

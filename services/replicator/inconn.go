@@ -47,7 +47,8 @@ type (
 		creditsCh            chan int32 // channel to pass credits from readCreditsStream to writeMsgsStream
 		creditFlowExpiration time.Time  // credit expiration is used to close the stream if we don't receive any credit for some period of time
 
-		wg sync.WaitGroup
+		wg         sync.WaitGroup
+		shutdownCh chan struct{}
 	}
 )
 
@@ -74,6 +75,7 @@ func newInConnection(extUUID string, destPath string, stream storeStream.BStoreO
 		perDestMetricsScope:  perDestMetricsScope,
 		creditsCh:            make(chan int32, 5),
 		creditFlowExpiration: time.Now().Add(creditFlowTimeout),
+		shutdownCh:           make(chan struct{}),
 	}
 
 	return conn
@@ -88,6 +90,10 @@ func (conn *inConnection) open() {
 
 func (conn *inConnection) WaitUntilDone() {
 	conn.wg.Wait()
+}
+
+func (conn *inConnection) shutdown() {
+	close(conn.shutdownCh)
 }
 
 func (conn *inConnection) readCreditsStream() {
@@ -106,6 +112,8 @@ func (conn *inConnection) readCreditsStream() {
 		// Make this non-blocking because writeMsgsStream could be closed before this
 		select {
 		case conn.creditsCh <- msg.GetCredits():
+		case <-conn.shutdownCh:
+			return
 		default:
 			conn.logger.
 				WithField(`channelLen`, len(conn.creditsCh)).
@@ -126,7 +134,11 @@ func (conn *inConnection) writeMsgsStream() {
 	for {
 		if localCredits == 0 {
 			select {
-			case credit := <-conn.creditsCh:
+			case credit, ok := <-conn.creditsCh:
+				if !ok {
+					conn.logger.Info(`internal credit channel closed`)
+					return
+				}
 				conn.extentCreditExpiration()
 				localCredits += credit
 			case <-time.After(creditFlowTimeout):
@@ -159,7 +171,11 @@ func (conn *inConnection) writeMsgsStream() {
 				}
 
 				localCredits--
-			case credit := <-conn.creditsCh:
+			case credit, ok := <-conn.creditsCh:
+				if !ok {
+					conn.logger.Info(`internal credit channel closed`)
+					return
+				}
 				conn.extentCreditExpiration()
 				localCredits += credit
 			case <-flushTicker.C:

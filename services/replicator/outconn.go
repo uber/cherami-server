@@ -51,7 +51,8 @@ type (
 
 		readMsgCountChannel chan int32 // channel to pass read msg count from readMsgStream to writeCreditsStream in order to issue more credits
 
-		wg sync.WaitGroup
+		wg         sync.WaitGroup
+		shutdownCh chan struct{}
 	}
 )
 
@@ -63,6 +64,14 @@ const (
 	creditBatchSize = initialCreditSize / 10
 )
 
+// Design philosophies (applies to InConnection as well):
+// read pump reads from stream, write pump writes to stream
+// read pump communicate with write pump using an internal channel. Read pump writes to the internal channel, and write pump reads from it
+// Graceful shutdown sequence:
+// 1. read pump gets a read error (remote shuts down the connection)
+// 2. read pump closes the internal channel, then exits
+// 3. write pump detects the internal channel is closed
+// 4. write pump calls stream.Done(), and exits
 func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int) *outConnection {
 	localLogger := logger.WithFields(bark.Fields{
 		common.TagExt:    extUUID,
@@ -79,6 +88,7 @@ func newOutConnection(extUUID string, destPath string, stream storeStream.BStore
 		m3Client:            m3Client,
 		metricsScope:        metricsScope,
 		readMsgCountChannel: make(chan int32, 10),
+		shutdownCh:          make(chan struct{}),
 	}
 
 	return conn
@@ -93,6 +103,10 @@ func (conn *outConnection) open() {
 
 func (conn *outConnection) WaitUntilDone() {
 	conn.wg.Wait()
+}
+
+func (conn *outConnection) shutdown() {
+	close(conn.shutdownCh)
 }
 
 func (conn *outConnection) writeCreditsStream() {
@@ -122,6 +136,8 @@ func (conn *outConnection) writeCreditsStream() {
 					conn.logger.Info(`read msg count channel closed`)
 					return
 				}
+			case <-conn.shutdownCh:
+				return
 			}
 		}
 	}
@@ -131,17 +147,10 @@ func (conn *outConnection) readMsgStream() {
 	defer close(conn.readMsgCountChannel)
 	defer conn.wg.Done()
 
-	// lastSeqNum is used to track whether our sequence numbers are
-	// monotonically increasing
-	// We initialize this to -1 to skip the first message check
-	var lastSeqNum int64 = -1
-
-	var sealMsgRead bool
 	var numMsgsRead int32
 
 	// Note we must continue read until we hit an error before returning from this function
 	// Because the websocket client only tear down the underlying connection when it gets a read error
-readloop:
 	for {
 		rmc, err := conn.stream.Read()
 		if err != nil {
@@ -149,71 +158,28 @@ readloop:
 			return
 		}
 
-		switch rmc.GetType() {
-		case store.ReadMessageContentType_MESSAGE:
-			msg := rmc.GetMessage()
+		conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
+		if rmc.GetType() == store.ReadMessageContentType_SEALED {
+			conn.logger.WithField(`SequenceNumber`, rmc.GetSealed().GetSequenceNumber()).Info(`extent sealed`)
+		}
 
-			if sealMsgRead {
-				conn.logger.WithFields(bark.Fields{
-					"seqNum": msg.Message.GetSequenceNumber(),
-				}).Error("regular message read after seal message")
-				return
-			}
-
-			// Sequence number check to make sure we get monotonically increasing sequence number.
-			if lastSeqNum+1 != msg.Message.GetSequenceNumber() && lastSeqNum != -1 {
-				expectedSeqNum := 1 + lastSeqNum
-
-				conn.logger.WithFields(bark.Fields{
-					"seqNum":         msg.Message.GetSequenceNumber(),
-					"expectedSeqNum": expectedSeqNum,
-				}).Error("sequence number out of order")
-				return
-			}
-
-			// update the lastSeqNum to this value
-			lastSeqNum = msg.Message.GetSequenceNumber()
-
-			conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
-
-			// now push msg to the msg channel (which will in turn be pushed to client)
-			// Note this is a blocking call here
-			select {
-			case conn.msgsCh <- rmc:
-				numMsgsRead++
-				atomic.AddInt32(&conn.totalMsgReplicated, 1)
-				atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
-			}
-
-		case store.ReadMessageContentType_SEALED:
-			seal := rmc.GetSealed()
-			conn.logger.WithField(`SequenceNumber`, seal.GetSequenceNumber()).Info(`extent sealed`)
-			sealMsgRead = true
-
-			// now push msg to the msg channel (which will in turn be pushed to client)
-			// Note this is a blocking call here
-			select {
-			case conn.msgsCh <- rmc:
-				numMsgsRead++
-				atomic.AddInt32(&conn.totalMsgReplicated, 1)
-				atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
-			}
-
-			continue readloop
-
-		case store.ReadMessageContentType_ERROR:
-			msgErr := rmc.GetError()
-			conn.logger.WithField(`Message`, msgErr.GetMessage()).Error(`received error from reading msg`)
-			continue readloop
-
-		default:
-			conn.logger.WithField(`Type`, rmc.GetType()).Error(`received ReadMessageContent with unrecognized type`)
+		// now push msg to the msg channel (which will in turn be pushed to client)
+		// Note this is a blocking call here
+		select {
+		case conn.msgsCh <- rmc:
+			numMsgsRead++
+			atomic.AddInt32(&conn.totalMsgReplicated, 1)
+			atomic.StoreInt64(&conn.lastMsgReplicatedTime, time.Now().UnixNano())
+		case <-conn.shutdownCh:
+			return
 		}
 
 		if numMsgsRead >= creditBatchSize {
 			select {
 			case conn.readMsgCountChannel <- numMsgsRead:
 				numMsgsRead = 0
+			case <-conn.shutdownCh:
+				return
 			default:
 				// Not the end of world if the channel is blocked
 				conn.logger.WithField(`credit`, numMsgsRead).Info("readMsgStream: blocked sending credits; accumulating credits to send later")

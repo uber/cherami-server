@@ -67,11 +67,22 @@ const (
 // Design philosophies (applies to InConnection as well):
 // read pump reads from stream, write pump writes to stream
 // read pump communicate with write pump using an internal channel. Read pump writes to the internal channel, and write pump reads from it
-// Graceful shutdown sequence:
-// 1. read pump gets a read error (remote shuts down the connection)
-// 2. read pump closes the internal channel, then exits
-// 3. write pump detects the internal channel is closed
-// 4. write pump calls stream.Done(), and exits
+//
+// Read pump close:
+// trigger: gets a stream read error (remote shuts down the connection)
+// action:
+// 1. close the internal channel
+// 2. (for outConn only) close msg channel
+//
+//
+// Write pump close:
+// trigger:
+// 1. gets a stream write error (remote shuts down the connection)
+// 2. internal channel is closed(caused by read pump close)
+// 3. (for inConn only) msg channel is closed
+// action: call stream.Done()
+//
+
 func newOutConnection(extUUID string, destPath string, stream storeStream.BStoreOpenReadStreamOutCall, logger bark.Logger, m3Client metrics.Client, metricsScope int) *outConnection {
 	localLogger := logger.WithFields(bark.Fields{
 		common.TagExt:    extUUID,
@@ -145,6 +156,7 @@ func (conn *outConnection) writeCreditsStream() {
 
 func (conn *outConnection) readMsgStream() {
 	defer close(conn.readMsgCountChannel)
+	defer close(conn.msgsCh)
 	defer conn.wg.Done()
 
 	var numMsgsRead int32

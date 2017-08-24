@@ -150,7 +150,11 @@ func (conn *inConnection) writeMsgsStream() {
 			}
 		} else {
 			select {
-			case msg := <-conn.msgCh:
+			case msg, ok := <-conn.msgCh:
+				if !ok {
+					conn.logger.Info("msg channel closed")
+					return
+				}
 				if err := conn.stream.Write(msg); err != nil {
 					conn.logger.Error("write msg failed")
 					return

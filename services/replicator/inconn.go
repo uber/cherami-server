@@ -94,11 +94,12 @@ func (conn *inConnection) WaitUntilDone() {
 
 func (conn *inConnection) shutdown() {
 	close(conn.shutdownCh)
+	conn.logger.Info(`in connection shutdown`)
 }
 
 func (conn *inConnection) readCreditsStream() {
-	defer close(conn.creditsCh)
 	defer conn.wg.Done()
+	defer close(conn.creditsCh)
 	for {
 		msg, err := conn.stream.Read()
 		if err != nil {
@@ -124,8 +125,8 @@ func (conn *inConnection) readCreditsStream() {
 }
 
 func (conn *inConnection) writeMsgsStream() {
-	defer conn.stream.Done()
 	defer conn.wg.Done()
+	defer conn.stream.Done()
 
 	flushTicker := time.NewTicker(flushTimeout)
 	defer flushTicker.Stop()
@@ -147,6 +148,8 @@ func (conn *inConnection) writeMsgsStream() {
 					conn.logger.Warn("credit flow expired")
 					return
 				}
+			case <-conn.shutdownCh:
+				return
 			}
 		} else {
 			select {
@@ -187,6 +190,8 @@ func (conn *inConnection) writeMsgsStream() {
 					conn.logger.Error(`flush msg failed`)
 					return
 				}
+			case <-conn.shutdownCh:
+				return
 			}
 		}
 	}

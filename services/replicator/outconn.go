@@ -118,11 +118,12 @@ func (conn *outConnection) WaitUntilDone() {
 
 func (conn *outConnection) shutdown() {
 	close(conn.shutdownCh)
+	conn.logger.Info(`out connection shutdown`)
 }
 
 func (conn *outConnection) writeCreditsStream() {
-	defer conn.stream.Done()
 	defer conn.wg.Done()
+	defer conn.stream.Done()
 
 	if err := conn.sendCredits(initialCreditSize); err != nil {
 		conn.logger.Error(`error writing initial credits`)
@@ -155,9 +156,9 @@ func (conn *outConnection) writeCreditsStream() {
 }
 
 func (conn *outConnection) readMsgStream() {
+	defer conn.wg.Done()
 	defer close(conn.readMsgCountChannel)
 	defer close(conn.msgsCh)
-	defer conn.wg.Done()
 
 	var numMsgsRead int32
 
@@ -170,7 +171,9 @@ func (conn *outConnection) readMsgStream() {
 			return
 		}
 
-		conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
+		if rmc.GetType() == store.ReadMessageContentType_MESSAGE {
+			conn.m3Client.IncCounter(conn.metricsScope, metrics.ReplicatorOutConnMsgRead)
+		}
 		if rmc.GetType() == store.ReadMessageContentType_SEALED {
 			conn.logger.WithField(`SequenceNumber`, rmc.GetSealed().GetSequenceNumber()).Info(`extent sealed`)
 		}

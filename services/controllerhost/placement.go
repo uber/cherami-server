@@ -34,6 +34,7 @@ import (
 )
 
 var errNoHosts = errors.New("Unable to find healthy hosts")
+var errNotEnoughHosts = errors.New("Unable to enough hosts")
 var errNoInputHosts = errors.New("Unable to find healthy input host")
 var errNoOutputHosts = errors.New("Unable to find healthy output host")
 var errNoStoreHosts = errors.New("Unable to find healthy store hosts")
@@ -77,7 +78,17 @@ func toResources(hosts []*common.HostInfo) []string {
 // Helper function to pick hosts based on the predicates
 func (p *DistancePlacement) pickHosts(service string, poolHosts, sourceHosts []*common.HostInfo, count int, minDistance, maxDistance uint16) ([]*common.HostInfo, error) {
 	if p.distMap == nil {
-		return poolHosts[:count], nil
+		if cnt := len(poolHosts); cnt >= count {
+			start := rand.Intn(cnt)
+			end := start + count
+			if end > cnt {
+				end = cnt
+			}
+			pickedHosts := append([]*common.HostInfo{}, poolHosts[start:end]...)
+			pickedHosts = append(pickedHosts, poolHosts[:count-len(pickedHosts)]...)
+			return pickedHosts, nil
+		}
+		return nil, errNotEnoughHosts
 	}
 
 	sourceResources := toResources(sourceHosts)

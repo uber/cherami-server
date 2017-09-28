@@ -171,8 +171,9 @@ func (f *repCltFactoryImpl) GetHostsForAllDeployment() map[string][]string {
 
 func (f *repCltFactoryImpl) UpdateHostsForDeployment(deployment string, hosts []string) {
 	f.hostLk.Lock()
-	f.deploymentClientsLk.Lock()
 	defer f.hostLk.Unlock()
+
+	f.deploymentClientsLk.Lock()
 	defer f.deploymentClientsLk.Unlock()
 
 	f.hosts[deployment] = hosts

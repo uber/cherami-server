@@ -786,7 +786,7 @@ func NewOutputHost(
 		if opts.CacheIdleTimeout != 0 {
 			bs.cacheTimeout = opts.CacheIdleTimeout
 		}
-		if opts.KafkaStreamFactory != nil {
+		if opts.KStreamFactory != nil {
 			bs.kafkaStreamFactory = opts.KStreamFactory
 		}
 	}

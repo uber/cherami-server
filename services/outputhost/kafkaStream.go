@@ -48,7 +48,7 @@ type kafkaStream struct {
 	seqNo           int64
 }
 
-// KafkakMessageConverterConfig is used to config customized converter
+// KafkaMessageConverterConfig is used to config customized converter
 type KafkaMessageConverterConfig struct {
 	// Destination and ConsumerGroup are not needed currently, but may in the future
 	// Destination *cherami.DestinationDescription

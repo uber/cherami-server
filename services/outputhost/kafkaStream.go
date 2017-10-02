@@ -43,7 +43,7 @@ var (
 type kafkaStream struct {
 	creditSemaphore common.UnboundedSemaphore
 	kafkaMsgsCh     <-chan *s.ConsumerMessage
-	kConverter      KafkaMessageConverter
+	kafkaConverter  KafkaMessageConverter
 	logger          bark.Logger
 	seqNo           int64
 }
@@ -94,7 +94,7 @@ func (k *kafkaStream) Read() (*store.ReadMessageContent, error) {
 		return nil, errKafkaClosed
 	}
 	k.creditSemaphore.Acquire(1) // TODO: Size-based credits
-	return k.kConverter(m), nil
+	return k.kafkaConverter(m), nil
 }
 
 // ResponseHeaders returns the response headers sent from the server. This will block until server headers have been received.
@@ -109,12 +109,12 @@ func (k *kafkaStream) ResponseHeaders() (map[string]string, error) {
 // OpenKafkaStream opens a store call simulated from the given sarama message stream
 func OpenKafkaStream(c <-chan *s.ConsumerMessage, kafkaMessageConverter KafkaMessageConverter, logger bark.Logger) stream.BStoreOpenReadStreamOutCall {
 	k := &kafkaStream{
-		kafkaMsgsCh: c,
-		logger:      logger,
-		kConverter:  kafkaMessageConverter,
+		kafkaMsgsCh:    c,
+		logger:         logger,
+		kafkaConverter: kafkaMessageConverter,
 	}
-	if k.kConverter == nil {
-		k.kConverter = k.getDefaultKafkaMessageConverter()
+	if k.kafkaConverter == nil {
+		k.kafkaConverter = k.getDefaultKafkaMessageConverter()
 	}
 	return k
 }

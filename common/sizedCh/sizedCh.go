@@ -30,6 +30,7 @@ func New(size int) (*SizedCh, <-chan Message, chan<- Message) {
 		readerCh: make(chan unsafe.Pointer, readChSize),
 		writerCh: make(chan unsafe.Pointer, writeChSize),
 		bufferCh: make(chan unsafe.Pointer, bufChSize),
+		cond:     sync.NewCond(t.mu),
 	}
 
 	go t.readPump()
@@ -61,6 +62,8 @@ func (t *SizedCh) readPump() {
 
 			if msgSize > availSize {
 
+				// if msg-size larger than available-size, then sleep
+
 				t.cond.L.Lock()
 
 				for msgSize > availSize {
@@ -71,12 +74,13 @@ func (t *SizedCh) readPump() {
 				t.cond.L.Unlock()
 			}
 
+			// msg-size fits into available-size; atomically c-a-s availSize
 			if atomic.CompareAndSwapInt64(&t.availSize, availSize, availSize-msgSize) {
 				break
 			}
 		}
 
-		t.bufferCh <- msg
+		t.bufferCh <- msg // we should never block here! blocking here indicates bufferCh needs to be larger
 	}
 }
 

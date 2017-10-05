@@ -19,10 +19,11 @@ type SzChan struct {
 }
 
 const (
-	// should be '0' ideally, so the writer blocks as soon as the internal buffer
-	// is full (ie, has no capacity); increase to improve performance.
+	// these should ideally be '0', so the writer blocks as soon as the internal
+	// buffer is full (ie, has no capacity); increase to improve performance.
 	writerChSize = 32
 	readerChSize = 32
+
 	bufferChSize = 10000
 )
 

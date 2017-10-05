@@ -56,6 +56,7 @@ func New(size int, setOpts ...SetOptFunc) (*SzChan, <-chan Message, chan<- Messa
 	return t, t.readerCh, t.writerCh
 }
 
+// SetOptFunc is used to override various options on the object
 type SetOptFunc func(t *SzChan)
 
 // ReaderChSize can be used to override the default readerChSize

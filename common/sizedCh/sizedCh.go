@@ -3,21 +3,22 @@ package sizedCh
 import (
 	"sync"
 	"sync/atomic"
-	"unsafe"
 )
 
 type SizedCh struct {
-	readerCh, bufferCh, readerCh chan Message
-	totalSize                    int64
-	availSize                    int64
-	mu                           sync.Mutex
-	cond                         *sync.Cond
+	writerCh  chan Message
+	bufferCh  chan Message
+	readerCh  chan Message
+	totalSize int64
+	availSize int64
+	mu        sync.Mutex
+	cond      *sync.Cond
 }
 
 const (
 	readerChSize = 16
 	writerChSize = 16
-	bufChSize    = 10000
+	bufferChSize = 10000
 )
 
 type Message interface {
@@ -27,11 +28,12 @@ type Message interface {
 func New(size int) (*SizedCh, <-chan Message, chan<- Message) {
 
 	t := &SizedCh{
-		readerCh: make(chan unsafe.Pointer, readChSize),
-		writerCh: make(chan unsafe.Pointer, writeChSize),
-		bufferCh: make(chan unsafe.Pointer, bufChSize),
-		cond:     sync.NewCond(t.mu),
+		readerCh: make(chan Message, readerChSize),
+		writerCh: make(chan Message, writerChSize),
+		bufferCh: make(chan Message, bufferChSize),
 	}
+
+	t.cond = sync.NewCond(&t.mu)
 
 	go t.readPump()
 	go t.writePump()
@@ -90,8 +92,8 @@ func (t *SizedCh) writePump() {
 
 	for msg := range t.bufferCh {
 
-		readerCh <- msg
-		atomic.AddInt64(availSize, msgSize)
+		t.readerCh <- msg
+		atomic.AddInt64(&t.availSize, int64(msg.Size()))
 		t.cond.Signal()
 	}
 }

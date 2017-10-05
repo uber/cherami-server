@@ -2,18 +2,20 @@
 package sizedCh
 
 import (
+	// "fmt"
 	"sync"
 	"sync/atomic"
 )
 
 // SizedCh holds the context for the size-capped channel
 type SizedCh struct {
-	availSize int64        // available size in the channel; updated atomically
-	writerCh  chan Message // channel the writer end puts messages into
-	bufferCh  chan Message // internal channel that holds the buffered messages
-	readerCh  chan Message // channel the reader end reads messages from
-	cond      *sync.Cond   // conditional variable used to sleep/wake-up
-	mu        sync.Mutex   // mutex to use for the conditional-variable
+	avail    int64        // available capacity in the internal buffer
+	capacity int64        // total size/capacity of internal buffer
+	writerCh chan Message // channel the writer end puts messages into
+	bufferCh chan Message // internal channel that holds the buffered messages
+	readerCh chan Message // channel the reader end reads messages from
+	cond     *sync.Cond   // conditional variable used to sleep/wake-up
+	mu       sync.Mutex   // mutex to use for the conditional-variable
 }
 
 const (
@@ -29,9 +31,10 @@ type Message interface {
 	Len() int
 }
 
-type SetOpt func(t *SizedCh)
+type SetOptFunc func(t *SizedCh)
 
-func ReaderChSize(size int) SetOpt {
+// ReaderChSize can be used to override the default readerChSize
+func ReaderChSize(size int) SetOptFunc {
 
 	return func(t *SizedCh) {
 		close(t.readerCh)
@@ -39,7 +42,8 @@ func ReaderChSize(size int) SetOpt {
 	}
 }
 
-func WriterChSize(size int) SetOpt {
+// WriterChSize can be used to override the default writerChSize
+func WriterChSize(size int) SetOptFunc {
 
 	return func(t *SizedCh) {
 		close(t.writerCh)
@@ -47,7 +51,8 @@ func WriterChSize(size int) SetOpt {
 	}
 }
 
-func BufferChSize(size int) SetOpt {
+// BufferChSize can be used to override the default bufferChSize
+func BufferChSize(size int) SetOptFunc {
 
 	return func(t *SizedCh) {
 		close(t.bufferCh)
@@ -57,13 +62,14 @@ func BufferChSize(size int) SetOpt {
 
 // New creates a new size-capped channel, and returns corresponding
 // channels for the reader and writer for the channel.
-func New(size int, setOpts ...SetOpt) (*SizedCh, <-chan Message, chan<- Message) {
+func New(size int, setOpts ...SetOptFunc) (*SizedCh, <-chan Message, chan<- Message) {
 
 	t := &SizedCh{
-		availSize: int64(size),
-		readerCh:  make(chan Message, readerChSize),
-		writerCh:  make(chan Message, writerChSize),
-		bufferCh:  make(chan Message, bufferChSize),
+		avail:    int64(size),
+		capacity: int64(size),
+		readerCh: make(chan Message, readerChSize),
+		writerCh: make(chan Message, writerChSize),
+		bufferCh: make(chan Message, bufferChSize),
 	}
 
 	t.cond = sync.NewCond(&t.mu)
@@ -78,11 +84,23 @@ func New(size int, setOpts ...SetOpt) (*SizedCh, <-chan Message, chan<- Message)
 	return t, t.readerCh, t.writerCh
 }
 
-// Increase increases the 'size' of the channel; the size can be
-// negative to reduce the size. Returns the new size of the channel.
-func (t *SizedCh) Increase(size int) (newSize int) {
+// Len returns the size of the messages currently buffered in the szChan
+func (t *SizedCh) Len() int {
 
-	return int(atomic.AddInt64(&t.availSize, int64(size)))
+	return int(atomic.LoadInt64(&t.capacity) - atomic.LoadInt64(&t.avail))
+}
+
+// Cap returns the current capacity of the szChan
+func (t *SizedCh) Cap() int {
+
+	return int(atomic.LoadInt64(&t.capacity))
+}
+
+// SetCap changes the 'capacity' of the channel
+func (t *SizedCh) SetCap(newCap int) {
+
+	oldCap := atomic.SwapInt64(&t.capacity, int64(newCap)) // set new 'capacity'
+	atomic.AddInt64(&t.avail, int64(newCap)-oldCap)        // update 'avail' appropriately
 }
 
 // Close closes the sized channel. Just like with go-channels, the caller would
@@ -102,33 +120,33 @@ func (t *SizedCh) readPump() {
 	for msg := range t.writerCh {
 
 		// find message size
-		msgSize := int64(msg.Len())
+		size := int64(msg.Len())
 
 		// check if there's space in the buffer; wait if not
 		for {
-			availSize := atomic.LoadInt64(&t.availSize)
+			avail := atomic.LoadInt64(&t.avail)
 
 			// if the msg does not readily fit into the available space,
 			// then sleep and wait until space is made available (when
 			// messages are read out).
-			if msgSize > availSize {
+			if size > avail {
 
 				t.cond.L.Lock()
 
 				// sleep until there's space available in the buffer
-				for msgSize > availSize {
-
+				for size > avail {
 					t.cond.Wait() // sleep on conditional-variable
-					availSize = atomic.LoadInt64(&t.availSize)
+					avail = atomic.LoadInt64(&t.avail)
 				}
 
 				t.cond.L.Unlock()
 			}
 
 			// msg-size fits into available-size; atomically update available size
-			if atomic.CompareAndSwapInt64(&t.availSize, availSize, availSize-msgSize) {
+			if atomic.CompareAndSwapInt64(&t.avail, avail, avail-size) {
 				break
 			}
+
 		}
 
 		// we should ideally never block below! if we do block, that
@@ -140,7 +158,7 @@ func (t *SizedCh) readPump() {
 
 // write pump reads from the internal 'buffer' channel and writes out into the
 // 'reader' channel. every time a message is drained out, we updated the
-// 'availSize' appropriately and send a signal over the conditional-variable
+// 'avail' appropriately and send a signal over the conditional-variable
 // to wake up the publisher, in case it is stuck.
 func (t *SizedCh) writePump() {
 
@@ -152,7 +170,7 @@ func (t *SizedCh) writePump() {
 	for msg := range t.bufferCh {
 
 		t.readerCh <- msg
-		atomic.AddInt64(&t.availSize, int64(msg.Len()))
+		atomic.AddInt64(&t.avail, int64(msg.Len()))
 		t.cond.Signal()
 	}
 }

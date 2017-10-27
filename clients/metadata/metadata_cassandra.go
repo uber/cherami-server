@@ -1827,7 +1827,7 @@ func (s *CassandraMetadataService) DeleteConsumerGroup(ctx thrift.Context, reque
 		existingCG.GetDestinationUUID(),
 		existingCG.GetConsumerGroupName())
 
-	batch.Cons = s.lowConsLevel
+	batch.Cons = s.midConsLevel
 
 	if e = s.session.ExecuteBatch(batch); e != nil {
 		return &shared.InternalServiceError{

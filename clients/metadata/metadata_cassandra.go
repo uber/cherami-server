@@ -1286,7 +1286,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 
 	// Only non-UUID (non-DLQ) destinations get a DLQ for the corresponding consumer groups
 	// We may create a consumer group consume a DLQ destination and no DLQ destination creation needed in this case
-	var pDlqUUID *string
+	var dlqUUID *string
 
 	if common.PathRegex.MatchString(createRequest.GetDestinationPath()) {
 		dlqDestDesc, err := s.createDlqDestination(cgUUID, createRequest.GetConsumerGroupName(), createRequest.GetOwnerEmail())
@@ -1294,7 +1294,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 			return nil, err
 		}
 
-		pDlqUUID = common.StringPtr(dlqDestDesc.GetDestinationUUID())
+		dlqUUID = common.StringPtr(dlqDestDesc.GetDestinationUUID())
 
 	} else {
 		s.log.WithFields(bark.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination not being created")
@@ -1335,7 +1335,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		createRequest.GetMaxDeliveryCount(),
 		createRequest.GetSkipOlderMessagesSeconds(),
 		createRequest.GetDelaySeconds(),
-		pDlqUUID,
+		dlqUUID,
 		createRequest.GetOwnerEmail(),
 		createRequest.GetIsMultiZone(),
 		createRequest.GetActiveZone(),
@@ -1344,11 +1344,11 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 
 	if err != nil {
 
-		if pDlqUUID != nil {
+		if dlqUUID != nil {
 
-			if e := s.DeleteDestinationUUID(nil, &m.DeleteDestinationUUIDRequest{UUID: pDlqUUID}); e != nil {
+			if e := s.DeleteDestinationUUID(nil, &m.DeleteDestinationUUIDRequest{UUID: dlqUUID}); e != nil {
 				s.log.WithFields(bark.Fields{
-					common.TagDst:  *pDlqUUID,
+					common.TagDst:  *dlqUUID,
 					common.TagCnsm: cgUUID,
 					common.TagErr:  err,
 				}).Error(`CreateConsumerGroup - failed to cleanup DLQ destination`)
@@ -1374,7 +1374,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		createRequest.GetMaxDeliveryCount(),
 		createRequest.GetSkipOlderMessagesSeconds(),
 		createRequest.GetDelaySeconds(),
-		pDlqUUID,
+		dlqUUID,
 		createRequest.GetOwnerEmail(),
 		createRequest.GetIsMultiZone(),
 		createRequest.GetActiveZone(),
@@ -1390,11 +1390,11 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 			s.log.WithFields(bark.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Warn(`CreateConsumerGroup - failed to delete orphan record after a failed CAS attempt, ,`)
 		}
 
-		if pDlqUUID != nil {
+		if dlqUUID != nil {
 
-			if e := s.DeleteDestinationUUID(nil, &m.DeleteDestinationUUIDRequest{UUID: pDlqUUID}); e != nil {
+			if e := s.DeleteDestinationUUID(nil, &m.DeleteDestinationUUIDRequest{UUID: dlqUUID}); e != nil {
 				s.log.WithFields(bark.Fields{
-					common.TagDst:  *pDlqUUID,
+					common.TagDst:  *dlqUUID,
 					common.TagCnsm: cgUUID,
 					common.TagErr:  err,
 				}).Error(`CreateConsumerGroup - failed to cleanup DLQ destination`)
@@ -1432,7 +1432,7 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		MaxDeliveryCount:               common.Int32Ptr(createRequest.GetMaxDeliveryCount()),
 		SkipOlderMessagesSeconds:       common.Int32Ptr(createRequest.GetSkipOlderMessagesSeconds()),
 		DelaySeconds:                   common.Int32Ptr(createRequest.GetDelaySeconds()),
-		DeadLetterQueueDestinationUUID: pDlqUUID,
+		DeadLetterQueueDestinationUUID: dlqUUID,
 		OwnerEmail:                     common.StringPtr(createRequest.GetOwnerEmail()),
 		IsMultiZone:                    common.BoolPtr(createRequest.GetIsMultiZone()),
 		ActiveZone:                     common.StringPtr(createRequest.GetActiveZone()),

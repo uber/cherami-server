@@ -1287,7 +1287,6 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 	// Only non-UUID (non-DLQ) destinations get a DLQ for the corresponding consumer groups
 	// We may create a consumer group consume a DLQ destination and no DLQ destination creation needed in this case
 	var dlqUUID *string
-
 	if common.PathRegex.MatchString(createRequest.GetDestinationPath()) {
 		dlqDestDesc, err := s.createDlqDestination(cgUUID, createRequest.GetConsumerGroupName(), createRequest.GetOwnerEmail())
 		if err != nil {
@@ -1295,7 +1294,6 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 		}
 
 		dlqUUID = common.StringPtr(dlqDestDesc.GetDestinationUUID())
-
 	} else {
 		s.log.WithFields(bark.Fields{common.TagCnsm: common.FmtCnsm(cgUUID)}).Info("DeadLetterQueue destination not being created")
 	}
@@ -1385,7 +1383,6 @@ func (s *CassandraMetadataService) CreateConsumerGroupUUID(ctx thrift.Context, r
 
 	applied, err := query.MapScanCAS(previous)
 	if !applied {
-
 		if err = s.session.Query(sqlDeleteCGByUUID, cgUUID).Exec(); err != nil {
 			s.log.WithFields(bark.Fields{common.TagCnsm: common.FmtCnsm(cgUUID), common.TagErr: err}).Warn(`CreateConsumerGroup - failed to delete orphan record after a failed CAS attempt, ,`)
 		}

@@ -909,8 +909,12 @@ const (
 	StorageRequests
 	// StorageFailures is the count of requests that have failed
 	StorageFailures
+	// StorageReadOnlyFailures is the count of requests that failed because the store was readonly
+	StorageReadOnlyFailures
 	// StorageStoreFailures is the count of requests that have failed due to storage errors
 	StorageStoreFailures
+	// StorageAlertableFailure is the count of requests whose failures need to be alerted immediately
+	StorageAlertableFailure
 	// StorageMessageReceived records the count of messages received
 	StorageMessageReceived
 	// StorageMessageSent records the count of messages sent
@@ -1217,6 +1221,7 @@ var metricDefs = map[ServiceIdx]map[int]metricDefinition{
 	Storage: {
 		StorageRequests:                             {Counter, "storage.requests"},
 		StorageFailures:                             {Counter, "storage.errors"},
+		StorageAlertableFailure:                     {Counter, "storage.alertable.failure"},
 		StorageStoreFailures:                        {Counter, "storage.store-error"},
 		StorageMessageReceived:                      {Counter, "storage.message.received"},
 		StorageMessageSent:                          {Counter, "storage.message.sent"},

@@ -208,7 +208,7 @@ func (t *ReplicationJob) Start() error {
 
 	var beginKey storage.Key // key to start replicating from
 
-	if t.ext.getLastSeqNum() != -1 {
+	if t.ext.getLastSeqNum() != SeqNumInvalid {
 
 		// if we already have the extent, it's likely because we failed during
 		// replication. in order to resume replication, find the address of the
@@ -306,6 +306,7 @@ func (t *ReplicationJob) replicationPump() {
 	lastCreditUpdate := time.Now()
 
 	var done bool
+	var firstMsg = (t.ext.getLastSeqNum() == SeqNumInvalid)
 
 pump:
 	for {
@@ -506,6 +507,12 @@ pump:
 		}
 
 		replMsgs++ // keep a count of the messages written during this "session"
+
+		// if first msg written to this extent, update first-seqnum, etc
+		if firstMsg {
+			x.setFirstMsg(int64(key), msgSeqNum, visibilityTime)
+			firstMsg = false
+		}
 
 		credLine.Return(1) // TODO: make credits proportional to payload size
 

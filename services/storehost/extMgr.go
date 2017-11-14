@@ -320,8 +320,11 @@ retryOpen:
 		if !exists {
 			numExtents := atomic.AddInt64(&xMgr.numExtents, 1)
 			xMgr.m3Client.UpdateGauge(metrics.ExtentManagerScope, metrics.StorageOpenExtents, numExtents) // metrics
-			xMgr.logger.WithField("context", fmt.Sprintf("ext=%v numExtents=%d", id, numExtents)).
-				Info("ExtMgr: extent opened")
+			xMgr.logger.WithFields(bark.Fields{
+				common.TagExt: id,
+				`intent`:      intent,
+				`numExtents`:  numExtents,
+			}).Info("ExtMgr: extent opened")
 		}
 
 		// no errors -> move on

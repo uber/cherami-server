@@ -317,15 +317,21 @@ retryOpen:
 	case nil:
 
 		// if we just created the extentContext, update metrics
+
+		var numOpenExtents int64
 		if !exists {
-			numExtents := atomic.AddInt64(&xMgr.numExtents, 1)
-			xMgr.m3Client.UpdateGauge(metrics.ExtentManagerScope, metrics.StorageOpenExtents, numExtents) // metrics
-			xMgr.logger.WithFields(bark.Fields{
-				common.TagExt: id,
-				`intent`:      intent,
-				`numExtents`:  numExtents,
-			}).Info("ExtMgr: extent opened")
+			numOpenExtents = atomic.AddInt64(&xMgr.numExtents, 1)
+			xMgr.m3Client.UpdateGauge(metrics.ExtentManagerScope, metrics.StorageOpenExtents, numOpenExtents) // metrics
+		} else {
+			numOpenExtents = atomic.LoadInt64(&xMgr.numExtents)
 		}
+
+		xMgr.logger.WithFields(bark.Fields{
+			common.TagExt:    id,
+			`intent`:         intent,
+			`numOpenExtents`: numOpenExtents,
+			`exists`:         exists,
+		}).Info("extMgr: extent opened")
 
 		// no errors -> move on
 
@@ -366,12 +372,17 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent, op
 	case OpenIntentAppendStream:
 		ext.extMetrics.Decrement(load.ExtentMetricNumWriteConns)
 		xMgr.hostMetrics.Decrement(load.HostMetricNumWriteConns)
+
 	case OpenIntentReadStream:
 		ext.extMetrics.Decrement(load.ExtentMetricNumReadConns)
 		xMgr.hostMetrics.Decrement(load.HostMetricNumReadConns)
+
 	case OpenIntentReplicateExtent:
-		// mark as not open for replication
-		atomic.StoreInt32(&ext.openedForReplication, 0)
+
+		if openError != nil {
+			// mark as not open for replication
+			atomic.StoreInt32(&ext.openedForReplication, 0)
+		}
 	}
 
 	// hold ext shared, so that another thread does not tear down extent
@@ -399,6 +410,14 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent, op
 	if cleanup {
 		xMgr.cleanupExtent(ext)
 	}
+
+	xMgr.logger.WithFields(bark.Fields{
+		common.TagExt:    ext.id,
+		`intent`:         intent,
+		`openError`:      openError,
+		`numOpenExtents`: atomic.LoadInt64(&xMgr.numExtents),
+		`cleanup`:        cleanup,
+	}).Info("extMgr: extent closed")
 
 	return
 }
@@ -507,8 +526,6 @@ func (xMgr *ExtentManager) cleanupExtent(ext *extentContext) bool {
 
 	numExtents := atomic.AddInt64(&xMgr.numExtents, -1)
 	xMgr.m3Client.UpdateGauge(metrics.ExtentManagerScope, metrics.StorageOpenExtents, numExtents) // metrics
-	xMgr.logger.WithField("context", fmt.Sprintf("ext=%v numExtents=%d", ext.id, numExtents)).
-		Info("ExtMgr: extent closed")
 
 	return true
 }

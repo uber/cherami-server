@@ -208,7 +208,7 @@ func (t *ReplicationJob) Start() error {
 
 	var beginKey storage.Key // key to start replicating from
 
-	if t.ext.getLastSeqNum() != SeqNumInvalid {
+	if t.ext.getLastSeqNum() != SeqnumInvalid {
 
 		// if we already have the extent, it's likely because we failed during
 		// replication. in order to resume replication, find the address of the
@@ -306,7 +306,7 @@ func (t *ReplicationJob) replicationPump() {
 	lastCreditUpdate := time.Now()
 
 	var done bool
-	var firstMsg = (t.ext.getLastSeqNum() == SeqNumInvalid)
+	var firstMsg = (t.ext.getLastSeqNum() == SeqnumInvalid)
 
 pump:
 	for {
@@ -377,10 +377,8 @@ pump:
 			x.setSealSeqNum(sealSeqNum) // save sealSeqNum
 
 			log.WithFields(bark.Fields{
-				`reason`:      `extent sealed`,
 				`seal-seqnum`: sealSeqNum,
-				`replMsgs`:    replMsgs,
-			}).Info(`replicationPump done`)
+			}).Info(`replicationPump: extent sealed`)
 
 			// now try to mark the replication status as 'done' so that the job won't be scheduled again
 			t.updateReplicationStatus(t.extentID.String(), shared.ExtentReplicaReplicationStatus_DONE)
@@ -402,11 +400,10 @@ pump:
 		default:
 			t.err = fmt.Errorf("unknown ReadMessageContentType: %v", readMsg.GetType())
 			log.WithFields(bark.Fields{
-				`reason`:       `unknown ReadMessageContentType`,
 				common.TagErr:  t.err,
 				`readmsg-type`: readMsg.GetType(),
 				`replMsgs`:     replMsgs,
-			}).Error(`replicationPump done`)
+			}).Error(`unknown ReadMessageContentType`)
 			done = true
 			continue pump
 		}

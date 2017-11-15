@@ -52,10 +52,10 @@ const (
 type StorageMode int32
 
 const (
-	// SMReadWrite allows both read and write
-	SMReadWrite StorageMode = iota
-	// SMReadOnly allows read only
-	SMReadOnly
+	// StorageModeReadWrite read/write
+	StorageModeReadWrite StorageMode = iota
+	// StorageModeReadOnly read only
+	StorageModeReadOnly
 )
 
 type (
@@ -91,7 +91,7 @@ func NewSpaceMon(store *StoreHost, m3Client metrics.Client, hostMetrics *load.Ho
 		hostMetrics: hostMetrics,
 		ticker:      time.NewTicker(spaceMonInterval),
 		path:        path,
-		mode:        SMReadWrite,
+		mode:        StorageModeReadWrite,
 	}
 }
 
@@ -181,13 +181,13 @@ func (s *spaceMon) loop() {
 		defer s.Unlock()
 
 		switch {
-		case s.mode == SMReadOnly:
+		case s.mode == StorageModeReadOnly:
 
 			// disable read-only, if above resume-writes threshold
 			if avail > resumeWritesThreshold {
 
 				s.storeHost.EnableWrite()
-				s.mode = SMReadWrite
+				s.mode = StorageModeReadWrite
 
 				xlog.Info("SpaceMon: disabling read-only")
 
@@ -200,8 +200,8 @@ func (s *spaceMon) loop() {
 
 			xlog.Error("SpaceMon: available space less than alert-threshold")
 
-			if s.mode != SMReadOnly {
-				s.mode = SMReadOnly
+			if s.mode != StorageModeReadOnly {
+				s.mode = StorageModeReadOnly
 				s.storeHost.DisableWrite()
 			}
 

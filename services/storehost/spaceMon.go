@@ -82,7 +82,7 @@ type (
 )
 
 // NewSpaceMon returns an instance of SpaceMon.
-func NewSpaceMon(store *StoreHost, m3Client metrics.Client, hostMetrics *load.HostMetrics, logger bark.Logger, path string) *spaceMon {
+func NewSpaceMon(store *StoreHost, m3Client metrics.Client, hostMetrics *load.HostMetrics, logger bark.Logger, path string) SpaceMon {
 
 	return &spaceMon{
 		storeHost:   store,

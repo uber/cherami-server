@@ -415,7 +415,7 @@ func (t *StoreHost) OpenAppendStream(ctx thrift.Context, call storeStream.BStore
 	}
 
 	// If the disk available space is low, we should fail any request to write extent
-	if t.spaceMon != nil && t.spaceMon.GetMode() == SMReadOnly {
+	if t.spaceMon != nil && t.spaceMon.GetMode() == StorageModeReadOnly {
 		call.Done()
 		t.m3Client.IncCounter(metrics.OpenAppendStreamScope, metrics.StorageFailures)
 		log.Error("OpenAppendStream: storehost currently readonly")

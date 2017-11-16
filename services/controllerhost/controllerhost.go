@@ -537,6 +537,9 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	if metrics.IsSetRemainingDiskSpace() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.RemDiskSpaceBytes, metrics.GetRemainingDiskSpace(), timestamp)
 	}
+	if metrics.IsSetRemainingDiskSpace() {
+		loadMetrics.Put(hostID, load.EmptyTag, load.RemDiskSpaceBytes, metrics.GetRemainingDiskSpace(), timestamp)
+	}
 	if metrics.IsSetNumberOfActiveExtents() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.NumExtentsActive, metrics.GetNumberOfActiveExtents(), timestamp)
 	}
@@ -554,6 +557,9 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	}
 	if metrics.IsSetOutgoingBytesCounter() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.BytesOutPerSec, metrics.GetOutgoingBytesCounter(), timestamp)
+	}
+	if metrics.IsSetNodeState() && (metrics.GetNodeState()&c.NODE_STATE_READONLY) != 0 {
+		loadMetrics.Put(hostID, load.EmptyTag, load.ReadOnly, 1, timestamp)
 	}
 	if metrics.IsSetNodeStatus() && request.IsSetRole() && metrics.GetNodeStatus() == c.NodeStatus_GOING_DOWN {
 		switch request.GetRole() {

@@ -537,9 +537,6 @@ func (mcp *Mcp) ReportNodeMetric(ctx thrift.Context, request *c.ReportNodeMetric
 	if metrics.IsSetRemainingDiskSpace() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.RemDiskSpaceBytes, metrics.GetRemainingDiskSpace(), timestamp)
 	}
-	if metrics.IsSetRemainingDiskSpace() {
-		loadMetrics.Put(hostID, load.EmptyTag, load.RemDiskSpaceBytes, metrics.GetRemainingDiskSpace(), timestamp)
-	}
 	if metrics.IsSetNumberOfActiveExtents() {
 		loadMetrics.Put(hostID, load.EmptyTag, load.NumExtentsActive, metrics.GetNumberOfActiveExtents(), timestamp)
 	}

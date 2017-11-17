@@ -206,14 +206,3 @@ func (s *storageMonitor) checkStorage() {
 		xlog.Debug("StorageMonitor: monitoring")
 	}
 }
-
-func (s *storageMonitor) doHouseKeeping() {
-	for {
-		select {
-		case <-s.monitoringTicker.C:
-			go s.checkStorage()
-		case <-s.closeChannel:
-			return
-		}
-	}
-}

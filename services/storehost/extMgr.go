@@ -378,8 +378,7 @@ func (xMgr *ExtentManager) closeExtent(ext *extentContext, intent OpenIntent, op
 		xMgr.hostMetrics.Decrement(load.HostMetricNumReadConns)
 
 	case OpenIntentReplicateExtent:
-
-		if openError != nil {
+		if openError == nil {
 			// mark as not open for replication
 			atomic.StoreInt32(&ext.openedForReplication, 0)
 		}

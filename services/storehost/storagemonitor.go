@@ -163,18 +163,18 @@ func (s *storageMonitor) checkStorage() {
 	avail := int64(stat.Bavail) * int64(stat.Bsize)
 	total := int64(stat.Blocks) * int64(stat.Bsize)
 
+	xlog := log.WithFields(bark.Fields{
+		`availMiB`: avail / megaBytes,
+		`totalMiB`: total / megaBytes,
+	})
+
 	if total <= 0 {
-		log.Error(`StorageMonitor: total space unavailable`)
+		xlog.Error(`StorageMonitor: total space unavailable`)
 		return
 	}
 
 	s.hostMetrics.Set(load.HostMetricFreeDiskSpaceBytes, avail)
 	s.m3Client.UpdateGauge(metrics.SystemResourceScope, metrics.StorageDiskAvailableSpaceMB, avail/megaBytes)
-
-	xlog := log.WithFields(bark.Fields{
-		`avail`: avail / megaBytes,
-		`total`: total / megaBytes,
-	})
 
 	s.Lock()
 	defer s.Unlock()

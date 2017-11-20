@@ -75,7 +75,6 @@ type (
 		hostMetrics *load.HostMetrics
 
 		stopCh chan struct{}
-		ticker *time.Ticker
 		path   string
 		mode   StorageMode
 	}
@@ -89,7 +88,6 @@ func NewSpaceMon(store *StoreHost, m3Client metrics.Client, hostMetrics *load.Ho
 		logger:      logger,
 		m3Client:    m3Client,
 		hostMetrics: hostMetrics,
-		ticker:      time.NewTicker(spaceMonInterval),
 		path:        path,
 		mode:        StorageModeReadWrite,
 	}
@@ -100,7 +98,7 @@ func (s *spaceMon) Start() {
 
 	s.logger.Info("SpaceMon: started")
 	s.stopCh = make(chan struct{})
-	go s.loop()
+	go s.pump()
 }
 
 // Stop stops the monitoring
@@ -119,7 +117,7 @@ func (s *spaceMon) GetMode() StorageMode {
 	return s.mode
 }
 
-func (s *spaceMon) loop() {
+func (s *spaceMon) pump() {
 
 	var stat syscall.Statfs_t
 
@@ -140,11 +138,13 @@ func (s *spaceMon) loop() {
 
 	log := s.logger.WithField(`path`, path)
 
-	for range s.ticker.C {
+	ticker := time.NewTicker(spaceMonInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 
 		select {
 		case <-s.stopCh:
-			s.ticker.Stop()
 			return
 		default:
 			// continue below

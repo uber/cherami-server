@@ -1349,7 +1349,7 @@ func (t *StoreHost) reportHostMetric(reporter common.LoadReporter, diffSecs int6
 	}
 
 	// check and notify read-only state
-	if t.storageMonitor.GetStorageMode() == SMReadOnly {
+	if t.spaceMon.GetMode() == StorageModeReadOnly {
 		hostMetrics.NodeState = common.Int64Ptr(controller.NODE_STATE_READONLY)
 	}
 

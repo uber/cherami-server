@@ -105,7 +105,7 @@ imports:
 - name: github.com/rcrowley/go-metrics
   version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
 - name: github.com/Shopify/sarama
-  version: 240fd146ce68bcafb034cc5dc977229ffbafa8ea
+  version: bbdbe644099b7fdc8327d5cc69c030945188b2e9
   repo: http://github.com/Shopify/sarama
 - name: github.com/sirupsen/logrus
   version: ba1b36c82c5e05c4f912a88eab0dcd91a171688f
@@ -136,7 +136,7 @@ imports:
   - common/websocket
   - stream
 - name: github.com/uber/cherami-thrift
-  version: ce2fc989809bb711289c2420c8979ef37bcf5b61
+  version: ae427f7974d32a42a96f29f0f627e4d343fad8b2
   subpackages:
   - .generated/go/admin
   - .generated/go/cherami

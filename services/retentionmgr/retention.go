@@ -536,7 +536,7 @@ func (t *RetentionManager) runRetention(jobsC chan<- *retentionJob) bool {
 			jobsC <- &retentionJob{
 				runAt:         scheduleAt,
 				dest:          dest,
-				ext:           dest.extents[j].id,
+				ext:           dest.extents[j],
 				retentionAddr: int64(store.ADDR_BEGIN),
 			}
 

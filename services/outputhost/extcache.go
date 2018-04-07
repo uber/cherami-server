@@ -37,7 +37,7 @@ import (
 	"github.com/Shopify/sarama"
 	sc "github.com/bsm/sarama-cluster"
 	"github.com/uber/cherami-server/common"
-	"github.com/uber/cherami-server/common/goMetricsExporter"
+	"github.com/uber/cherami-server/common/gometricsexporter"
 	"github.com/uber/cherami-server/common/metrics"
 	"github.com/uber/cherami-server/services/outputhost/load"
 	serverStream "github.com/uber/cherami-server/stream"

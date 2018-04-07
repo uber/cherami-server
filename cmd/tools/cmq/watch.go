@@ -46,14 +46,18 @@ func watch(c *cli.Context) error {
 
 	cgMon := newCGWatch(mc, destUUID, cgUUID)
 
+	var justOnce = (num == 1) // make script-friendly
+
 	for i := 0; i < num; i++ {
 
 		output, _, _ := cgMon.refresh()
 
-		moveCursorHome()
+		if !justOnce {
+			moveCursorHome()
 
-		if i%8 == 0 {
-			clearScreen()
+			if i%8 == 0 {
+				clearScreen()
+			}
 		}
 
 		print(output)
@@ -62,7 +66,9 @@ func watch(c *cli.Context) error {
 		fmt.Printf(" consume: %.1f msgs/sec [%d msgs]    \n", cgMon.rateConsume, cgMon.deltaConsume)
 		fmt.Printf(" backlog: %d    \n", cgMon.totalBacklog)
 
-		<-ticker.C // don't query more than once every two-seconds
+		if !justOnce {
+			<-ticker.C // don't query more than once every two-seconds
+		}
 	}
 
 	return nil

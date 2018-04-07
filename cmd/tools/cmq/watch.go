@@ -39,13 +39,14 @@ func watch(c *cli.Context) error {
 	destUUID := c.Args()[0]
 	cgUUID := c.Args()[1]
 
-	ticker := time.NewTicker(2 * time.Second) // don't query more than once every second // TODO: make configurable
+	var num = c.Int("num")
+	ticker := time.NewTicker(c.Duration("delay")) // don't query more than once every second // TODO: make configurable
 
 	// print("\033[H\033[2J") // clear screen
 
 	cgMon := newCGWatch(mc, destUUID, cgUUID)
 
-	for i := 0; ; i++ {
+	for i := 0; i < num; i++ {
 
 		output, _, _ := cgMon.refresh()
 

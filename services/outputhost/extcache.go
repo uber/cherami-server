@@ -151,7 +151,7 @@ type extentCache struct {
 	kafkaClient *sc.Consumer
 
 	// exporter is the metrics bridge between the kafka consumer metrics and the Cherami metrics reporting library
-	exporter *goMetricsExporter.GoMetricsExporter
+	exporter *gometricsexporter.GoMetricsExporter
 
 	// kafkaMessageConverterFactory is a factory for kafka message converter
 	kafkaMessageConverterFactory KafkaMessageConverterFactory
@@ -389,7 +389,7 @@ func (extCache *extentCache) loadKafkaStream(
 	cfg.Config.ClientID = `cherami_` + groupID
 
 	// Configure a metrics registry and start the exporter
-	extCache.exporter, cfg.Config.MetricRegistry = goMetricsExporter.NewGoMetricsExporter(
+	extCache.exporter, cfg.Config.MetricRegistry = gometricsexporter.NewGoMetricsExporter(
 		metricsClient,
 		metrics.ConsConnectionScope,
 		map[string]int{

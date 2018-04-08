@@ -170,7 +170,7 @@ func (t *retMgrRunner) startRetentionMgr() {
 		}
 
 		t.log.Debug("retMgrRunner: Starting retention manager")
-		t.retentionmgr.Start()
+		t.retentionMgr.Start()
 	}
 }
 
@@ -179,7 +179,7 @@ func (t *retMgrRunner) stopRetentionMgr() {
 
 	if atomic.CompareAndSwapUint32(&t.running, 1, 0) {
 
-		t.retentionmgr.Stop()
+		t.retentionMgr.Stop()
 		t.log.Debug("retMgrRunner: Stopped retention manager")
 	}
 }
